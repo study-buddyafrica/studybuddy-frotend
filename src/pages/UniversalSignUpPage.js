@@ -14,14 +14,12 @@ const UniversalSignupPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const initialRole = location.state?.role || "parent";
-
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
+    role: "",
     password: "",
     confirmPassword: "",
-    role: initialRole,
   });
 
   const [errorMessage, setErrorMessage] = useState("");
@@ -119,29 +117,22 @@ const UniversalSignupPage = () => {
       return;
     }
 
+    if (!formData.role) {
+      setErrorMessage("Please select a role");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Prepare payload based on role
-      let payload;
-      if (formData.role === "teacher") {
-        // Teacher: only email and password
-        payload = {
-          email: formData.email,
-          password: formData.password,
-          role: "teacher",
-          confirm_password: formData.confirmPassword,
-        };
-      } else {
-        // Parent/Student: full name, email, and password
-        payload = {
-          full_name: formData.full_name,
-          email: formData.email,
-          password: formData.password,
-          role: formData.role,
-          confirm_password: formData.confirmPassword,
-        };
-      }
+      // Prepare payload - all roles now include full_name
+      const payload = {
+        full_name: formData.full_name,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+        confirm_password: formData.confirmPassword,
+      };
 
       const endpoint = roleToEndpoint[formData.role];
 
@@ -168,9 +159,14 @@ const UniversalSignupPage = () => {
 
       if (response.status === 201 || response.status === 200) {
         setInformationalMessage(
-          "Signup successful. Redirecting to login page..."
+          "Signup successful. Please check your email for verification code..."
         );
-        setTimeout(() => navigate("/login"), 2000);
+        // Redirect to verification page with email
+        setTimeout(() => {
+          navigate("/verify-code", {
+            state: { email: formData.email },
+          });
+        }, 2000);
       }
     } catch (error) {
       setErrorMessage(
@@ -212,6 +208,9 @@ const UniversalSignupPage = () => {
     }
   };
 
+  // Update left panel content based on selected role or show default
+  const displayRole = formData.role || "parent";
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] to-[#e1f5fe] flex items-center justify-center p-4">
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl flex flex-col md:flex-row overflow-hidden">
@@ -234,13 +233,13 @@ const UniversalSignupPage = () => {
 
               <div className="flex items-center space-x-4">
                 <div className="bg-white/20 p-3 rounded-full">
-                  {formData.role === "parent" && (
+                  {displayRole === "parent" && (
                     <FaUserFriends className="w-8 h-8" />
                   )}
-                  {formData.role === "teacher" && (
+                  {displayRole === "teacher" && (
                     <FaChalkboardTeacher className="w-8 h-8" />
                   )}
-                  {formData.role === "student" && (
+                  {displayRole === "student" && (
                     <FaUserGraduate className="w-8 h-8" />
                   )}
                 </div>
@@ -277,44 +276,22 @@ const UniversalSignupPage = () => {
             </p>
           </div>
 
-          {/* Role Selector */}
-          <div className="grid grid-cols-3 gap-2 mb-6 md:mb-8">
-            {roles.map((role) => (
-              <button
-                key={role.id}
-                onClick={() => setFormData({ ...formData, role: role.id })}
-                className={`p-2 md:p-3 rounded-xl flex flex-col items-center transition-all duration-300 ${
-                  formData.role === role.id
-                    ? "bg-[#0288d1] text-white shadow-lg transform -translate-y-1"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {role.icon}
-                <span className="mt-1 md:mt-2 font-josefin text-xs md:text-sm">
-                  {role.label}
-                </span>
-              </button>
-            ))}
-          </div>
-
           <form onSubmit={handleSignup} className="space-y-4">
-            {/* Full Name - Not for teachers */}
-            {formData.role !== "teacher" && (
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <FaUserTie className="w-4 h-4 md:w-5 md:h-5" />
-                </div>
-                <input
-                  type="text"
-                  name="full_name"
-                  placeholder="Full Name"
-                  value={formData.full_name}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                  required={formData.role !== "teacher"}
-                />
+            {/* Full Name */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                <FaUserTie className="w-4 h-4 md:w-5 md:h-5" />
               </div>
-            )}
+              <input
+                type="text"
+                name="full_name"
+                placeholder="Full Name"
+                value={formData.full_name}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
+                required
+              />
+            </div>
 
             {/* Email */}
             <div className="relative">
@@ -338,6 +315,50 @@ const UniversalSignupPage = () => {
                 className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
                 required
               />
+            </div>
+
+            {/* Role Selection */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 md:h-5 md:w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                </svg>
+              </div>
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 md:h-5 md:w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-10 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
+                required
+              >
+                <option value="">Select Role</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Password Fields */}
@@ -559,9 +580,9 @@ const UniversalSignupPage = () => {
 
               <button
                 type="submit"
-                disabled={loading || passwordStrength !== "strong"}
+                disabled={loading || passwordStrength !== "strong" || !formData.role}
                 className={`w-full py-2.5 md:py-3.5 rounded-xl font-lilita text-base md:text-lg transition-all ${
-                  loading || passwordStrength !== "strong"
+                  loading || passwordStrength !== "strong" || !formData.role
                     ? "bg-gray-400 cursor-not-allowed text-white"
                     : "bg-gradient-to-r from-[#0288d1] to-[#01579b] text-white hover:shadow-lg hover:from-[#039be5] hover:to-[#0277bd]"
                 }`}
@@ -591,9 +612,7 @@ const UniversalSignupPage = () => {
                     Creating Account...
                   </span>
                 ) : (
-                  `Create ${
-                    roles.find((r) => r.id === formData.role)?.label
-                  } Account`
+                  "Create Account"
                 )}
               </button>
             </div>

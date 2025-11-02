@@ -67,6 +67,7 @@ const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const StudentSignUpPage = lazy(() => import("./pages/StudentSignUpPage"));
 const ParentSignUpPage = lazy(() => import("./pages/UniversalSignUpPage"));
 const TeacherSignUpPage = lazy(() => import("./pages/TeacherSignUpPage"));
+const VerificationCodePage = lazy(() => import("./pages/VerificationCodePage"));
 const AboutUsPage = lazy(() => import("./pages/AboutUsPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const CookiesPolicy = lazy(() => import("./pages/CookiesPolicy"));
@@ -369,6 +370,14 @@ const App = () => {
             element={
               <BlankLayout>
                 <TeacherSignUpPage />
+              </BlankLayout>
+            }
+          />
+          <Route
+            path="/verify-code"
+            element={
+              <BlankLayout>
+                <VerificationCodePage />
               </BlankLayout>
             }
           />

@@ -189,6 +189,14 @@ const LoginPage = () => {
                   {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
                 </button>
               </div>
+              <div className="mt-2 text-right">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-[#015575] hover:text-[#01B0F1] font-semibold font-josefin"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
             </motion.div>
 
             {/* Error Message */}
