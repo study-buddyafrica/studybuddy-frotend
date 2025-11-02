@@ -54,11 +54,14 @@ const TeacherDashboard = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState("");
   const [showVerificationNotice, setShowVerificationNotice] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [isBlocked, setIsBlocked] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const refreshState = () => {
+    const refreshState = async () => {
       const userData = JSON.parse(localStorage.getItem("userInfo"));
       if (!userData) {
         navigate("/");
@@ -66,17 +69,43 @@ const TeacherDashboard = () => {
       }
       setUserInfo(userData);
 
-      // Remove legacy global flag to avoid false hides
-      if (localStorage.getItem('verification_submitted')) {
-        localStorage.removeItem('verification_submitted');
+      // Fetch latest user data from backend to get verification status
+      let finalStatus = userData.verification_status;
+      try {
+        const response = await axios.get(`${FHOST}/users/teacher/${userData.id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.data) {
+          const latestUserData = response.data;
+          finalStatus = latestUserData.verification_status || userData.verification_status;
+          setVerificationStatus(finalStatus);
+          
+          // Update localStorage with latest data
+          const updatedUserInfo = { ...userData, ...latestUserData };
+          localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
+          setUserInfo(updatedUserData);
+        }
+      } catch (error) {
+        // Fallback to localStorage data if API call fails
+        finalStatus = userData.verification_status;
+        setVerificationStatus(finalStatus);
       }
-
-      // Check per-user flag only
-      const submitted = localStorage.getItem(`verification_submitted_${userData.id}`) === 'true';
-      if (userData.role === 'teacher' && !submitted) {
+      
+      // Block access if not approved
+      if (finalStatus !== 'approved') {
+        setIsBlocked(true);
         setShowVerificationNotice(true);
+        
+        // Show welcome modal if never verified or rejected
+        if (!finalStatus || finalStatus === null || finalStatus === 'rejected') {
+          setShowWelcomeModal(true);
+        }
       } else {
+        setIsBlocked(false);
         setShowVerificationNotice(false);
+        setShowWelcomeModal(false);
       }
 
       // Generate random avatar
@@ -230,6 +259,12 @@ const TeacherDashboard = () => {
 
   // Close sidebar on mobile and navigate
   const handleMenuItemClick = (component) => {
+    // Block navigation to any page except myaccount if not verified
+    if (isBlocked && component !== "myaccount") {
+      setShowWelcomeModal(true);
+      return;
+    }
+    
     switch (component) {
       case "dashboard":
         navigate("/teacher-dashboard");
@@ -309,7 +344,7 @@ const TeacherDashboard = () => {
               <li>
                 <button 
                   onClick={() => handleMenuItemClick("dashboard")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "dashboard" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "dashboard" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60" : ""}`}
                 >
                   <FaHome className="mr-3" />
                   Dashboard
@@ -319,7 +354,8 @@ const TeacherDashboard = () => {
               <li>
                 <button 
                   onClick={() => handleMenuItemClick("students")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "students" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "students" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <FaUsers className="mr-3" />
                   My Students
@@ -329,7 +365,8 @@ const TeacherDashboard = () => {
               <li>
                 <button 
                   onClick={() => handleMenuItemClick("lessons")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "lessons" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "lessons" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <FaChalkboardTeacher className="mr-3" />
                   My Lessons
@@ -339,7 +376,8 @@ const TeacherDashboard = () => {
               <li>
                 <button 
                   onClick={() => handleMenuItemClick("mywallet")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "mywallet" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "mywallet" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <FaWallet className="mr-3" />
                   My Wallet
@@ -349,7 +387,8 @@ const TeacherDashboard = () => {
               <li>
                 <button 
                   onClick={() => handleMenuItemClick("liveclass")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "liveclass" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "liveclass" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <FaVideo className="mr-3" />
                   Live Classes
@@ -359,7 +398,8 @@ const TeacherDashboard = () => {
               <li>
                 <button 
                   onClick={() => handleMenuItemClick("schedule")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "schedule" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "schedule" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <FaCalendarAlt className="mr-3" />
                   Schedule
@@ -369,7 +409,8 @@ const TeacherDashboard = () => {
               <li>
                 <button 
                   onClick={() => handleMenuItemClick("videoeditor")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "videoeditor" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "videoeditor" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <FaCameraRetro className="mr-3" />
                   Video Editor
@@ -404,21 +445,100 @@ const TeacherDashboard = () => {
         
         {/* Verification Notice Banner */}
         {showVerificationNotice && (
-          <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4">
+          <div className={`border-l-4 p-4 mb-4 ${
+            verificationStatus === 'pending' 
+              ? 'bg-blue-100 border-blue-500' 
+              : verificationStatus === 'rejected'
+              ? 'bg-red-100 border-red-500'
+              : 'bg-yellow-100 border-yellow-500'
+          }`}>
             <div className="flex items-center">
-              <div className="ml-3">
-                <p className="text-sm text-yellow-700 font-medium">
-                  Your account is not verified. Please complete verification in My Account before continuing.
+              <div className="ml-3 flex-1">
+                <p className={`text-sm font-medium ${
+                  verificationStatus === 'pending'
+                    ? 'text-blue-700'
+                    : verificationStatus === 'rejected'
+                    ? 'text-red-700'
+                    : 'text-yellow-700'
+                }`}>
+                  {verificationStatus === 'pending' 
+                    ? 'Your verification is pending admin approval. Please wait for approval before continuing.'
+                    : verificationStatus === 'rejected'
+                    ? 'Your verification was rejected. Please update your information and resubmit.'
+                    : 'Your account is not verified. Please complete verification in My Account before continuing.'}
                 </p>
               </div>
               <div className="ml-auto pl-3">
                 <button
                   onClick={() => handleMenuItemClick("myaccount")}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                  className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                    verificationStatus === 'pending'
+                      ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                      : verificationStatus === 'rejected'
+                      ? 'bg-red-500 hover:bg-red-600 text-white'
+                      : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                  }`}
                 >
-                  Verify Account
+                  {verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Verify Account'}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Welcome Modal for First Login */}
+        {showWelcomeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-[#01B0F1]/10 mb-6">
+                  <FaChalkboardTeacher className="h-10 w-10 text-[#01B0F1]" />
+                </div>
+                <h2 className="text-3xl font-lilita text-[#015575] mb-4">
+                  Welcome to StudyBuddy!
+                </h2>
+                <p className="text-gray-600 font-josefin text-lg mb-6">
+                  Before you can start teaching, we need to verify your account.
+                </p>
+                <p className="text-gray-700 font-josefin mb-8">
+                  Please complete your account verification by providing your profile photo and details. 
+                  Your verification request will be sent to our admin team for approval.
+                </p>
+                <div className="flex gap-4 justify-center">
+                  <button
+                    onClick={() => {
+                      setShowWelcomeModal(false);
+                      handleMenuItemClick("myaccount");
+                    }}
+                    className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
+                  >
+                    Start Verification
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Block Overlay - Prevents access to dashboard features */}
+        {isBlocked && activeComponent !== "myaccount" && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 text-center">
+              <FaChalkboardTeacher className="h-16 w-16 text-[#01B0F1] mx-auto mb-4" />
+              <h3 className="text-2xl font-lilita text-[#015575] mb-4">
+                Account Verification Required
+              </h3>
+              <p className="text-gray-600 font-josefin mb-6">
+                {verificationStatus === 'pending'
+                  ? 'Your account verification is pending admin approval. You\'ll be able to access all features once approved.'
+                  : 'Please complete your account verification to access the dashboard features.'}
+              </p>
+              <button
+                onClick={() => handleMenuItemClick("myaccount")}
+                className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-6 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
+              >
+                {verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Go to Verification'}
+              </button>
             </div>
           </div>
         )}
@@ -428,6 +548,28 @@ const TeacherDashboard = () => {
           <div className="p-4 md:p-6">
             {activeComponent === "dashboard" && (
               <div className="space-y-6">
+                {/* Block dashboard content if not verified */}
+                {isBlocked && (
+                  <div className="bg-white rounded-xl shadow-md p-8 text-center">
+                    <FaChalkboardTeacher className="h-20 w-20 text-[#01B0F1] mx-auto mb-4" />
+                    <h2 className="text-2xl font-lilita text-[#015575] mb-4">
+                      Welcome, {getDisplayName()}!
+                    </h2>
+                    <p className="text-gray-600 font-josefin mb-6">
+                      {verificationStatus === 'pending'
+                        ? 'Your account verification is pending admin approval. You\'ll receive a notification once your account is approved.'
+                        : 'Please complete your account verification to start using the dashboard features.'}
+                    </p>
+                    <button
+                      onClick={() => handleMenuItemClick("myaccount")}
+                      className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
+                    >
+                      {verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Complete Verification'}
+                    </button>
+                  </div>
+                )}
+                {!isBlocked && (
+                  <>
                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                   {stats.map((stat, index) => (
@@ -555,18 +697,29 @@ const TeacherDashboard = () => {
                     </div>
                   )}
                 </div>
+              </>
+            )}
               </div>
             )}
             
-            {/* Component Renderers */}
-            {activeComponent === "lessons" && <MyLessons userInfo={userInfo} />}
-            {activeComponent === "students" && <MyStudents userInfo={userInfo} />}
-            {activeComponent === "liveclass" && <Liveclass userInfo={userInfo} />}
-            {activeComponent === "mywallet" && <MyWallet userInfo={userInfo} />}
+            {/* Component Renderers - Only allow myaccount if blocked */}
+            {!isBlocked && (
+              <>
+                {activeComponent === "lessons" && <MyLessons userInfo={userInfo} />}
+                {activeComponent === "students" && <MyStudents userInfo={userInfo} />}
+                {activeComponent === "liveclass" && <Liveclass userInfo={userInfo} />}
+                {activeComponent === "mywallet" && <MyWallet userInfo={userInfo} />}
+                {activeComponent === "videoeditor" && <VideoEditor />}
+                {activeComponent === "schedule" && <Scheduler userInfo={userInfo} />}
+                {activeComponent === "upcomingclasses" && <UpcomingClasses liveSessions={liveSessions} />}
+              </>
+            )}
             {activeComponent === "myaccount" && <MyAccount />}
-            {activeComponent === "videoeditor" && <VideoEditor />}
-            {activeComponent === "schedule" && <Scheduler userInfo={userInfo} />}
-            {activeComponent === "upcomingclasses" && <UpcomingClasses liveSessions={liveSessions} />}
+            {isBlocked && activeComponent !== "myaccount" && activeComponent !== "dashboard" && (
+              <div className="text-center py-12">
+                <p className="text-gray-500 font-josefin">Please verify your account to access this section.</p>
+              </div>
+            )}
           </div>
         </main>
         
