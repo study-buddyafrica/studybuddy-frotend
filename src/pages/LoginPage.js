@@ -1,0 +1,272 @@
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { FaRegEye, FaRegEyeSlash, FaEnvelope, FaLock } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
+import { motion } from "framer-motion";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { checkUser, FHOST } from "../components/constants/Functions";
+import { auth, firebaseAuth } from "../firebaseConfig";
+import { authService } from "../services/authService";
+
+const LoginPage = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
+  const [error, setError] = useState(null);
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    if (!email || !password) {
+      setErrorMessage("Email and password are required!");
+      return;
+    }
+
+    setIsEmailLoading(true);
+    try {
+      const response = await authService.login(email, password);
+
+      if (response.status === 200) {
+        const data = response.data["data"];
+        localStorage.setItem("userInfo", JSON.stringify(data));
+        const role = data["role"];
+
+        switch (role) {
+          case "student":
+            navigate("/student-dashboard/");
+            break;
+          case "parent":
+            navigate("/parent-dashboard/home");
+            break;
+          case "teacher":
+            navigate("/teacher-dashboard");
+            break;
+          case "admin":
+            navigate("/admin");
+            break;
+          default:
+            setErrorMessage("Unexpected role " + role);
+        }
+      } else {
+        setErrorMessage("Login Failed. Please try again.");
+      }
+    } catch (error) {
+      setErrorMessage("Login failed. Please check your credentials.");
+    } finally {
+      setIsEmailLoading(false);
+    }
+  };
+
+  const handleLoginGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    setIsGoogleLoading(true);
+    try {
+      const { user } = await signInWithPopup(firebaseAuth, provider);
+      const UserInfo = await checkUser(user.email);
+
+      if (UserInfo.error) {
+        setError(UserInfo.error);
+        localStorage.removeItem("userInfo");
+      } else {
+        // Set localstorage with user info empty first "UserInfo" to avoid any issues
+        localStorage.removeItem("userInfo");
+        // Set localstorage with user info
+        localStorage.setItem("userInfo", JSON.stringify(UserInfo));
+        const role = UserInfo?.role;
+
+        switch (role) {
+          case "student":
+            navigate("/student-dashboard/home");
+            break;
+          case "parent":
+            navigate("/parent-dashboard/home");
+            break;
+          case "teacher":
+            navigate("/teacher-dashboard");
+            break;
+          case "admin":
+            navigate("/admin");
+            break;
+          default:
+            setErrorMessage("Unexpected role " + role);
+        }
+      }
+    } catch (err) {
+      console.error("Google login error:", err);
+      setErrorMessage("Google login failed. Please try again.");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const Spinner = ({ color = "text-white" }) => (
+    <svg
+      className={`animate-spin h-5 w-5 ${color}`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
+    </svg>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff] flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl flex flex-col md:flex-row">
+        {/* Illustration Section */}
+        <div className="md:w-1/2 bg-gradient-to-br from-[#01B0F1] to-[#015575] rounded-l-2xl p-8 hidden md:flex items-center justify-center">
+          <div className="text-white text-center space-y-6">
+            <h2 className="text-4xl font-lilita mb-4">Welcome Back!</h2>
+            <p className="font-josefin text-lg">
+              Continue your learning journey with StudyBuddy
+            </p>
+          </div>
+        </div>
+
+        {/* Form Section */}
+        <div className="md:w-1/2 p-8 lg:p-12">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-[#015575] font-lilita mb-2">
+              Welcome Back
+            </h1>
+            <p className="text-gray-600 font-josefin">
+              Sign in to continue your educational journey
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            {/* Email Field */}
+            <motion.div whileHover={{ scale: 1.02 }}>
+              <div className="relative">
+                <FaEnvelope className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                  required
+                  disabled={isEmailLoading || isGoogleLoading}
+                />
+              </div>
+            </motion.div>
+
+            {/* Password Field */}
+            <motion.div whileHover={{ scale: 1.02 }}>
+              <div className="relative">
+                <FaLock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                  required
+                  disabled={isEmailLoading || isGoogleLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-[#015575]"
+                  disabled={isEmailLoading || isGoogleLoading}
+                >
+                  {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Error Message */}
+            {errorMessage && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-red-500 text-sm font-josefin text-center"
+              >
+                {errorMessage}
+              </motion.div>
+            )}
+
+            {/* Submit Button */}
+            <motion.button
+              whileHover={!isEmailLoading ? { scale: 1.02 } : undefined}
+              whileTap={!isEmailLoading ? { scale: 0.98 } : undefined}
+              type="submit"
+              disabled={isEmailLoading || isGoogleLoading}
+              className="w-full bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 rounded-xl font-lilita hover:shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed"
+            >
+              {isEmailLoading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Spinner />
+                  Signing In...
+                </div>
+              ) : (
+                "Sign In"
+              )}
+            </motion.button>
+
+            {/* Social Login */}
+            <div className="my-6">
+              <div className="flex items-center my-6">
+                <div className="flex-1 border-t border-gray-300"></div>
+                <span className="px-4 text-gray-500 font-josefin">
+                  Or continue with
+                </span>
+                <div className="flex-1 border-t border-gray-300"></div>
+              </div>
+              <motion.button
+                whileHover={!isGoogleLoading ? { scale: 1.02 } : undefined}
+                whileTap={!isGoogleLoading ? { scale: 0.98 } : undefined}
+                onClick={handleLoginGoogle}
+                disabled={isGoogleLoading || isEmailLoading}
+                className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-75 disabled:cursor-not-allowed"
+              >
+                {isGoogleLoading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Spinner color="text-gray-700" />
+                    Signing In...
+                  </div>
+                ) : (
+                  <>
+                    <FcGoogle className="text-xl" />
+                    <span className="font-josefin text-gray-700">Google</span>
+                  </>
+                )}
+              </motion.button>
+            </div>
+
+            {/* Signup Links */}
+            <div className="text-center space-y-4">
+              <p className="font-josefin text-gray-600">
+                Don't have an account?{" "}
+                <Link
+                  to="/signup"
+                  className="text-[#015575] hover:text-[#01B0F1] font-semibold"
+                >
+                  Sign Up
+                </Link>
+              </p>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LoginPage;

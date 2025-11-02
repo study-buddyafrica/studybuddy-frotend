@@ -1,0 +1,151 @@
+/* AboutUs.css */
+
+.about-us-container {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f9f9f9;
+  }
+  
+  /* Hero Section */
+  .hero {
+    background: #00aaff;
+    color: white;
+    padding: 50px 20px;
+    text-align: center;
+  }
+  
+  .hero h1 {
+    font-size: 3rem;
+    margin-bottom: 20px;
+  }
+  
+  .hero em {
+    font-style: italic;
+  }
+  
+  .hero p {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    max-width: 800px;
+    margin: 20px auto;
+  }
+  
+  /* Who We Are Section */
+  .who-we-are {
+    background: #ffffff;
+    padding: 50px 20px;
+    text-align: center;
+  }
+  
+  .who-we-are h2 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+  }
+  
+  .who-we-are p {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 20px auto;
+  }
+  
+  /* What We Do Section */
+  .what-we-do {
+    background: #f3f3f3;
+    padding: 50px 20px;
+  }
+  
+  .what-we-do h2 {
+    font-size: 2.5rem;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+  
+  .how-we-do h3 {
+    font-size: 1.8rem;
+    margin-top: 20px;
+  }
+  
+  .how-we-do p, .how-we-do ul {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 10px auto;
+  }
+  
+  .how-we-do ul {
+    list-style-type: disc;
+    padding-left: 20px;
+  }
+  
+  /* Our Vision & Mission Sections */
+  .our-vision, .our-mission {
+    background: #ffffff;
+    padding: 50px 20px;
+  }
+  
+  .our-vision h2, .our-mission h2 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .our-vision ul, .our-mission ul {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin: 20px auto;
+  }
+  
+  .our-mission li {
+    margin-bottom: 10px;
+  }
+  
+  /* Why Choose Us Section */
+  .why-choose-us {
+    background: #f3f3f3;
+    padding: 50px 20px;
+  }
+  
+  .why-choose-us h2 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .why-choose-us ul {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin: 10px auto;
+  }
+  
+  .why-choose-us li {
+    margin-bottom: 15px;
+  }
+  
+  /* Join Us Section */
+  .join-us {
+    background: #00aaff;
+    color: white;
+    padding: 50px 20px;
+    text-align: center;
+  }
+  
+  .join-us h2 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+  }
+  
+  .join-us p {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 10px auto;
+  }
+  
+  .join-us em {
+    font-style: italic;
+    font-size: 1.3rem;
+    margin-top: 20px;
+  }
+  

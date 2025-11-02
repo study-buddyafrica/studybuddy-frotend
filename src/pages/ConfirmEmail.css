@@ -1,0 +1,17 @@
+.confirm-email-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+}
+
+.confirm-email-container h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.confirm-email-container p {
+    font-size: 1.2rem;
+}
