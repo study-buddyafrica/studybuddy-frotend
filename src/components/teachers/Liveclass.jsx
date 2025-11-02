@@ -25,11 +25,19 @@ const LiveClass = ({ userInfo }) => {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const response = await axios.get(`${FHOST}/admin/get-classes`);
+        const response = await axios.get(`${FHOST}/admin/get-classes`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          },
+        });
         const list = Array.isArray(response.data?.classes) ? response.data.classes : [];
         setClasses(list);
       } catch (err) {
         console.error('Error fetching classes:', err);
+        // Show error if it's an auth error
+        if (err.response?.status === 401) {
+          setError('Authentication required. Please login again.');
+        }
         setClasses([]);
       }
     };
@@ -40,7 +48,11 @@ const LiveClass = ({ userInfo }) => {
     if (meetingDetails.class_id) {
       const fetchSubjects = async () => {
         try {
-          const response = await axios.get(`${FHOST}/admin/get-subjects/${meetingDetails.class_id}`);
+          const response = await axios.get(`${FHOST}/admin/get-subjects/${meetingDetails.class_id}`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+            },
+          });
           const list = Array.isArray(response.data?.classes) ? response.data.classes : [];
           // normalize to {id, name}
           setSubjects(list.map(s => ({ id: s.id, name: s.subject })));
@@ -50,6 +62,9 @@ const LiveClass = ({ userInfo }) => {
           }
         } catch (err) {
           console.error('Error fetching subjects:', err);
+          if (err.response?.status === 401) {
+            setError('Authentication required. Please login again.');
+          }
           setSubjects([]);
           setMeetingDetails(prev => ({ ...prev, subject_id: '' }));
         }
@@ -66,6 +81,12 @@ const LiveClass = ({ userInfo }) => {
     setLoading(true);
     setError(null);
     try {
+      // Check if user is authenticated
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
       // Basic validation before request
       if (!meetingDetails.topic.trim()) throw new Error('Please enter a class topic.');
       if (!meetingDetails.agenda.trim()) throw new Error('Please enter a class description.');

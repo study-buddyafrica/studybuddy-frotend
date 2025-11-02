@@ -85,7 +85,7 @@ const TeacherDashboard = () => {
           // Update localStorage with latest data
           const updatedUserInfo = { ...userData, ...latestUserData };
           localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
-          setUserInfo(updatedUserData);
+          setUserInfo(updatedUserInfo);
         }
       } catch (error) {
         // Fallback to localStorage data if API call fails
@@ -94,7 +94,11 @@ const TeacherDashboard = () => {
       }
       
       // Block access if not approved
-      if (finalStatus !== 'approved') {
+      // Allow bypass for testing (can be removed in production)
+      const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
+                                  process.env.NODE_ENV === 'development';
+      
+      if (finalStatus !== 'approved' && !allowTestingAccess) {
         setIsBlocked(true);
         setShowVerificationNotice(true);
         
@@ -259,8 +263,12 @@ const TeacherDashboard = () => {
 
   // Close sidebar on mobile and navigate
   const handleMenuItemClick = (component) => {
-    // Block navigation to any page except myaccount if not verified
-    if (isBlocked && component !== "myaccount") {
+    // Allow testing access in development
+    const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
+                                process.env.NODE_ENV === 'development';
+    
+    // Block navigation to any page except myaccount if not verified (unless testing)
+    if (isBlocked && component !== "myaccount" && !allowTestingAccess) {
       setShowWelcomeModal(true);
       return;
     }
@@ -520,56 +528,62 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Block Overlay - Prevents access to dashboard features */}
-        {isBlocked && activeComponent !== "myaccount" && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 text-center">
-              <FaChalkboardTeacher className="h-16 w-16 text-[#01B0F1] mx-auto mb-4" />
-              <h3 className="text-2xl font-lilita text-[#015575] mb-4">
-                Account Verification Required
-              </h3>
-              <p className="text-gray-600 font-josefin mb-6">
-                {verificationStatus === 'pending'
-                  ? 'Your account verification is pending admin approval. You\'ll be able to access all features once approved.'
-                  : 'Please complete your account verification to access the dashboard features.'}
-              </p>
-              <button
-                onClick={() => handleMenuItemClick("myaccount")}
-                className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-6 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
-              >
-                {verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Go to Verification'}
-              </button>
+        {/* Block Overlay - Prevents access to dashboard features (unless testing) */}
+        {(() => {
+          const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
+                                    process.env.NODE_ENV === 'development';
+          return isBlocked && activeComponent !== "myaccount" && !allowTestingAccess ? (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 text-center">
+                <FaChalkboardTeacher className="h-16 w-16 text-[#01B0F1] mx-auto mb-4" />
+                <h3 className="text-2xl font-lilita text-[#015575] mb-4">
+                  Account Verification Required
+                </h3>
+                <p className="text-gray-600 font-josefin mb-6">
+                  {verificationStatus === 'pending'
+                    ? 'Your account verification is pending admin approval. You\'ll be able to access all features once approved.'
+                    : 'Please complete your account verification to access the dashboard features.'}
+                </p>
+                <button
+                  onClick={() => handleMenuItemClick("myaccount")}
+                  className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-6 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
+                >
+                  {verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Go to Verification'}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          ) : null;
+        })()}
         
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto bg-gray-50">
           <div className="p-4 md:p-6">
             {activeComponent === "dashboard" && (
               <div className="space-y-6">
-                {/* Block dashboard content if not verified */}
-                {isBlocked && (
-                  <div className="bg-white rounded-xl shadow-md p-8 text-center">
-                    <FaChalkboardTeacher className="h-20 w-20 text-[#01B0F1] mx-auto mb-4" />
-                    <h2 className="text-2xl font-lilita text-[#015575] mb-4">
-                      Welcome, {getDisplayName()}!
-                    </h2>
-                    <p className="text-gray-600 font-josefin mb-6">
-                      {verificationStatus === 'pending'
-                        ? 'Your account verification is pending admin approval. You\'ll receive a notification once your account is approved.'
-                        : 'Please complete your account verification to start using the dashboard features.'}
-                    </p>
-                    <button
-                      onClick={() => handleMenuItemClick("myaccount")}
-                      className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
-                    >
-                      {verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Complete Verification'}
-                    </button>
-                  </div>
-                )}
-                {!isBlocked && (
-                  <>
+                {/* Block dashboard content if not verified (unless testing) */}
+                {(() => {
+                  const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
+                                            process.env.NODE_ENV === 'development';
+                  return isBlocked && !allowTestingAccess ? (
+                    <div className="bg-white rounded-xl shadow-md p-8 text-center">
+                      <FaChalkboardTeacher className="h-20 w-20 text-[#01B0F1] mx-auto mb-4" />
+                      <h2 className="text-2xl font-lilita text-[#015575] mb-4">
+                        Welcome, {getDisplayName()}!
+                      </h2>
+                      <p className="text-gray-600 font-josefin mb-6">
+                        {verificationStatus === 'pending'
+                          ? 'Your account verification is pending admin approval. You\'ll receive a notification once your account is approved.'
+                          : 'Please complete your account verification to start using the dashboard features.'}
+                      </p>
+                      <button
+                        onClick={() => handleMenuItemClick("myaccount")}
+                        className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
+                      >
+                        {verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Complete Verification'}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                   {stats.map((stat, index) => (
@@ -697,29 +711,39 @@ const TeacherDashboard = () => {
                     </div>
                   )}
                 </div>
-              </>
-            )}
+                    </>
+                  );
+                })()}
               </div>
             )}
             
-            {/* Component Renderers - Only allow myaccount if blocked */}
-            {!isBlocked && (
-              <>
-                {activeComponent === "lessons" && <MyLessons userInfo={userInfo} />}
-                {activeComponent === "students" && <MyStudents userInfo={userInfo} />}
-                {activeComponent === "liveclass" && <Liveclass userInfo={userInfo} />}
-                {activeComponent === "mywallet" && <MyWallet userInfo={userInfo} />}
-                {activeComponent === "videoeditor" && <VideoEditor />}
-                {activeComponent === "schedule" && <Scheduler userInfo={userInfo} />}
-                {activeComponent === "upcomingclasses" && <UpcomingClasses liveSessions={liveSessions} />}
-              </>
-            )}
-            {activeComponent === "myaccount" && <MyAccount />}
-            {isBlocked && activeComponent !== "myaccount" && activeComponent !== "dashboard" && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 font-josefin">Please verify your account to access this section.</p>
-              </div>
-            )}
+            {/* Component Renderers */}
+            {(() => {
+              const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
+                                        process.env.NODE_ENV === 'development';
+              const canAccess = !isBlocked || allowTestingAccess;
+              
+              if (!canAccess && activeComponent !== "myaccount" && activeComponent !== "dashboard") {
+                return (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 font-josefin">Please verify your account to access this section.</p>
+                  </div>
+                );
+              }
+              
+              return (
+                <>
+                  {activeComponent === "lessons" && <MyLessons userInfo={userInfo} />}
+                  {activeComponent === "students" && <MyStudents userInfo={userInfo} />}
+                  {activeComponent === "liveclass" && <Liveclass userInfo={userInfo} />}
+                  {activeComponent === "mywallet" && <MyWallet userInfo={userInfo} />}
+                  {activeComponent === "videoeditor" && <VideoEditor />}
+                  {activeComponent === "schedule" && <Scheduler userInfo={userInfo} />}
+                  {activeComponent === "upcomingclasses" && <UpcomingClasses liveSessions={liveSessions} />}
+                  {activeComponent === "myaccount" && <MyAccount />}
+                </>
+              );
+            })()}
           </div>
         </main>
         
