@@ -73,26 +73,26 @@ const users = [
 ];
 const teachers = [
   {
-    name: "Peace Omondi",
-    subject: "High School ",
-    school: "High School",
-    grade: "10th Grade",
-    imgSrc: "/images/teacher2.jpg",
-    experience: 3,
-    rating: 4.9,
+    name: " Vincent makaya ",
+    subject: " Mathematics and Integrated science ",
+    school: " Lower kihara school",
+    Experience: "15yr",
+    imgSrc: "/images/vin.jpeg",
+    experience: 15,
+     rating: 4.9,
     students: 200,
     subjects: 2,
   },
   {
-    name: "Kwamboka Abigael",
-    subject: "Science Tutor",
-    school: "Middle School",
-    grade: "8th Grade",
+    name: "Mary Wanjiku",
+    subject: "Mathematics",
+    school: " Green Valley Secondary School",
+   Experience: "7yr",
     imgSrc: "/images/teacher4.jpg",
-    experience: 2,
+    experience: 7,
     rating: 4.5,
     students: 100,
-    subjects: 5,
+    subjects: 1,
   },
   {
     name: "Kamau Mwangi",
@@ -148,26 +148,19 @@ const tutorials = [
 
 const testimonials = [
   {
-    name: "Grace M",
-    role: "Student, Nairobi",
+    name: "Vincent makaya",
+    role: "mathematics and integrated science teacher",
     message:
-      "StudyBuddy has made revision simple and fun. I can finally track my progress and see my improvement.",
-    imgSrc: "/images/michael.jpg",
+      "As a mathematics and integrated science educator study buddy has offered me an opportunity to interact with all sorts of learners in different levels and different learning set ups. It provides a comprehensive and extensive range of science and mathematics materials covering various levels and topics. Am able to engage with learners through video lessons which enables us not only to get immediate feed backs but also break complex concepts into manageable chunks. The platform provides ample practice opportunities with step step solutions to help students navigate and focus on learning. This online platform is an excellent resource for both mathematics and  science  students and teachers. I recommend it to anyone who values quality and interesting learning.",
+    imgSrc: "/images/vin.jpeg",
   },
   {
-    name: "Mr. Okoth",
-    role: "Biology Teacher",
+    name: "Mary Wanjiku",
+    role: " Mathematics Teacher( Green Valley Secondary School)",
     message:
-      "As a teacher, I love that the content aligns perfectly with the curriculum. It’s the kind of tech schools need.",
+      "As a Mathematics teacher, StudyBuddy Africa has opened up an exciting way for me to reach students who need extra support. I’ve been able to upload revision lessons and interact with learners preparing for their KCSE exams, even while at home.This long holiday, I’m earning extra income while helping students strengthen their weak areas through online tutoring and recorded lessons. StudyBuddy Africa makes it easy to teach, inspire, and earn — all in one place.",
     imgSrc: "/images/maria.jpg",
-  },
-  {
-    name: "James K",
-    role: "Parent",
-    message:
-      "My child is more engaged in learning than ever before, and I have seen a significant improvement in their academic performance!",
-    imgSrc: "/images/alex.jpg",
-  },
+  }
 ];
 
 const images = [student1, student2, student3];
@@ -711,10 +704,10 @@ function HomePage() {
                     <div className="grid grid-cols-3 gap-4 text-center">
                       <div className="bg-[#01B0F1]/10 p-3 rounded-xl">
                         <div className="text-xl font-bold text-[#015575] font-lilita">
-                          {teacher.grade}
+                          {teacher.experience}
                         </div>
                         <div className="text-sm text-gray-600 font-josefin">
-                          Grade
+                          Experience
                         </div>
                       </div>
                       <div className="bg-[#01B0F1]/10 p-3 rounded-xl">
@@ -1000,7 +993,7 @@ function HomePage() {
     </h3>
 
     {/* Testimonials Grid */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
       <AnimatePresence>
         {testimonials.map((testimonial, index) => (
           <motion.div
