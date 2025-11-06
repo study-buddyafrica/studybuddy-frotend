@@ -15,7 +15,9 @@ const UniversalSignupPage = () => {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    full_name: "",
+    first_name: "",
+    last_name: "",
+    username: "",
     email: "",
     role: "",
     password: "",
@@ -54,11 +56,7 @@ const UniversalSignupPage = () => {
     },
   ];
 
-  const roleToEndpoint = {
-    parent: "/users/register-parent",
-    teacher: "/users/register-teacher",
-    student: "/users/self-onboard-student",
-  };
+  const registerEndpoint = "/api/users/register/";
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -125,53 +123,57 @@ const UniversalSignupPage = () => {
     setLoading(true);
 
     try {
-      // Prepare payload - all roles now include full_name
+      // Prepare payload per backend contract
       const payload = {
-        full_name: formData.full_name,
         email: formData.email,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        username: formData.username,
         password: formData.password,
-        role: formData.role,
         confirm_password: formData.confirmPassword,
+        role: formData.role,
       };
 
-      const endpoint = roleToEndpoint[formData.role];
-
-      const response = await fetch(`${FHOST}/${endpoint}`, {
+      const response = await fetch(`${FHOST}${registerEndpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const responseData = await response.json();
+      let rawText = await response.text();
+
+      // Robust error handling: attempt to parse JSON, fallback to raw text
+      let responseData = null;
+      try {
+        responseData = rawText ? JSON.parse(rawText) : null;
+      } catch (_) {
+        responseData = null;
+      }
 
       if (!response.ok) {
-        if (responseData.error && responseData.missing) {
-          setErrorMessage(`Missing fields: ${responseData.missing.join(", ")}`);
-        } else {
-          setErrorMessage(
-            responseData.message ||
-              `Signup failed: ${response.status} ${response.statusText}`
-          );
-        }
+        const serverMsg = responseData?.detail || responseData?.message || responseData?.error;
+        const missing = responseData?.missing;
+        const composed = missing
+          ? `Missing fields: ${missing.join(", ")}`
+          : serverMsg || rawText || `Signup failed: ${response.status} ${response.statusText}`;
+        setErrorMessage(composed);
+        console.error("Signup failed:", { status: response.status, responseData, rawText });
         setLoading(false);
         return;
       }
 
       if (response.status === 201 || response.status === 200) {
         setInformationalMessage(
-          "Signup successful. Please check your email for verification code..."
+          "Account created successfully! Redirecting to login..."
         );
-        // Redirect to verification page with email
+        // Redirect to login page after successful registration
         setTimeout(() => {
-          navigate("/verify-code", {
-            state: { email: formData.email },
-          });
+          navigate("/login");
         }, 2000);
       }
     } catch (error) {
-      setErrorMessage(
-        "Signup failed. Please check your connection and try again."
-      );
+      console.error("Signup network error:", error);
+      setErrorMessage("Signup failed. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -277,20 +279,36 @@ const UniversalSignupPage = () => {
           </div>
 
           <form onSubmit={handleSignup} className="space-y-4">
-            {/* Full Name */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <FaUserTie className="w-4 h-4 md:w-5 md:h-5" />
+            {/* First & Last Name */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                  <FaUserTie className="w-4 h-4 md:w-5 md:h-5" />
+                </div>
+                <input
+                  type="text"
+                  name="first_name"
+                  placeholder="First Name"
+                  value={formData.first_name}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
+                  required
+                />
               </div>
-              <input
-                type="text"
-                name="full_name"
-                placeholder="Full Name"
-                value={formData.full_name}
-                onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                required
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                  <FaUserTie className="w-4 h-4 md:w-5 md:h-5" />
+                </div>
+                <input
+                  type="text"
+                  name="last_name"
+                  placeholder="Last Name"
+                  value={formData.last_name}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
+                  required
+                />
+              </div>
             </div>
 
             {/* Email */}
@@ -359,6 +377,24 @@ const UniversalSignupPage = () => {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Username */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 2a5 5 0 100 10A5 5 0 0010 2zM4 12a6 6 0 1112 0v1a2 2 0 01-2 2H6a2 2 0 01-2-2v-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                name="username"
+                placeholder="Username"
+                value={formData.username}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
+                required
+              />
             </div>
 
             {/* Password Fields */}

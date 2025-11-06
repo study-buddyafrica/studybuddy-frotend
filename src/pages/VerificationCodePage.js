@@ -35,7 +35,7 @@ const VerificationCodePage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${FHOST}/auth/verify-code`, {
+      const response = await fetch(`${FHOST}/api/users/verify-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

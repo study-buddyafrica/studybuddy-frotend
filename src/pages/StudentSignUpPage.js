@@ -37,7 +37,7 @@ const StudentSignUpPage = () => {
 
     try {
       let role = "student";
-      const response = await fetch(`${FHOST}/auth/register`, {
+      const response = await fetch(`${FHOST}/api/users/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

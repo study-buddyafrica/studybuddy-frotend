@@ -27,35 +27,103 @@ const LoginPage = () => {
     }
 
     setIsEmailLoading(true);
+    setErrorMessage("");
+    
     try {
-      const response = await authService.login(email, password);
+      // Use new token endpoint (Django requires trailing slash)
+      const tokenResp = await fetch(`${FHOST}/api/token/request/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (response.status === 200) {
-        const data = response.data["data"];
-        localStorage.setItem("userInfo", JSON.stringify(data));
-        const role = data["role"];
+      // Robust parse: try json, else text
+      let tokenRaw = await tokenResp.text();
+      let tokenData = null;
+      try { tokenData = tokenRaw ? JSON.parse(tokenRaw) : null; } catch(_) { tokenData = null; }
 
-        switch (role) {
-          case "student":
-            navigate("/student-dashboard/");
-            break;
-          case "parent":
-            navigate("/parent-dashboard/home");
-            break;
-          case "teacher":
-            navigate("/teacher-dashboard");
-            break;
-          case "admin":
-            navigate("/admin");
-            break;
-          default:
-            setErrorMessage("Unexpected role " + role);
+      if (!tokenResp.ok) {
+        const errorMsg = tokenData?.detail || tokenData?.message || tokenData?.error || tokenRaw || "Login failed. Please check your credentials.";
+        setErrorMessage(errorMsg);
+        setIsEmailLoading(false);
+        return;
+      }
+
+      if (tokenResp.status === 200) {
+        // Store tokens
+        const accessToken = tokenData?.access;
+        const refreshToken = tokenData?.refresh;
+        
+        if (accessToken) {
+          localStorage.setItem("access_token", accessToken);
+        }
+        if (refreshToken) {
+          localStorage.setItem("refresh_token", refreshToken);
+        }
+
+        // Fetch user info using the access token
+        try {
+          // Prefer user-list endpoint per your spec
+          const userListResp = await fetch(`${FHOST}/api/users/users-list`, {
+            headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+          });
+          let userListRaw = await userListResp.text();
+          let userListData = null;
+          try { userListData = userListRaw ? JSON.parse(userListRaw) : null; } catch(_) { userListData = null; }
+
+          if (userListResp.ok && userListData?.results?.length) {
+            const me = userListData.results[0];
+            localStorage.setItem("userInfo", JSON.stringify(me));
+            const role = me?.role;
+
+            switch (role) {
+              case "student":
+                navigate("/student-dashboard/");
+                break;
+              case "parent":
+                navigate("/parent-dashboard/home");
+                break;
+              case "teacher":
+                navigate("/teacher-dashboard");
+                break;
+              case "admin":
+                navigate("/admin");
+                break;
+              default:
+                setErrorMessage("Unexpected role " + role);
+            }
+          } else {
+            // Fallback to /me/ if user-list not available
+            const userResp = await fetch(`${FHOST}/api/users/me/`, {
+              headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+            });
+            const userOkRaw = await userResp.text();
+            let userData = null;
+            try { userData = userOkRaw ? JSON.parse(userOkRaw) : null; } catch(_) { userData = null; }
+            if (userResp.ok && userData) {
+              localStorage.setItem("userInfo", JSON.stringify(userData));
+              const role = userData?.role;
+              switch (role) {
+                case "student": navigate("/student-dashboard/"); break;
+                case "parent": navigate("/parent-dashboard/home"); break;
+                case "teacher": navigate("/teacher-dashboard"); break;
+                case "admin": navigate("/admin"); break;
+                default: setErrorMessage("Unexpected role " + role);
+              }
+            } else {
+              setErrorMessage("Logged in but couldn't fetch user info. Please try again.");
+            }
+          }
+        } catch (userError) {
+          console.error("Error fetching user info:", userError);
+          setErrorMessage("Logged in but couldn't fetch user info.");
         }
       } else {
         setErrorMessage("Login Failed. Please try again.");
       }
     } catch (error) {
-      setErrorMessage("Login failed. Please check your credentials.");
+      console.error("Login error:", error);
+      setErrorMessage("Login failed. Please check your connection and try again.");
     } finally {
       setIsEmailLoading(false);
     }

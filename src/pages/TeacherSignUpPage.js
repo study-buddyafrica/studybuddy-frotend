@@ -37,7 +37,7 @@ const TeacherSignUpPage = () => {
 
     try {
       let role = "teacher";
-      const response = await fetch(`${FHOST}/auth/register`, {
+      const response = await fetch(`${FHOST}/auth/register/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
