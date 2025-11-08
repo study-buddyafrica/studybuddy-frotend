@@ -18,21 +18,35 @@ const Users = () => {
       setError('');
       try {
         const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        const res = await axios.get(`${FHOST}/admin/all-users`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }).catch(() => null);
-        if (res?.data?.success && Array.isArray(res.data.users)) {
-          setUsers(res.data.users.map(u => ({
-            id: u.id,
-            name: u.full_name,
-            email: u.email,
-            type: u.role,
-            status: u.is_active ? 'active' : 'inactive',
-          })));
-        } else {
-          setUsers([]);
+        // Fetch users by role - we'll need to fetch all roles separately
+        const roles = ['teacher', 'student', 'parent'];
+        const allUsers = [];
+        
+        for (const role of roles) {
+          try {
+            // Try to fetch users with role filter
+            const res = await axios.get(`${FHOST}/api/users/users-list?role=${role}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            }).catch(() => null);
+            
+            if (res?.data?.results && Array.isArray(res.data.results)) {
+              allUsers.push(...res.data.results.map(u => ({
+                id: u.id,
+                name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username,
+                email: u.email,
+                type: u.role,
+                status: u.is_active ? 'active' : 'inactive',
+                is_staff: u.is_staff || false,
+              })));
+            }
+          } catch (err) {
+            console.error(`Failed to fetch ${role} users:`, err);
+          }
         }
-      } catch (_) {
+        
+        setUsers(allUsers);
+      } catch (err) {
+        console.error('Failed to load users:', err);
         setError('Failed to load users');
       } finally {
         setLoading(false);
@@ -53,12 +67,13 @@ const Users = () => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      await axios.delete(`${FHOST}/admin/users/${id}`, {
+      await axios.delete(`${FHOST}/api/user/delete/${id}/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       setUsers(users.filter(user => user.id !== id));
-    } catch (_) {
-      setUsers(users.filter(user => user.id !== id));
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+      alert('Failed to delete user. Please try again.');
     }
   };
 
@@ -69,14 +84,23 @@ const Users = () => {
   const handleSaveEdit = async () => {
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      await axios.put(`${FHOST}/admin/users/${editingUser.id}`, editingUser, {
+      const payload = {
+        email: editingUser.email,
+        first_name: editingUser.name?.split(' ')[0] || '',
+        last_name: editingUser.name?.split(' ').slice(1).join(' ') || '',
+        username: editingUser.email?.split('@')[0] || '',
+        role: editingUser.type,
+        is_active: editingUser.status === 'active',
+        is_staff: editingUser.is_staff || false,
+      };
+      await axios.patch(`${FHOST}/api/user/update/${editingUser.id}/`, payload, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       setUsers(users.map(user => user.id === editingUser.id ? editingUser : user));
       setEditingUser(null);
-    } catch (_) {
-      setUsers(users.map(user => user.id === editingUser.id ? editingUser : user));
-      setEditingUser(null);
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      alert('Failed to update user. Please try again.');
     }
   };
 

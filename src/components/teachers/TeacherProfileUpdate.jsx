@@ -1,0 +1,405 @@
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { FHOST } from "../constants/Functions";
+
+const TeacherProfileUpdate = () => {
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [userInfo, setUserInfo] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [profileData, setProfileData] = useState(null);
+  const [formData, setFormData] = useState({
+    bio: "",
+    phone: "",
+    hourly_rate: "",
+    subjects: [],
+    grade: [],
+    experience: "",
+    birth_date: "",
+    academic_certificate: null,
+  });
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [availableGrades, setAvailableGrades] = useState([]);
+
+  useEffect(() => {
+    const UserInfo = JSON.parse(localStorage.getItem("userInfo"));
+    if (UserInfo) {
+      setUserInfo(UserInfo);
+      fetchProfile();
+      fetchSubjects();
+      fetchGrades();
+    }
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+      if (response.data) {
+        setProfileData(response.data);
+        setFormData({
+          bio: response.data.bio || "",
+          phone: response.data.phone || "",
+          hourly_rate: response.data.hourly_rate || "",
+          subjects: response.data.subjects || [],
+          grade: response.data.grade || [],
+          experience: response.data.experience || "",
+          birth_date: response.data.birth_date || "",
+          academic_certificate: null,
+        });
+        if (response.data.profile_picture) {
+          setProfilePhotoPreview(response.data.profile_picture);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      const response = await axios.get(`${FHOST}/admin/get-subjects/`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+      if (response.data?.classes) {
+        setAvailableSubjects(response.data.classes);
+      }
+    } catch (error) {
+      console.error("Error fetching subjects:", error);
+    }
+  };
+
+  const fetchGrades = async () => {
+    try {
+      const response = await axios.get(`${FHOST}/admin/get-classes`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+      if (response.data?.classes) {
+        setAvailableGrades(response.data.classes);
+      }
+    } catch (error) {
+      console.error("Error fetching grades:", error);
+    }
+  };
+
+  const handlePhotoChange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const isImage = file.type?.startsWith("image/");
+    const maxBytes = 5 * 1024 * 1024;
+    if (!isImage) {
+      setErrorMessage("Please select a valid image file.");
+      setTimeout(() => setErrorMessage(""), 3000);
+      return;
+    }
+    if (file.size > maxBytes) {
+      setErrorMessage("Image is too large. Max size is 5MB.");
+      setTimeout(() => setErrorMessage(""), 3000);
+      return;
+    }
+
+    const previewURL = URL.createObjectURL(file);
+    setProfilePhotoPreview(previewURL);
+    setProfilePhoto(file);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleMultiSelect = (name, value, checked) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+        ? [...prev[name], value]
+        : prev[name].filter(id => id !== value)
+    }));
+  };
+
+  const handleCertificateChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setFormData({ ...formData, academic_certificate: file });
+    }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const formDataToSend = new FormData();
+      
+      if (formData.bio) formDataToSend.append("bio", formData.bio);
+      if (formData.phone) formDataToSend.append("phone", formData.phone);
+      if (formData.hourly_rate) formDataToSend.append("hourly_rate", formData.hourly_rate);
+      if (formData.experience) formDataToSend.append("experience", formData.experience);
+      if (formData.birth_date) formDataToSend.append("birth_date", formData.birth_date);
+      
+      formData.subjects.forEach(subjectId => {
+        formDataToSend.append("subjects", subjectId);
+      });
+      
+      formData.grade.forEach(gradeId => {
+        formDataToSend.append("grade", gradeId);
+      });
+      
+      if (profilePhoto) {
+        formDataToSend.append("profile_picture", profilePhoto);
+      }
+      
+      if (formData.academic_certificate) {
+        formDataToSend.append("academic_certificate", formData.academic_certificate);
+      }
+
+      const response = await axios.patch(
+        `${FHOST}/api/teacher/profile/update/`,
+        formDataToSend,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        }
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setSuccessMessage("Profile updated successfully!");
+        
+        // Update userInfo in localStorage
+        const updatedProfile = response.data;
+        const currentUserInfo = JSON.parse(localStorage.getItem('userInfo'));
+        const updatedUserInfo = { ...currentUserInfo, ...updatedProfile };
+        localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+        setUserInfo(updatedUserInfo);
+        
+        // Notify other components
+        window.dispatchEvent(new Event('profile-updated'));
+        
+        setTimeout(() => setSuccessMessage(""), 5000);
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      const errorMsg = error.response?.data?.message || 
+                      error.response?.data?.error || 
+                      error.response?.data?.detail ||
+                      "Profile update failed. Please try again.";
+      setErrorMessage(errorMsg);
+      setTimeout(() => setErrorMessage(""), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 font-josefin">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-lilita text-[#015575] text-center mb-8">
+          Update Profile
+        </h1>
+
+        {successMessage && (
+          <div className="p-4 mb-6 bg-green-100 text-green-700 rounded-xl border border-green-300">
+            {successMessage}
+          </div>
+        )}
+        {errorMessage && (
+          <div className="p-4 mb-6 bg-red-100 text-red-700 rounded-xl border border-red-300">
+            {errorMessage}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
+          {/* Profile Photo */}
+          <div className="mb-8">
+            <label className="block text-lg font-semibold text-[#015575] mb-4">
+              Profile Photo
+            </label>
+            <div className="flex flex-col items-center space-y-4">
+              <div className="relative group">
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#015575]/20">
+                  {profilePhotoPreview ? (
+                    <img 
+                      src={profilePhotoPreview} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                      <span className="text-gray-400">Add Photo</span>
+                    </div>
+                  )}
+                </div>
+                <label className="absolute bottom-0 right-0 bg-[#015575] text-white p-2 rounded-full cursor-pointer shadow-md hover:bg-[#01415e] transition">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                    disabled={loading}
+                  />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Basic Info */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Basic Information</h3>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter your phone number"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Birth Date</label>
+                <input
+                  type="date"
+                  name="birth_date"
+                  value={formData.birth_date}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate</label>
+                <input
+                  type="text"
+                  name="hourly_rate"
+                  value={formData.hourly_rate}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter hourly rate"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Experience (years)</label>
+                <input
+                  type="number"
+                  name="experience"
+                  value={formData.experience}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Years of experience"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Subjects */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subjects</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {availableSubjects.map((subject) => (
+                <label key={subject.id} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.subjects.includes(subject.id)}
+                    onChange={(e) => handleMultiSelect("subjects", subject.id, e.target.checked)}
+                    className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
+                    disabled={loading}
+                  />
+                  <span className="text-gray-700">{subject.subject || subject.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Grades */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Grades</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {availableGrades.map((grade) => (
+                <label key={grade.id} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.grade.includes(grade.id)}
+                    onChange={(e) => handleMultiSelect("grade", grade.id, e.target.checked)}
+                    className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
+                    disabled={loading}
+                  />
+                  <span className="text-gray-700">{grade.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Bio */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Bio</h3>
+            <textarea
+              name="bio"
+              value={formData.bio}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent h-32"
+              placeholder="Tell us about yourself..."
+              disabled={loading}
+            />
+          </div>
+
+          {/* Academic Certificate */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Academic Certificate</h3>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,image/*"
+              onChange={handleCertificateChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+              disabled={loading}
+            />
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#015575] text-white py-3 rounded-xl hover:bg-[#01415e] transition text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Updating...
+              </span>
+            ) : (
+              'Update Profile'
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default TeacherProfileUpdate;
+

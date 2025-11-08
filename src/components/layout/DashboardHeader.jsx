@@ -80,13 +80,27 @@ const DashboardHeader = ({
             </button>
           </div>
           
-          {/* User Menu - Simple Icon Only with Round Background */}
+          {/* User Menu - Show Profile Picture or Icon */}
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors"
+              className="p-0 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors overflow-hidden w-10 h-10 flex items-center justify-center"
             >
-              <UserIcon className="w-6 h-6" />
+              {userInfo?.profile_picture ? (
+                <img 
+                  src={userInfo.profile_picture} 
+                  alt="Profile" 
+                  className="w-10 h-10 rounded-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    const icon = e.target.parentElement.querySelector('svg');
+                    if (icon) icon.style.display = 'block';
+                  }}
+                />
+              ) : null}
+              {!userInfo?.profile_picture && (
+                <UserIcon className="w-6 h-6" />
+              )}
             </button>
 
             {/* User Dropdown Menu */}

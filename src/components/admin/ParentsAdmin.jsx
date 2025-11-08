@@ -13,11 +13,26 @@ const ParentsAdmin = () => {
       setLoading(true);
       try {
         const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        const res = await axios.get(`${FHOST}/users`, { // no direct parents list found; fallback to empty
+        // Fetch parents using the new user endpoint with role filter
+        const res = await axios.get(`${FHOST}/api/users/users-list?role=parent`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         }).catch(() => null);
-        const list = Array.isArray(res?.data?.users) ? res.data.users : [];
-        setParents(list.filter(u => u.role === 'parent'));
+        
+        if (res?.data?.results && Array.isArray(res.data.results)) {
+          setParents(res.data.results.map(p => ({
+            id: p.id,
+            full_name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.username,
+            username: p.username,
+            email: p.email,
+            num_students: p.num_students ?? (Array.isArray(p.students) ? p.students.length : p.children_count || 0),
+            balance: p.balance || 0,
+          })));
+        } else {
+          setParents([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch parents:', err);
+        setParents([]);
       } finally {
         setLoading(false);
       }

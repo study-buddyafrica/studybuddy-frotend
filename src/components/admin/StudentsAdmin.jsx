@@ -19,18 +19,26 @@ const StudentsAdmin = () => {
       setLoading(true);
       try {
         const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        const res = await axios.get(`${FHOST}/users/teacher-student`, { // requires teacher_id query when used for teacher context
+        // Fetch students using the new user endpoint with role filter
+        const res = await axios.get(`${FHOST}/api/users/users-list?role=student`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          params: {},
         }).catch(() => null);
-        const arr = Array.isArray(res?.data?.students) ? res.data.students : [];
-        setStudents(arr.map(s => ({
-          id: s.id,
-          full_name: s.full_name,
-          email: s.email,
-          grade: s.grade,
-          balance: s.balance,
-        })));
+        
+        if (res?.data?.results && Array.isArray(res.data.results)) {
+          setStudents(res.data.results.map(s => ({
+            id: s.id,
+            full_name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.username,
+            username: s.username,
+            email: s.email,
+            grade: s.grade || '-',
+            balance: s.balance || 0,
+          })));
+        } else {
+          setStudents([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch students:', err);
+        setStudents([]);
       } finally {
         setLoading(false);
       }

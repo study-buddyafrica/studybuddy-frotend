@@ -37,6 +37,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { FHOST } from "./constants/Functions.jsx";
 import ParentFeedback from "./parents/ParentFeedback.jsx";
+import ParentProfileUpdate from "./parents/ParentProfileUpdate";
 import DashboardHeader from "./layout/DashboardHeader.jsx";
 import Intasend from "./payments/Intasend";
 
@@ -72,6 +73,8 @@ const ParentDashboard = () => {
   const [upcomingPayments, setUpcomingPayments] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileComplete, setProfileComplete] = useState(true);
+  const [showProfileUpdateModal, setShowProfileUpdateModal] = useState(false);
   const [studentForm, setStudentForm] = useState({
     fullName: "",
     dateOfBirth: "",
@@ -109,10 +112,50 @@ const ParentDashboard = () => {
     const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (storedUserInfo) {
       setUserInfo(storedUserInfo);
+      
+      // Check profile completion
+      const checkProfileCompletion = async () => {
+        try {
+          const profileResponse = await axios.get(`${FHOST}/api/parent/profile/update/${storedUserInfo.id}/`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          });
+          if (profileResponse.data) {
+            const profileData = profileResponse.data;
+            // Check if profile has required fields
+            const isComplete = !!(profileData.profile_picture && profileData.full_name && profileData.birth_date);
+            setProfileComplete(isComplete);
+            if (!isComplete) {
+              setShowProfileUpdateModal(true);
+              setActiveTab("profileupdate");
+            }
+          }
+        } catch (error) {
+          // Profile doesn't exist or error - profile is incomplete
+          setProfileComplete(false);
+          setShowProfileUpdateModal(true);
+          setActiveTab("profileupdate");
+        }
+      };
+      checkProfileCompletion();
     } else {
       // Redirect to login if no user info found
       window.location.href = "/";
     }
+  }, []);
+
+  // Listen for profile updates
+  useEffect(() => {
+    const onProfileUpdate = () => {
+      // Update userInfo from localStorage
+      const updatedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
+      if (updatedUserInfo) {
+        setUserInfo(updatedUserInfo);
+      }
+    };
+    window.addEventListener('profile-updated', onProfileUpdate);
+    return () => window.removeEventListener('profile-updated', onProfileUpdate);
   }, []);
 
   // Fetch data on component mount
@@ -377,13 +420,13 @@ const ParentDashboard = () => {
 
   // Handle edit profile
   const handleEditProfile = () => {
-    setActiveTab("settings");
+    setActiveTab("profileupdate");
     // You can add additional logic here if needed
   };
 
   // Handle view profile
   const handleViewProfile = () => {
-    setActiveTab("settings");
+    setActiveTab("profileupdate");
     // You can add additional logic here if needed
   };
 
@@ -1101,6 +1144,8 @@ const ParentDashboard = () => {
           </div>
         );
 
+      case "profileupdate":
+        return <ParentProfileUpdate userInfo={userInfo} />;
       case "settings":
         return (
           <div className="space-y-6">
@@ -1315,6 +1360,36 @@ const ParentDashboard = () => {
           onViewProfile={handleViewProfile}
           onEditProfile={handleEditProfile}
         />
+
+        {/* Profile Update Modal */}
+        {showProfileUpdateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-[#01B0F1]/10 mb-6">
+                  <UserIcon className="h-10 w-10 text-[#01B0F1]" />
+                </div>
+                <h2 className="text-3xl font-lilita text-[#015575] mb-4">
+                  Complete Your Profile
+                </h2>
+                <p className="text-gray-600 font-josefin text-lg mb-6">
+                  Before you can continue, please complete your profile information.
+                </p>
+                <div className="flex gap-4 justify-center">
+                  <button
+                    onClick={() => {
+                      setShowProfileUpdateModal(false);
+                      setActiveTab("profileupdate");
+                    }}
+                    className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
+                  >
+                    Update Profile
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-6">{renderContent()}</main>
       </div>

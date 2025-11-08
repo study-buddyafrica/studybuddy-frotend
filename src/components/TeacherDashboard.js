@@ -25,6 +25,7 @@ import MyLessons from "./teachers/MyLessons";
 import MyStudents from "./teachers/MyStudents";
 import Liveclass from "./teachers/Liveclass";
 import MyAccount from "./teachers/MyAccount";
+import TeacherProfileUpdate from "./teachers/TeacherProfileUpdate";
 import UpcomingClasses from "./teachers/UpcomingClasses";
 import VideoEditor from "./teachers/VideoEditor";
 import Scheduler from "./teachers/Scheduler";
@@ -55,8 +56,11 @@ const TeacherDashboard = () => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [showVerificationNotice, setShowVerificationNotice] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showProfileUpdateModal, setShowProfileUpdateModal] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [profileComplete, setProfileComplete] = useState(true);
+  const [profileData, setProfileData] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -68,6 +72,28 @@ const TeacherDashboard = () => {
         return;
       }
       setUserInfo(userData);
+
+      // Check profile completion first
+      let profileIsComplete = true;
+      let teacherProfile = null;
+      try {
+        const profileResponse = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (profileResponse.data) {
+          teacherProfile = profileResponse.data;
+          setProfileData(teacherProfile);
+          // Check if profile has required fields (profile_picture is a good indicator)
+          profileIsComplete = !!(teacherProfile.profile_picture && teacherProfile.bio && teacherProfile.phone);
+          setProfileComplete(profileIsComplete);
+        }
+      } catch (error) {
+        // If profile doesn't exist or error, profile is incomplete
+        profileIsComplete = false;
+        setProfileComplete(false);
+      }
 
       // Fetch latest user data from backend to get verification status
       let finalStatus = userData.verification_status;
@@ -93,23 +119,32 @@ const TeacherDashboard = () => {
         setVerificationStatus(finalStatus);
       }
       
-      // Block access if not approved
       // Allow bypass for testing (can be removed in production)
       const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
                                   process.env.NODE_ENV === 'development';
       
-      if (finalStatus !== 'approved' && !allowTestingAccess) {
+      // Flow: Profile Update → Verification → Access
+      if (!profileIsComplete && !allowTestingAccess) {
+        // Profile not complete - show profile update modal
+        setShowProfileUpdateModal(true);
+        setIsBlocked(true);
+        setActiveComponent("profileupdate");
+      } else if (finalStatus !== 'approved' && !allowTestingAccess) {
+        // Profile complete but not verified - show verification notice
         setIsBlocked(true);
         setShowVerificationNotice(true);
+        setShowProfileUpdateModal(false);
         
         // Show welcome modal if never verified or rejected
         if (!finalStatus || finalStatus === null || finalStatus === 'rejected') {
           setShowWelcomeModal(true);
         }
       } else {
+        // All good - full access
         setIsBlocked(false);
         setShowVerificationNotice(false);
         setShowWelcomeModal(false);
+        setShowProfileUpdateModal(false);
       }
 
       // Generate random avatar
@@ -122,7 +157,22 @@ const TeacherDashboard = () => {
     // Listen for verification status updates from MyAccount
     const onVerificationChange = () => refreshState();
     window.addEventListener('verification-status-changed', onVerificationChange);
-    return () => window.removeEventListener('verification-status-changed', onVerificationChange);
+    
+    // Listen for profile updates
+    const onProfileUpdate = () => {
+      refreshState();
+      // Also update userInfo from localStorage
+      const updatedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
+      if (updatedUserInfo) {
+        setUserInfo(updatedUserInfo);
+      }
+    };
+    window.addEventListener('profile-updated', onProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('verification-status-changed', onVerificationChange);
+      window.removeEventListener('profile-updated', onProfileUpdate);
+    };
   }, [navigate]);
 
   const handleLogout = () => {
@@ -318,9 +368,10 @@ const TeacherDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-josefin">
-            {/* Sidebar */}
+            {/* Sidebar - Fixed position */}
       <div
-        className={`fixed lg:relative z-30 inset-y-0 left-0 w-64 bg-sky-500 text-white transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-xl`}
+        className={`fixed z-30 inset-y-0 left-0 w-64 bg-sky-500 text-white transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-xl`}
+        style={{ height: '100vh', overflowY: 'auto' }}
       >
         <div className="flex flex-col h-full">
           <div className="p-6 flex items-center border-b border-white/30">
@@ -427,10 +478,20 @@ const TeacherDashboard = () => {
               </li>
               <li>
                 <button 
+                  onClick={() => handleMenuItemClick("profileupdate")}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "profileupdate" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
+                >
+                  <FaUserCircle className="mr-3" />
+                  Update Profile
+                  {activeComponent === "profileupdate" && <FaChevronRight className="ml-auto" />}
+                </button>
+              </li>
+              <li>
+                <button 
                   onClick={() => handleMenuItemClick("myaccount")}
                   className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "myaccount" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
                 >
-                  <FaUserCircle className="mr-3" />
+                  <FaCog className="mr-3" />
                   My Account
                   {activeComponent === "myaccount" && <FaChevronRight className="ml-auto" />}
                 </button>
@@ -440,8 +501,8 @@ const TeacherDashboard = () => {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      {/* Main Content - Add margin for fixed sidebar on desktop */}
+      <div className="flex-1 flex flex-col min-h-screen lg:ml-64">
         <DashboardHeader
           title="StudyBuddy Africa"
           userInfo={userInfo}
@@ -449,6 +510,7 @@ const TeacherDashboard = () => {
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           notificationCount={notificationCount}
           onViewProfile={() => handleMenuItemClick("myaccount")}
+          onEditProfile={() => handleMenuItemClick("profileupdate")}
         />
         
         {/* Verification Notice Banner */}
@@ -494,7 +556,40 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Welcome Modal for First Login */}
+        {/* Profile Update Modal */}
+        {showProfileUpdateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-[#01B0F1]/10 mb-6">
+                  <FaUserCircle className="h-10 w-10 text-[#01B0F1]" />
+                </div>
+                <h2 className="text-3xl font-lilita text-[#015575] mb-4">
+                  Complete Your Profile
+                </h2>
+                <p className="text-gray-600 font-josefin text-lg mb-6">
+                  Before you can continue, please complete your profile information.
+                </p>
+                <p className="text-gray-700 font-josefin mb-8">
+                  Please update your profile with your information. Once your profile is complete, you can proceed with account verification.
+                </p>
+                <div className="flex gap-4 justify-center">
+                  <button
+                    onClick={() => {
+                      setShowProfileUpdateModal(false);
+                      handleMenuItemClick("profileupdate");
+                    }}
+                    className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
+                  >
+                    Update Profile
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Welcome Modal for Verification (after profile is complete) */}
         {showWelcomeModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
@@ -532,23 +627,25 @@ const TeacherDashboard = () => {
         {(() => {
           const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
                                     process.env.NODE_ENV === 'development';
-          return isBlocked && activeComponent !== "myaccount" && !allowTestingAccess ? (
+          return isBlocked && activeComponent !== "myaccount" && activeComponent !== "profileupdate" && !allowTestingAccess ? (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
               <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 text-center">
                 <FaChalkboardTeacher className="h-16 w-16 text-[#01B0F1] mx-auto mb-4" />
                 <h3 className="text-2xl font-lilita text-[#015575] mb-4">
-                  Account Verification Required
+                  {!profileComplete ? 'Profile Update Required' : 'Account Verification Required'}
                 </h3>
                 <p className="text-gray-600 font-josefin mb-6">
-                  {verificationStatus === 'pending'
+                  {!profileComplete 
+                    ? 'Please complete your profile first before accessing dashboard features.'
+                    : verificationStatus === 'pending'
                     ? 'Your account verification is pending admin approval. You\'ll be able to access all features once approved.'
                     : 'Please complete your account verification to access the dashboard features.'}
                 </p>
                 <button
-                  onClick={() => handleMenuItemClick("myaccount")}
+                  onClick={() => handleMenuItemClick(!profileComplete ? "profileupdate" : "myaccount")}
                   className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-6 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
                 >
-                  {verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Go to Verification'}
+                  {!profileComplete ? 'Update Profile' : verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Go to Verification'}
                 </button>
               </div>
             </div>
@@ -740,6 +837,7 @@ const TeacherDashboard = () => {
                   {activeComponent === "videoeditor" && <VideoEditor />}
                   {activeComponent === "schedule" && <Scheduler userInfo={userInfo} />}
                   {activeComponent === "upcomingclasses" && <UpcomingClasses liveSessions={liveSessions} />}
+                  {activeComponent === "profileupdate" && <TeacherProfileUpdate />}
                   {activeComponent === "myaccount" && <MyAccount />}
                 </>
               );

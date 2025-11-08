@@ -23,6 +23,8 @@ import TeacherProfiles from "./students/TeachersProfiles";
 import VideoApp from "./students/VideoApp";
 import StudentsHome from "./students/studentsHome";
 import Performance from "./students/Performance";
+import StudentProfileUpdate from "./students/StudentProfileUpdate";
+import StudentViewProfile from "./students/StudentViewProfile";
 import axios from "axios";
 import { FHOST } from "./constants/Functions";
 import DashboardHeader from "./layout/DashboardHeader";
@@ -38,6 +40,8 @@ const DashboardHome = () => {
   const [userInfo, setUserInfo] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileComplete, setProfileComplete] = useState(true);
+  const [showProfileUpdateModal, setShowProfileUpdateModal] = useState(false);
 
   useEffect(() => {
     const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
@@ -98,12 +102,52 @@ const DashboardHome = () => {
       setUserInfo(storedUserInfo);
       setIsLoading(false);
       initializeDarkMode();
+      
+      // Check profile completion
+      const checkProfileCompletion = async () => {
+        try {
+          const profileResponse = await axios.get(`${FHOST}/api/student/profile/update/${storedUserInfo.id}/`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          });
+          if (profileResponse.data) {
+            const profileData = profileResponse.data;
+            // Check if profile has required fields
+            const isComplete = !!(profileData.profile_picture && profileData.birth_date && profileData.grade && profileData.school);
+            setProfileComplete(isComplete);
+            if (!isComplete) {
+              setShowProfileUpdateModal(true);
+              setActiveComponent("profileupdate");
+            }
+          }
+        } catch (error) {
+          // Profile doesn't exist or error - profile is incomplete
+          setProfileComplete(false);
+          setShowProfileUpdateModal(true);
+          setActiveComponent("profileupdate");
+        }
+      };
+      checkProfileCompletion();
       return;
     }
 
     // No auth and no impersonation -> require login
     window.location.href = "/login";
     initializeDarkMode();
+  }, []);
+
+  // Listen for profile updates
+  useEffect(() => {
+    const onProfileUpdate = () => {
+      // Update userInfo from localStorage
+      const updatedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
+      if (updatedUserInfo) {
+        setUserInfo(updatedUserInfo);
+      }
+    };
+    window.addEventListener('profile-updated', onProfileUpdate);
+    return () => window.removeEventListener('profile-updated', onProfileUpdate);
   }, []);
 
   useEffect(() => {
@@ -393,108 +437,10 @@ const DashboardHome = () => {
         return <TeacherProfiles userInfo={userInfo} darkMode={darkMode} />;
       case "videofeed":
         return <VideoApp userInfo={userInfo} darkMode={darkMode} />;
+      case "profileupdate":
+        return <StudentProfileUpdate userInfo={userInfo} />;
       case "myaccount":
-        return (
-          <div className="max-w-4xl mx-auto">
-            <div
-              className="p-6 rounded-2xl shadow-lg bg-white transition-all duration-300"
-            >
-              <h2
-                className="text-2xl font-bold mb-6 text-gray-800 font-lilita"
-              >
-                My Account
-              </h2>
-
-              <div className="flex flex-col items-center mb-6">
-                <div className="relative mb-4">
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 p-1 shadow-lg">
-                    <div className="w-full h-full rounded-full overflow-hidden">
-                      <img
-                        src={userInfo?.profile_picture || profilePhoto}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </div>
-                  <label
-                    htmlFor="file-upload"
-                    className="absolute bottom-2 right-0 bg-gradient-to-r from-blue-500 to-indigo-600 p-2 rounded-full text-white text-xl cursor-pointer hover:from-blue-600 hover:to-indigo-700 transition-all shadow-md"
-                  >
-                    <FaCamera />
-                  </label>
-                </div>
-
-                {successMessage && (
-                  <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg w-full max-w-md text-center">
-                    {successMessage}
-                  </div>
-                )}
-                {errorMessage && (
-                  <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg w-full max-w-md text-center">
-                    {errorMessage}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-2 text-gray-700"
-                  >
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-3 rounded-lg bg-gray-50 border-gray-300 border text-gray-800"
-                    value={userInfo?.username || ""}
-                    disabled
-                  />
-                </div>
-
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-2 text-gray-700"
-                  >
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    className="w-full p-3 rounded-lg bg-gray-50 border-gray-300 border text-gray-800"
-                    value={userInfo?.email || ""}
-                    disabled
-                  />
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <label
-                  className="block text-sm font-medium mb-2 text-gray-700"
-                >
-                  Bio
-                </label>
-                <textarea
-                  className="w-full p-3 rounded-lg bg-gray-50 border-gray-300 border text-gray-800 min-h-[120px]"
-                  placeholder="Tell us a little about yourself..."
-                  defaultValue="Passionate student with a love for mathematics and science. Excited to learn and grow with my tutors!"
-                />
-              </div>
-
-              <input
-                id="file-upload"
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoChange}
-                className="hidden"
-              />
-
-              <p
-                className="text-sm text-center text-gray-500"
-              >
-                Choose a square image for best results
-              </p>
-            </div>
-          </div>
-        );
+        return <StudentViewProfile userInfo={userInfo} onEditProfile={() => setActiveComponent("profileupdate")} />;
       case "performance":
         return <Performance userInfo={userInfo} darkMode={darkMode} />;
       case "history":
@@ -630,7 +576,7 @@ const DashboardHome = () => {
             {/* My Account Button */}
             <button
               className={`flex items-center w-full px-4 py-3 rounded-xl transition-all text-left ${
-                activeComponent === "myaccount"
+                activeComponent === "myaccount" || activeComponent === "profileupdate"
                   ? "bg-white/20 text-white"
                   : "text-indigo-100 dark:text-gray-300 hover:bg-white/10"
               }`}
@@ -656,6 +602,35 @@ const DashboardHome = () => {
         />
       )}
 
+      {/* Profile Update Modal */}
+      {showProfileUpdateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-[#01B0F1]/10 mb-6">
+                <FaUserCircle className="h-10 w-10 text-[#01B0F1]" />
+              </div>
+              <h2 className="text-3xl font-lilita text-[#015575] mb-4">
+                Complete Your Profile
+              </h2>
+              <p className="text-gray-600 font-josefin text-lg mb-6">
+                Before you can continue, please complete your profile information.
+              </p>
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={() => {
+                    setShowProfileUpdateModal(false);
+                  }}
+                  className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
+                >
+                  Update Profile
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:pl-64">
         <DashboardHeader
@@ -664,7 +639,7 @@ const DashboardHome = () => {
           onLogout={handleLogout}
           onToggleSidebar={() => setSidebarOpen(true)}
           onViewProfile={() => setActiveComponent("myaccount")}
-          onEditProfile={() => setActiveComponent("myaccount")}
+          onEditProfile={() => setActiveComponent("profileupdate")}
         />
         <main className="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-6 lg:p-8 space-y-6 transition-all duration-300">
           {renderActiveComponent()}
