@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -38,9 +38,9 @@ const AdminLayout = () => {
             <span className="text-xl font-semibold text-gray-900 dark:text-white">Admin</span>
           </div>
           <nav className="flex flex-1 flex-col px-4 pb-4 pt-4">
-            <ul role="list" className="flex flex-1 flex-col gap-y-7">
+            <ul className="flex flex-1 flex-col gap-y-7">
               <li>
-                <ul role="list" className="-mx-1 space-y-1">
+                <ul className="-mx-1 space-y-1">
                   {navigation.map((item) => (
                     <li key={item.name}>
                       <a

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, MapPin, Users, PlusCircle, Edit2, Trash2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Edit2, Trash2 } from 'lucide-react';
 
 const Events = () => {
   const [events, setEvents] = useState([
