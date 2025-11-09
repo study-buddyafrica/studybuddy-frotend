@@ -318,11 +318,15 @@ const TeacherDashboard = () => {
                                 process.env.NODE_ENV === 'development';
     
     // Block navigation to any page except myaccount if not verified (unless testing)
-    if (isBlocked && component !== "myaccount" && !allowTestingAccess) {
-      setShowWelcomeModal(true);
-      return;
-    }
-    
+   if (
+  isBlocked &&
+  component !== "myaccount" &&
+  component !== "profileupdate" &&
+  !allowTestingAccess
+) {
+  setShowWelcomeModal(true);
+  return;
+}
     switch (component) {
       case "dashboard":
         navigate("/teacher-dashboard");
