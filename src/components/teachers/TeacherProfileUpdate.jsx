@@ -19,6 +19,10 @@ const TeacherProfileUpdate = () => {
     experience: "",
     birth_date: "",
     academic_certificate: null,
+    tsc_number: "",
+    tsc_number_certificate: null,
+    id_number: "",
+    gender: "",
   });
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [availableGrades, setAvailableGrades] = useState([]);
@@ -51,6 +55,10 @@ const TeacherProfileUpdate = () => {
           experience: response.data.experience || "",
           birth_date: response.data.birth_date || "",
           academic_certificate: null,
+          tsc_number: response.data.tsc_number || "",
+          tsc_number_certificate: null,
+          id_number: response.data.id_number || "",
+          gender: response.data.gender || "",
         });
         if (response.data.profile_picture) {
           setProfilePhotoPreview(response.data.profile_picture);
@@ -134,6 +142,13 @@ const TeacherProfileUpdate = () => {
     }
   };
 
+  const handleTscCertificateChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setFormData({ ...formData, tsc_number_certificate: file });
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -148,6 +163,9 @@ const TeacherProfileUpdate = () => {
       if (formData.hourly_rate) formDataToSend.append("hourly_rate", formData.hourly_rate);
       if (formData.experience) formDataToSend.append("experience", formData.experience);
       if (formData.birth_date) formDataToSend.append("birth_date", formData.birth_date);
+      if (formData.tsc_number) formDataToSend.append("tsc_number", formData.tsc_number);
+      if (formData.id_number) formDataToSend.append("id_number", formData.id_number);
+      if (formData.gender) formDataToSend.append("gender", formData.gender);
       
       formData.subjects.forEach(subjectId => {
         formDataToSend.append("subjects", subjectId);
@@ -163,6 +181,10 @@ const TeacherProfileUpdate = () => {
       
       if (formData.academic_certificate) {
         formDataToSend.append("academic_certificate", formData.academic_certificate);
+      }
+
+      if (formData.tsc_number_certificate) {
+        formDataToSend.append("tsc_number_certificate", formData.tsc_number_certificate);
       }
 
       const response = await axios.patch(
@@ -311,6 +333,45 @@ const TeacherProfileUpdate = () => {
                   disabled={loading}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">TSC Number</label>
+                <input
+                  type="text"
+                  name="tsc_number"
+                  value={formData.tsc_number}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter TSC number"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ID Number</label>
+                <input
+                  type="text"
+                  name="id_number"
+                  value={formData.id_number}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter ID number"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  disabled={loading}
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -372,6 +433,18 @@ const TeacherProfileUpdate = () => {
               type="file"
               accept=".pdf,.doc,.docx,image/*"
               onChange={handleCertificateChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+              disabled={loading}
+            />
+          </div>
+
+          {/* TSC Certificate */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">TSC Certificate</h3>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,image/*"
+              onChange={handleTscCertificateChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
               disabled={loading}
             />

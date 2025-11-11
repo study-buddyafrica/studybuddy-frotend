@@ -94,14 +94,44 @@ const TeachersAdmin = () => {
     if (!window.confirm('Are you sure you want to approve this teacher\'s verification?')) return;
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      // Update user's verification_status to 'approved'
-      await axios.patch(`${FHOST}/api/user/update/${teacherId}/`, {
-        verification_status: 'approved',
+      // First fetch teacher details to get required fields
+      const teacherDetails = await axios.get(`${FHOST}/api/teachers/${teacherId}/`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      const teacherData = teacherDetails.data;
+
+      // Check if all required fields exist
+      const requiredFields = [
+        'tsc_number', 'tsc_number_certificate', 'academic_certificate', 'experience',
+        'subjects', 'id_number', 'hourly_rate', 'bio', 'phone', 'profile_picture',
+        'birth_date', 'gender', 'grade'
+      ];
+      const missingFields = requiredFields.filter(field => !teacherData[field] || (Array.isArray(teacherData[field]) && teacherData[field].length === 0));
+      if (missingFields.length > 0) {
+        alert(`Cannot verify teacher. Missing required fields: ${missingFields.join(', ')}`);
+        return;
+      }
+
+      // Verify teacher with all required fields
+      await axios.post(`${FHOST}/api/teachers/${teacherId}/verify_teacher`, {
+        tsc_number: teacherData.tsc_number,
+        tsc_number_certificate: teacherData.tsc_number_certificate,
+        academic_certificate: teacherData.academic_certificate,
+        experience: teacherData.experience,
+        subjects: teacherData.subjects,
+        id_number: teacherData.id_number,
+        hourly_rate: teacherData.hourly_rate,
+        bio: teacherData.bio,
+        phone: teacherData.phone,
+        profile_picture: teacherData.profile_picture,
+        birth_date: teacherData.birth_date,
+        gender: teacherData.gender,
+        grade: teacherData.grade,
       }, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      setTeachers(teachers.map(t => 
-        t.id === teacherId 
+      setTeachers(teachers.map(t =>
+        t.id === teacherId
           ? { ...t, verified: true, verification_status: 'approved' }
           : t
       ));
@@ -116,14 +146,32 @@ const TeachersAdmin = () => {
     if (!window.confirm('Are you sure you want to reject this teacher\'s verification?')) return;
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      // Update user's verification_status to 'rejected'
-      await axios.patch(`${FHOST}/api/user/update/${teacherId}/`, {
-        verification_status: 'rejected',
+      // First fetch teacher details to get required fields
+      const teacherDetails = await axios.get(`${FHOST}/api/teachers/${teacherId}/`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      const teacherData = teacherDetails.data;
+
+      // Unverify teacher with all required fields
+      await axios.post(`${FHOST}/api/teachers/${teacherId}/unverify_teacher`, {
+        tsc_number: teacherData.tsc_number,
+        tsc_number_certificate: teacherData.tsc_number_certificate,
+        academic_certificate: teacherData.academic_certificate,
+        experience: teacherData.experience,
+        subjects: teacherData.subjects,
+        id_number: teacherData.id_number,
+        hourly_rate: teacherData.hourly_rate,
+        bio: teacherData.bio,
+        phone: teacherData.phone,
+        profile_picture: teacherData.profile_picture,
+        birth_date: teacherData.birth_date,
+        gender: teacherData.gender,
+        grade: teacherData.grade,
       }, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      setTeachers(teachers.map(t => 
-        t.id === teacherId 
+      setTeachers(teachers.map(t =>
+        t.id === teacherId
           ? { ...t, verified: false, verification_status: 'rejected' }
           : t
       ));

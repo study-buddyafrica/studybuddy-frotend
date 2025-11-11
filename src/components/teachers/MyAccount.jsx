@@ -20,6 +20,13 @@ const MyAccount = () => {
     grade: "",
     gender: "",
     aboutMe: "",
+    hourlyRate: "",
+    experience: "",
+    birthDate: "",
+    academicCertificate: null,
+    tscCertificate: null,
+    subjects: [],
+    grades: [],
   });
 
   useEffect(() => {
@@ -38,6 +45,13 @@ const MyAccount = () => {
         grade: UserInfo.grade || "",
         gender: UserInfo.gender || "",
         aboutMe: UserInfo.bio || UserInfo.about_me || "",
+        hourlyRate: UserInfo.hourly_rate || "",
+        experience: UserInfo.experience || "",
+        birthDate: UserInfo.birth_date || "",
+        academicCertificate: null,
+        tscCertificate: null,
+        subjects: UserInfo.subjects || [],
+        grades: UserInfo.grades || [],
       });
       
       // Set profile photo preview if available
@@ -76,6 +90,20 @@ const MyAccount = () => {
     setFormData({ ...formData, [name]: value });
   };
 
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    setFormData({ ...formData, [name]: files[0] });
+  };
+
+  const handleMultiSelect = (name, value, checked) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+        ? [...prev[name], value]
+        : prev[name].filter(id => id !== value)
+    }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -109,14 +137,33 @@ const MyAccount = () => {
       formDataToSend.append("grade", formData.grade || "");
       formDataToSend.append("gender", formData.gender || "");
       formDataToSend.append("bio", formData.aboutMe || "");
+      formDataToSend.append("hourly_rate", formData.hourlyRate || "");
+      formDataToSend.append("experience", formData.experience || "");
+      formDataToSend.append("birth_date", formData.birthDate || "");
+
+      // Add subjects and grades as arrays
+      formData.subjects.forEach(subjectId => {
+        formDataToSend.append("subjects", subjectId);
+      });
+      formData.grades.forEach(gradeId => {
+        formDataToSend.append("grades", gradeId);
+      });
       
       // Add profile photo if selected
       if (profilePhoto) {
-        formDataToSend.append("profile_photo", profilePhoto);
+        formDataToSend.append("profile_picture", profilePhoto);
+      }
+
+      // Add certificates if selected
+      if (formData.academicCertificate) {
+        formDataToSend.append("academic_certificate", formData.academicCertificate);
+      }
+      if (formData.tscCertificate) {
+        formDataToSend.append("tsc_number_certificate", formData.tscCertificate);
       }
 
       const response = await axios.post(
-        `${FHOST}/users/verify-account/${userInfo?.id}`,
+        `${FHOST}/api/teachers/${userInfo?.id}/verify_teacher`,
         formDataToSend,
         {
           headers: {
@@ -332,6 +379,47 @@ const MyAccount = () => {
                   disabled={loading}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Birth Date
+                </label>
+                <input
+                  type="date"
+                  name="birthDate"
+                  value={formData.birthDate}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hourly Rate
+                </label>
+                <input
+                  type="text"
+                  name="hourlyRate"
+                  value={formData.hourlyRate}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter hourly rate"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Experience (years)
+                </label>
+                <input
+                  type="number"
+                  name="experience"
+                  value={formData.experience}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Years of experience"
+                  disabled={loading}
+                />
+              </div>
             </div>
           </div>
 
@@ -413,6 +501,66 @@ const MyAccount = () => {
                   <option value="female">Female</option>
                   <option value="other">Other</option>
                 </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Subjects and Grades */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subjects & Grades</h3>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Subjects</label>
+                <input
+                  type="text"
+                  name="subjects"
+                  value={formData.subjects.join(', ')}
+                  onChange={(e) => setFormData({...formData, subjects: e.target.value.split(',').map(s => s.trim()).filter(s => s)})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter subjects separated by commas"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Grades</label>
+                <input
+                  type="text"
+                  name="grades"
+                  value={formData.grades.join(', ')}
+                  onChange={(e) => setFormData({...formData, grades: e.target.value.split(',').map(g => g.trim()).filter(g => g)})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter grades separated by commas"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Certificates */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Certificates</h3>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Academic Certificate</label>
+                <input
+                  type="file"
+                  name="academicCertificate"
+                  accept=".pdf,.doc,.docx,image/*"
+                  onChange={handleFileChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">TSC Certificate</label>
+                <input
+                  type="file"
+                  name="tscCertificate"
+                  accept=".pdf,.doc,.docx,image/*"
+                  onChange={handleFileChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  disabled={loading}
+                />
               </div>
             </div>
           </div>

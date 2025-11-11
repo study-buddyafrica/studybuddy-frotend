@@ -73,6 +73,7 @@ const LoginPage = () => {
 
           if (userListResp.ok && userListData?.results?.length) {
             const me = userListData.results[0];
+            if (me.is_superuser) me.role = 'admin';
             localStorage.setItem("userInfo", JSON.stringify(me));
             const role = me?.role;
 
@@ -101,6 +102,7 @@ const LoginPage = () => {
             let userData = null;
             try { userData = userOkRaw ? JSON.parse(userOkRaw) : null; } catch(_) { userData = null; }
             if (userResp.ok && userData) {
+              if (userData.is_superuser) userData.role = 'admin';
               localStorage.setItem("userInfo", JSON.stringify(userData));
               const role = userData?.role;
               switch (role) {
@@ -143,6 +145,7 @@ const LoginPage = () => {
         // Set localstorage with user info empty first "UserInfo" to avoid any issues
         localStorage.removeItem("userInfo");
         // Set localstorage with user info
+        if (UserInfo.is_superuser) UserInfo.role = 'admin';
         localStorage.setItem("userInfo", JSON.stringify(UserInfo));
         const role = UserInfo?.role;
 

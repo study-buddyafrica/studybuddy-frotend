@@ -50,8 +50,17 @@ const StudentSignUpPage = () => {
         }),
       });
 
-      if (response.status === 409) {
-        setErrorMessage('Email already exists. Please login or use different email.');
+      if (response.status === 409 || response.status === 400 || response.status === 500) {
+        // Handle duplicate emails (can come as 400, 409, or 500 with IntegrityError)
+        const data = await response.json().catch(() => ({}));
+        const errorMsg = data.detail || data.message || data.error || 'Email already exists';
+        if (errorMsg.includes('email') && errorMsg.includes('already exists') ||
+            errorMsg.includes('duplicate key') ||
+            errorMsg.includes('IntegrityError')) {
+          setErrorMessage('An account with this email already exists. Please use a different email or try logging in.');
+        } else {
+          setErrorMessage(errorMsg);
+        }
         return;
       }
 

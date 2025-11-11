@@ -153,10 +153,19 @@ const UniversalSignupPage = () => {
       if (!response.ok) {
         const serverMsg = responseData?.detail || responseData?.message || responseData?.error;
         const missing = responseData?.missing;
-        const composed = missing
-          ? `Missing fields: ${missing.join(", ")}`
-          : serverMsg || rawText || `Signup failed: ${response.status} ${response.statusText}`;
-        setErrorMessage(composed);
+
+        // Handle duplicate email error specifically (can come as 400, 409, or 500)
+        if ((response.status === 400 || response.status === 409 || response.status === 500) &&
+            (serverMsg?.includes('email') && serverMsg?.includes('already exists') ||
+             rawText?.includes('duplicate key') ||
+             rawText?.includes('IntegrityError'))) {
+          setErrorMessage('An account with this email already exists. Please use a different email or try logging in.');
+        } else {
+          const composed = missing
+            ? `Missing fields: ${missing.join(", ")}`
+            : serverMsg || rawText || `Signup failed: ${response.status} ${response.statusText}`;
+          setErrorMessage(composed);
+        }
         console.error("Signup failed:", { status: response.status, responseData, rawText });
         setLoading(false);
         return;

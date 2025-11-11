@@ -56,10 +56,8 @@ const TeacherDashboard = () => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [showVerificationNotice, setShowVerificationNotice] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  const [showProfileUpdateModal, setShowProfileUpdateModal] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [profileComplete, setProfileComplete] = useState(true);
   const [profileData, setProfileData] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,9 +71,7 @@ const TeacherDashboard = () => {
       }
       setUserInfo(userData);
 
-      // Check profile completion first
-      let profileIsComplete = true;
-      let teacherProfile = null;
+      // Fetch profile data (optional, not blocking)
       try {
         const profileResponse = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
           headers: {
@@ -83,16 +79,11 @@ const TeacherDashboard = () => {
           },
         });
         if (profileResponse.data) {
-          teacherProfile = profileResponse.data;
-          setProfileData(teacherProfile);
-          // Check if profile has required fields (profile_picture is a good indicator)
-          profileIsComplete = !!(teacherProfile.profile_picture && teacherProfile.bio && teacherProfile.phone);
-          setProfileComplete(profileIsComplete);
+          setProfileData(profileResponse.data);
         }
       } catch (error) {
-        // If profile doesn't exist or error, profile is incomplete
-        profileIsComplete = false;
-        setProfileComplete(false);
+        // Profile fetch failed, but don't block access
+        console.error("Error fetching profile:", error);
       }
 
       // Fetch latest user data from backend to get verification status
@@ -119,32 +110,24 @@ const TeacherDashboard = () => {
         setVerificationStatus(finalStatus);
       }
       
-      // Allow bypass for testing (can be removed in production)
-      const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
-                                  process.env.NODE_ENV === 'development';
+      // Allow bypass for testing in development (set 'dev_mode' to 'true' in localStorage to bypass)
+      const allowTestingAccess = localStorage.getItem('dev_mode') === 'true';
       
-      // Flow: Profile Update → Verification → Access
-      if (!profileIsComplete && !allowTestingAccess) {
-        // Profile not complete - show profile update modal
-        setShowProfileUpdateModal(true);
-        setIsBlocked(true);
-        setActiveComponent("profileupdate");
-      } else if (finalStatus !== 'approved' && !allowTestingAccess) {
-        // Profile complete but not verified - show verification notice
+      // Flow: Verification → Access (Profile update is optional)
+      if (finalStatus !== 'approved' && !allowTestingAccess) {
+        // Not verified - show verification notice
         setIsBlocked(true);
         setShowVerificationNotice(true);
-        setShowProfileUpdateModal(false);
-        
+
         // Show welcome modal if never verified or rejected
         if (!finalStatus || finalStatus === null || finalStatus === 'rejected') {
           setShowWelcomeModal(true);
         }
       } else {
-        // All good - full access
+        // Verified - full access
         setIsBlocked(false);
         setShowVerificationNotice(false);
         setShowWelcomeModal(false);
-        setShowProfileUpdateModal(false);
       }
 
       // Generate random avatar
@@ -313,17 +296,15 @@ const TeacherDashboard = () => {
 
   // Close sidebar on mobile and navigate
   const handleMenuItemClick = (component) => {
-    // Allow testing access in development
-    const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
-                                process.env.NODE_ENV === 'development';
+    // Allow testing access (set 'dev_mode' to 'true' in localStorage to bypass verification)
+    const allowTestingAccess = localStorage.getItem('dev_mode') === 'true';
     
     // Block navigation to any page except myaccount if not verified (unless testing)
    if (
-  isBlocked &&
-  component !== "myaccount" &&
-  component !== "profileupdate" &&
-  !allowTestingAccess
-) {
+   isBlocked &&
+   component !== "myaccount" &&
+   !allowTestingAccess
+ ) {
   setShowWelcomeModal(true);
   return;
 }
@@ -560,40 +541,8 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Profile Update Modal */}
-        {showProfileUpdateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-[#01B0F1]/10 mb-6">
-                  <FaUserCircle className="h-10 w-10 text-[#01B0F1]" />
-                </div>
-                <h2 className="text-3xl font-lilita text-[#015575] mb-4">
-                  Complete Your Profile
-                </h2>
-                <p className="text-gray-600 font-josefin text-lg mb-6">
-                  Before you can continue, please complete your profile information.
-                </p>
-                <p className="text-gray-700 font-josefin mb-8">
-                  Please update your profile with your information. Once your profile is complete, you can proceed with account verification.
-                </p>
-                <div className="flex gap-4 justify-center">
-                  <button
-                    onClick={() => {
-                      setShowProfileUpdateModal(false);
-                      handleMenuItemClick("profileupdate");
-                    }}
-                    className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
-                  >
-                    Update Profile
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Welcome Modal for Verification (after profile is complete) */}
+        {/* Welcome Modal for Verification */}
         {showWelcomeModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
@@ -608,7 +557,7 @@ const TeacherDashboard = () => {
                   Before you can start teaching, we need to verify your account.
                 </p>
                 <p className="text-gray-700 font-josefin mb-8">
-                  Please complete your account verification by providing your profile photo and details. 
+                  Please complete your account verification by providing your profile photo and details.
                   Your verification request will be sent to our admin team for approval.
                 </p>
                 <div className="flex gap-4 justify-center">
@@ -629,27 +578,24 @@ const TeacherDashboard = () => {
 
         {/* Block Overlay - Prevents access to dashboard features (unless testing) */}
         {(() => {
-          const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
-                                    process.env.NODE_ENV === 'development';
-          return isBlocked && activeComponent !== "myaccount" && activeComponent !== "profileupdate" && !allowTestingAccess ? (
+          const allowTestingAccess = localStorage.getItem('dev_mode') === 'true';
+          return isBlocked && activeComponent !== "myaccount" && !allowTestingAccess ? (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
               <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 text-center">
                 <FaChalkboardTeacher className="h-16 w-16 text-[#01B0F1] mx-auto mb-4" />
                 <h3 className="text-2xl font-lilita text-[#015575] mb-4">
-                  {!profileComplete ? 'Profile Update Required' : 'Account Verification Required'}
+                  Account Verification Required
                 </h3>
                 <p className="text-gray-600 font-josefin mb-6">
-                  {!profileComplete 
-                    ? 'Please complete your profile first before accessing dashboard features.'
-                    : verificationStatus === 'pending'
+                  {verificationStatus === 'pending'
                     ? 'Your account verification is pending admin approval. You\'ll be able to access all features once approved.'
                     : 'Please complete your account verification to access the dashboard features.'}
                 </p>
                 <button
-                  onClick={() => handleMenuItemClick(!profileComplete ? "profileupdate" : "myaccount")}
+                  onClick={() => handleMenuItemClick("myaccount")}
                   className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-6 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
                 >
-                  {!profileComplete ? 'Update Profile' : verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Go to Verification'}
+                  {verificationStatus === 'rejected' ? 'Resubmit Verification' : 'Go to Verification'}
                 </button>
               </div>
             </div>
@@ -662,10 +608,9 @@ const TeacherDashboard = () => {
             {activeComponent === "dashboard" && (
               <div className="space-y-6">
                 {/* Block dashboard content if not verified (unless testing) */}
-                {(() => {
-                  const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
-                                            process.env.NODE_ENV === 'development';
-                  return isBlocked && !allowTestingAccess ? (
+                         {(() => {
+                           const allowTestingAccess = localStorage.getItem('dev_mode') === 'true';
+                           return isBlocked && !allowTestingAccess ? (
                     <div className="bg-white rounded-xl shadow-md p-8 text-center">
                       <FaChalkboardTeacher className="h-20 w-20 text-[#01B0F1] mx-auto mb-4" />
                       <h2 className="text-2xl font-lilita text-[#015575] mb-4">
@@ -820,11 +765,10 @@ const TeacherDashboard = () => {
             
             {/* Component Renderers */}
             {(() => {
-              const allowTestingAccess = localStorage.getItem('dev_mode') === 'true' || 
-                                        process.env.NODE_ENV === 'development';
+              const allowTestingAccess = localStorage.getItem('dev_mode') === 'true';
               const canAccess = !isBlocked || allowTestingAccess;
-              
-              if (!canAccess && activeComponent !== "myaccount" && activeComponent !== "dashboard") {
+
+              if (!canAccess && activeComponent !== "myaccount") {
                 return (
                   <div className="text-center py-12">
                     <p className="text-gray-500 font-josefin">Please verify your account to access this section.</p>
