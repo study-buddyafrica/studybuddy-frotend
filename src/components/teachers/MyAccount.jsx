@@ -133,8 +133,6 @@ const MyAccount = () => {
       formDataToSend.append("id_number", formData.idNumber || "");
       formDataToSend.append("tsc_number", formData.tscNumber || "");
       formDataToSend.append("school", formData.institution || "");
-      formDataToSend.append("subject", formData.subject || "");
-      formDataToSend.append("grade", formData.grade || "");
       formDataToSend.append("gender", formData.gender || "");
       formDataToSend.append("bio", formData.aboutMe || "");
       formDataToSend.append("hourly_rate", formData.hourlyRate || "");
@@ -146,7 +144,7 @@ const MyAccount = () => {
         formDataToSend.append("subjects", subjectId);
       });
       formData.grades.forEach(gradeId => {
-        formDataToSend.append("grades", gradeId);
+        formDataToSend.append("grade", gradeId);
       });
       
       // Add profile photo if selected
