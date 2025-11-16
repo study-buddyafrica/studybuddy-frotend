@@ -6,6 +6,7 @@ const VerificationCodePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const email = location.state?.email || "";
+  const registrationData = location.state?.registrationData || null;
 
   const [verificationCode, setVerificationCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -16,6 +17,15 @@ const VerificationCodePage = () => {
   // Redirect if no email provided
   useEffect(() => {
     if (!email) {
+      // Try to get from sessionStorage
+      const pendingReg = sessionStorage.getItem('pendingRegistration');
+      if (pendingReg) {
+        const data = JSON.parse(pendingReg);
+        if (data.email) {
+          // Email found in sessionStorage, continue
+          return;
+        }
+      }
       navigate("/signup");
     }
   }, [email, navigate]);
@@ -35,7 +45,8 @@ const VerificationCodePage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${FHOST}/api/users/verify-code`, {
+      // Step 1: Verify the code
+      const verifyResponse = await fetch(`${FHOST}/api/verify-email/confirm/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -44,24 +55,102 @@ const VerificationCodePage = () => {
         }),
       });
 
-      const responseData = await response.json();
+      const verifyData = await verifyResponse.json().catch(() => ({}));
 
-      if (!response.ok) {
+      if (!verifyResponse.ok) {
         setErrorMessage(
-          responseData.message ||
-            `Verification failed: ${response.status} ${response.statusText}`
+          verifyData.message ||
+            `Verification failed: ${verifyResponse.status} ${verifyResponse.statusText}`
         );
         setLoading(false);
         return;
       }
 
-      if (response.status === 200 || response.status === 201) {
-        setInformationalMessage(
-          "Email verified successfully! Redirecting to login..."
-        );
-        setTimeout(() => navigate("/login"), 2000);
+      // Step 2: If verification successful, complete registration
+      if (verifyResponse.status === 200 || verifyResponse.status === 201) {
+        // Get registration data from location state or sessionStorage
+        const regData = registrationData || JSON.parse(sessionStorage.getItem('pendingRegistration') || '{}');
+        
+        if (regData && regData.email && regData.password) {
+          // Complete registration
+          try {
+            let registerEndpoint = '/api/users/register';
+            if (regData.role === 'teacher') {
+              registerEndpoint = '/auth/register/';
+            }
+
+            // Handle different registration payloads based on role and form structure
+            let registerPayload;
+            if (regData.role === 'teacher') {
+              // Teacher signup uses name field
+              registerPayload = {
+                name: regData.name,
+                email: regData.email,
+                password: regData.password,
+                role: regData.role,
+              };
+            } else if (regData.first_name && regData.last_name) {
+              // Universal signup uses first_name, last_name, username
+              registerPayload = {
+                email: regData.email,
+                first_name: regData.first_name,
+                last_name: regData.last_name,
+                username: regData.username,
+                password: regData.password,
+                confirm_password: regData.confirm_password,
+                role: regData.role,
+              };
+            } else {
+              // Student signup uses name field
+              registerPayload = {
+                name: regData.name,
+                email: regData.email,
+                password: regData.password,
+                role: regData.role,
+              };
+            }
+
+            const registerResponse = await fetch(`${FHOST}${registerEndpoint}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(registerPayload),
+            });
+
+            const registerData = await registerResponse.json().catch(() => ({}));
+
+            if (!registerResponse.ok) {
+              setErrorMessage(
+                registerData.detail || registerData.message || registerData.error || 'Registration failed'
+              );
+              setLoading(false);
+              return;
+            }
+
+            if (registerResponse.status === 201 || registerResponse.status === 200) {
+              // Clear sessionStorage
+              sessionStorage.removeItem('pendingRegistration');
+              setInformationalMessage(
+                "Email verified and account created successfully! Redirecting to login..."
+              );
+              setTimeout(() => navigate("/login"), 2000);
+            }
+          } catch (regError) {
+            console.error('Registration error:', regError);
+            setErrorMessage("Registration failed. Please try again.");
+            setLoading(false);
+          }
+        } else {
+          // No registration data, just verify email (existing flow)
+          setInformationalMessage(
+            "Email verified successfully! Redirecting to login..."
+          );
+          setTimeout(() => navigate("/login"), 2000);
+        }
       }
     } catch (error) {
+      console.error('Verification error:', error);
       setErrorMessage(
         "Verification failed. Please check your connection and try again."
       );

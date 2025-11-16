@@ -9,57 +9,208 @@ const MyAccount = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [userInfo, setUserInfo] = useState({});
   const [loading, setLoading] = useState(false);
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [availableGrades, setAvailableGrades] = useState([]);
   const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
     phone: "",
-    idNumber: "",
-    tscNumber: "",
-    institution: "",
-    subject: "",
-    grade: "",
+    id_number: "",
+    tsc_number: "",
     gender: "",
-    aboutMe: "",
-    hourlyRate: "",
+    bio: "",
+    hourly_rate: "",
     experience: "",
-    birthDate: "",
-    academicCertificate: null,
-    tscCertificate: null,
+    birth_date: "",
+    academic_certificate: null,
+    tsc_number_certificate: null,
     subjects: [],
-    grades: [],
+    grade: [],
   });
 
   useEffect(() => {
     const UserInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (UserInfo) {
       setUserInfo(UserInfo);
-      // Pre-fill form with existing user data if available
-      setFormData({
-        fullName: UserInfo.full_name || "",
-        email: UserInfo.email || "",
-        phone: UserInfo.phone || "",
-        idNumber: UserInfo.id_number || "",
-        tscNumber: UserInfo.tsc_number || "",
-        institution: UserInfo.school || UserInfo.institution || "",
-        subject: UserInfo.subject || "",
-        grade: UserInfo.grade || "",
-        gender: UserInfo.gender || "",
-        aboutMe: UserInfo.bio || UserInfo.about_me || "",
-        hourlyRate: UserInfo.hourly_rate || "",
-        experience: UserInfo.experience || "",
-        birthDate: UserInfo.birth_date || "",
-        academicCertificate: null,
-        tscCertificate: null,
-        subjects: UserInfo.subjects || [],
-        grades: UserInfo.grades || [],
-      });
-      
-      // Set profile photo preview if available
-      if (UserInfo.profile_picture) {
-        setProfilePhotoPreview(UserInfo.profile_picture);
-      }
+      fetchProfile();
+      fetchSubjects();
+      fetchGrades();
     }
   }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+      if (response.data) {
+        setFormData({
+          phone: response.data.phone || "",
+          id_number: response.data.id_number || "",
+          tsc_number: response.data.tsc_number || "",
+          gender: response.data.gender || "",
+          bio: response.data.bio || "",
+          hourly_rate: response.data.hourly_rate || "",
+          experience: response.data.experience || "",
+          birth_date: response.data.birth_date || "",
+          academic_certificate: null,
+          tsc_number_certificate: null,
+          subjects: response.data.subjects || [],
+          grade: response.data.grade || [],
+        });
+        if (response.data.profile_picture) {
+          setProfilePhotoPreview(response.data.profile_picture);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      // Fallback to localStorage data if API call fails
+      const UserInfo = JSON.parse(localStorage.getItem("userInfo"));
+      if (UserInfo) {
+        setFormData({
+          phone: UserInfo.phone || "",
+          id_number: UserInfo.id_number || "",
+          tsc_number: UserInfo.tsc_number || "",
+          gender: UserInfo.gender || "",
+          bio: UserInfo.bio || UserInfo.about_me || "",
+          hourly_rate: UserInfo.hourly_rate || "",
+          experience: UserInfo.experience || "",
+          birth_date: UserInfo.birth_date || "",
+          academic_certificate: null,
+          tsc_number_certificate: null,
+          subjects: UserInfo.subjects || [],
+          grade: UserInfo.grade || UserInfo.grades || [],
+        });
+        if (UserInfo.profile_picture) {
+          setProfilePhotoPreview(UserInfo.profile_picture);
+        }
+      }
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      let token = localStorage.getItem("access_token");
+      if (!token) {
+        // Try to refresh token
+        const refreshToken = localStorage.getItem("refresh_token");
+        if (refreshToken) {
+          try {
+            const { authService } = await import("../../services/authService");
+            token = await authService.refreshToken();
+          } catch (refreshError) {
+            console.error("Could not refresh token for fetching subjects:", refreshError);
+            return;
+          }
+        } else {
+          console.error("No access token available for fetching subjects");
+          return;
+        }
+      }
+
+      let response;
+      try {
+        response = await axios.get(`${FHOST}/admin/get-subjects/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (initialError) {
+        // If 401 or 403, try to refresh token and retry
+        if (initialError.response?.status === 401 || initialError.response?.status === 403) {
+          try {
+            const { authService } = await import("../../services/authService");
+            const newToken = await authService.refreshToken();
+            response = await axios.get(`${FHOST}/admin/get-subjects/`, {
+              headers: {
+                Authorization: `Bearer ${newToken}`,
+              },
+            });
+          } catch (refreshError) {
+            console.error("Error fetching subjects after token refresh:", refreshError);
+            return;
+          }
+        } else {
+          throw initialError;
+        }
+      }
+      
+      // Handle different possible response structures
+      if (response.data?.classes) {
+        setAvailableSubjects(response.data.classes);
+      } else if (response.data?.subjects) {
+        setAvailableSubjects(response.data.subjects);
+      } else if (Array.isArray(response.data)) {
+        setAvailableSubjects(response.data);
+      } else {
+        console.warn("Unexpected subjects response structure:", response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching subjects:", error);
+    }
+  };
+
+  const fetchGrades = async () => {
+    try {
+      let token = localStorage.getItem("access_token");
+      if (!token) {
+        // Try to refresh token
+        const refreshToken = localStorage.getItem("refresh_token");
+        if (refreshToken) {
+          try {
+            const { authService } = await import("../../services/authService");
+            token = await authService.refreshToken();
+          } catch (refreshError) {
+            console.error("Could not refresh token for fetching grades:", refreshError);
+            return;
+          }
+        } else {
+          console.error("No access token available for fetching grades");
+          return;
+        }
+      }
+
+      let response;
+      try {
+        response = await axios.get(`${FHOST}/admin/get-classes`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (initialError) {
+        // If 401 or 403, try to refresh token and retry
+        if (initialError.response?.status === 401 || initialError.response?.status === 403) {
+          try {
+            const { authService } = await import("../../services/authService");
+            const newToken = await authService.refreshToken();
+            response = await axios.get(`${FHOST}/admin/get-classes`, {
+              headers: {
+                Authorization: `Bearer ${newToken}`,
+              },
+            });
+          } catch (refreshError) {
+            console.error("Error fetching grades after token refresh:", refreshError);
+            return;
+          }
+        } else {
+          throw initialError;
+        }
+      }
+      
+      // Handle different possible response structures
+      if (response.data?.classes) {
+        setAvailableGrades(response.data.classes);
+      } else if (response.data?.grades) {
+        setAvailableGrades(response.data.grades);
+      } else if (Array.isArray(response.data)) {
+        setAvailableGrades(response.data);
+      } else {
+        console.warn("Unexpected grades response structure:", response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching grades:", error);
+    }
+  };
 
   const handlePhotoChange = (event) => {
     const file = event.target.files[0];
@@ -90,9 +241,18 @@ const MyAccount = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleFileChange = (e) => {
-    const { name, files } = e.target;
-    setFormData({ ...formData, [name]: files[0] });
+  const handleCertificateChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setFormData({ ...formData, academic_certificate: file });
+    }
+  };
+
+  const handleTscCertificateChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setFormData({ ...formData, tsc_number_certificate: file });
+    }
   };
 
   const handleMultiSelect = (name, value, checked) => {
@@ -110,42 +270,52 @@ const MyAccount = () => {
     setErrorMessage("");
     setSuccessMessage("");
 
-    // Basic validation
-    if (!formData.fullName || !formData.email) {
-      setErrorMessage("Full Name and Email are required fields.");
-      setLoading(false);
-      return;
-    }
-
-    if (!profilePhoto && !profilePhotoPreview) {
-      setErrorMessage("Please upload a profile photo.");
-      setLoading(false);
-      return;
+    // Check if token exists
+    let token = localStorage.getItem("access_token");
+    if (!token) {
+      // Try to get refresh token and refresh
+      const refreshToken = localStorage.getItem("refresh_token");
+      if (refreshToken) {
+        try {
+          const { authService } = await import("../../services/authService");
+          token = await authService.refreshToken();
+        } catch (refreshError) {
+          setErrorMessage("No authentication token found. Please log out and log back in.");
+          setLoading(false);
+          return;
+        }
+      } else {
+        setErrorMessage("No authentication token found. Please log out and log back in.");
+        setLoading(false);
+        return;
+      }
     }
 
     try {
       const formDataToSend = new FormData();
       
-      // Add all form fields
-      formDataToSend.append("full_name", formData.fullName);
-      formDataToSend.append("email", formData.email);
-      formDataToSend.append("phone", formData.phone || "");
-      formDataToSend.append("id_number", formData.idNumber || "");
-      formDataToSend.append("tsc_number", formData.tscNumber || "");
-      formDataToSend.append("school", formData.institution || "");
-      formDataToSend.append("gender", formData.gender || "");
-      formDataToSend.append("bio", formData.aboutMe || "");
-      formDataToSend.append("hourly_rate", formData.hourlyRate || "");
-      formDataToSend.append("experience", formData.experience || "");
-      formDataToSend.append("birth_date", formData.birthDate || "");
+      // Add all form fields according to API endpoint
+      if (formData.bio) formDataToSend.append("bio", formData.bio);
+      if (formData.phone) formDataToSend.append("phone", formData.phone);
+      if (formData.hourly_rate) formDataToSend.append("hourly_rate", formData.hourly_rate);
+      if (formData.experience) formDataToSend.append("experience", formData.experience);
+      if (formData.birth_date) formDataToSend.append("birth_date", formData.birth_date);
+      if (formData.tsc_number) formDataToSend.append("tsc_number", formData.tsc_number);
+      if (formData.id_number) formDataToSend.append("id_number", formData.id_number);
+      if (formData.gender) formDataToSend.append("gender", formData.gender);
 
       // Add subjects and grades as arrays
-      formData.subjects.forEach(subjectId => {
-        formDataToSend.append("subjects", subjectId);
-      });
-      formData.grades.forEach(gradeId => {
-        formDataToSend.append("grade", gradeId);
-      });
+      // Always send them, even if empty (backend may need empty arrays)
+      if (formData.subjects && Array.isArray(formData.subjects)) {
+        formData.subjects.forEach(subjectId => {
+          formDataToSend.append("subjects", subjectId);
+        });
+      }
+      if (formData.grade && Array.isArray(formData.grade)) {
+        formData.grade.forEach(gradeId => {
+          formDataToSend.append("grade", gradeId);
+        });
+      }
       
       // Add profile photo if selected
       if (profilePhoto) {
@@ -153,45 +323,97 @@ const MyAccount = () => {
       }
 
       // Add certificates if selected
-      if (formData.academicCertificate) {
-        formDataToSend.append("academic_certificate", formData.academicCertificate);
+      if (formData.academic_certificate) {
+        formDataToSend.append("academic_certificate", formData.academic_certificate);
       }
-      if (formData.tscCertificate) {
-        formDataToSend.append("tsc_number_certificate", formData.tscCertificate);
+      if (formData.tsc_number_certificate) {
+        formDataToSend.append("tsc_number_certificate", formData.tsc_number_certificate);
       }
 
-      const response = await axios.post(
-        `${FHOST}/api/teachers/${userInfo?.id}/verify_teacher`,
-        formDataToSend,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
+      // Try the request, and if we get 401/403, refresh token and retry
+      let response;
+      try {
+        response = await axios.patch(
+          `${FHOST}/api/teacher/profile/update/`,
+          formDataToSend,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      } catch (initialError) {
+        // If 401 or 403, try to refresh token and retry
+        if (initialError.response?.status === 401 || initialError.response?.status === 403) {
+          try {
+            const { authService } = await import("../../services/authService");
+            const newToken = await authService.refreshToken();
+            // Retry with new token
+            response = await axios.patch(
+              `${FHOST}/api/teacher/profile/update/`,
+              formDataToSend,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${newToken}`,
+                },
+              }
+            );
+          } catch (refreshError) {
+            // If refresh fails, throw the original error to be handled by the catch block below
+            throw initialError;
+          }
+        } else {
+          // For other errors, throw them
+          throw initialError;
         }
-      );
+      }
 
       if (response.status === 200 || response.status === 201) {
-        setSuccessMessage("Verification submitted successfully! Your request is pending admin approval.");
+        setSuccessMessage("Profile updated successfully! Your profile has been submitted for verification. You will be notified once an admin reviews and approves your account.");
         
         // Update userInfo in localStorage
+        const updatedProfile = response.data;
         const currentUserInfo = JSON.parse(localStorage.getItem('userInfo'));
-        currentUserInfo.verification_status = 'pending';
-        localStorage.setItem('userInfo', JSON.stringify(currentUserInfo));
-        setUserInfo(currentUserInfo);
+        const updatedUserInfo = { ...currentUserInfo, ...updatedProfile };
+        // Set verification status to pending if not already approved
+        if (updatedUserInfo.verification_status !== 'approved') {
+          updatedUserInfo.verification_status = 'pending';
+        }
+        localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+        setUserInfo(updatedUserInfo);
         
         // Notify other components to refresh
-        window.dispatchEvent(new Event('verification-status-changed'));
+        window.dispatchEvent(new Event('profile-updated'));
         
-        setTimeout(() => setSuccessMessage(""), 5000);
+        // Refresh profile data
+        fetchProfile();
+        
+        setTimeout(() => setSuccessMessage(""), 10000);
       }
     } catch (error) {
-      console.error("Error verifying account:", error);
-      const errorMsg = error.response?.data?.message || 
-                      error.response?.data?.error || 
-                      "Verification submission failed. Please try again.";
-      setErrorMessage(errorMsg);
-      setTimeout(() => setErrorMessage(""), 5000);
+      console.error("Error updating profile:", error);
+      
+      // Check if it's an authentication error
+      if (error.response?.status === 403) {
+        const errorDetail = error.response?.data?.detail || 
+                           error.response?.data?.message || 
+                           error.response?.data?.error;
+        setErrorMessage(
+          `Access denied (403 Forbidden). ${errorDetail || 'Your session may have expired. Please try logging out and logging back in.'}`
+        );
+      } else if (error.response?.status === 401) {
+        setErrorMessage("Authentication failed. Please log out and log back in.");
+      } else {
+        const errorMsg = error.response?.data?.message || 
+                        error.response?.data?.error || 
+                        error.response?.data?.detail ||
+                        error.response?.data ||
+                        "Profile update failed. Please try again.";
+        setErrorMessage(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+      }
+      setTimeout(() => setErrorMessage(""), 8000);
     } finally {
       setLoading(false);
     }
@@ -230,7 +452,7 @@ const MyAccount = () => {
     <div className="min-h-screen bg-gray-50 font-josefin">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-lilita text-[#015575] text-center mb-8">
-          Account Verification
+          Update Profile
         </h1>
 
         {/* Status Messages */}
@@ -255,12 +477,12 @@ const MyAccount = () => {
           </div>
         )}
 
-        {/* Verification Form */}
+        {/* Profile Update Form */}
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
           {/* Profile Photo Section */}
           <div className="mb-8">
             <label className="block text-lg font-semibold text-[#015575] mb-4">
-              Profile Photo <span className="text-red-500">*</span>
+              Profile Photo
             </label>
             <div className="flex flex-col items-center space-y-4">
               <div className="relative group">
@@ -321,36 +543,6 @@ const MyAccount = () => {
             <div className="grid gap-6 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter your full name"
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter your email"
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Phone Number
                 </label>
                 <input
@@ -369,8 +561,8 @@ const MyAccount = () => {
                 </label>
                 <input
                   type="text"
-                  name="idNumber"
-                  value={formData.idNumber}
+                  name="id_number"
+                  value={formData.id_number}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   placeholder="Enter your ID number"
@@ -383,8 +575,8 @@ const MyAccount = () => {
                 </label>
                 <input
                   type="date"
-                  name="birthDate"
-                  value={formData.birthDate}
+                  name="birth_date"
+                  value={formData.birth_date}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   disabled={loading}
@@ -396,8 +588,8 @@ const MyAccount = () => {
                 </label>
                 <input
                   type="text"
-                  name="hourlyRate"
-                  value={formData.hourlyRate}
+                  name="hourly_rate"
+                  value={formData.hourly_rate}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   placeholder="Enter hourly rate"
@@ -433,53 +625,11 @@ const MyAccount = () => {
                 </label>
                 <input
                   type="text"
-                  name="tscNumber"
-                  value={formData.tscNumber}
+                  name="tsc_number"
+                  value={formData.tsc_number}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   placeholder="Enter your TSC number"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Institution
-                </label>
-                <input
-                  type="text"
-                  name="institution"
-                  value={formData.institution}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter your institution"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Subject
-                </label>
-                <input
-                  type="text"
-                  name="subject"
-                  value={formData.subject}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter your subject"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Grade
-                </label>
-                <input
-                  type="text"
-                  name="grade"
-                  value={formData.grade}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter grade level"
                   disabled={loading}
                 />
               </div>
@@ -503,34 +653,41 @@ const MyAccount = () => {
             </div>
           </div>
 
-          {/* Subjects and Grades */}
+          {/* Subjects */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subjects & Grades</h3>
-            <div className="grid gap-6 md:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Subjects</label>
-                <input
-                  type="text"
-                  name="subjects"
-                  value={formData.subjects.join(', ')}
-                  onChange={(e) => setFormData({...formData, subjects: e.target.value.split(',').map(s => s.trim()).filter(s => s)})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter subjects separated by commas"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Grades</label>
-                <input
-                  type="text"
-                  name="grades"
-                  value={formData.grades.join(', ')}
-                  onChange={(e) => setFormData({...formData, grades: e.target.value.split(',').map(g => g.trim()).filter(g => g)})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter grades separated by commas"
-                  disabled={loading}
-                />
-              </div>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subjects</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {availableSubjects.map((subject) => (
+                <label key={subject.id} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.subjects.includes(subject.id)}
+                    onChange={(e) => handleMultiSelect("subjects", subject.id, e.target.checked)}
+                    className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
+                    disabled={loading}
+                  />
+                  <span className="text-gray-700">{subject.subject || subject.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Grades */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Grades</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {availableGrades.map((grade) => (
+                <label key={grade.id} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.grade.includes(grade.id)}
+                    onChange={(e) => handleMultiSelect("grade", grade.id, e.target.checked)}
+                    className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
+                    disabled={loading}
+                  />
+                  <span className="text-gray-700">{grade.name}</span>
+                </label>
+              ))}
             </div>
           </div>
 
@@ -542,9 +699,8 @@ const MyAccount = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Academic Certificate</label>
                 <input
                   type="file"
-                  name="academicCertificate"
                   accept=".pdf,.doc,.docx,image/*"
-                  onChange={handleFileChange}
+                  onChange={handleCertificateChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   disabled={loading}
                 />
@@ -553,9 +709,8 @@ const MyAccount = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">TSC Certificate</label>
                 <input
                   type="file"
-                  name="tscCertificate"
                   accept=".pdf,.doc,.docx,image/*"
-                  onChange={handleFileChange}
+                  onChange={handleTscCertificateChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   disabled={loading}
                 />
@@ -563,12 +718,12 @@ const MyAccount = () => {
             </div>
           </div>
 
-          {/* About Me */}
+          {/* Bio */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">About Me</h3>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Bio</h3>
             <textarea
-              name="aboutMe"
-              value={formData.aboutMe}
+              name="bio"
+              value={formData.bio}
               onChange={handleInputChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent h-32"
               placeholder="Tell us about yourself..."
@@ -579,7 +734,7 @@ const MyAccount = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading || userInfo.verification_status === 'approved'}
+            disabled={loading}
             className="w-full bg-[#015575] text-white py-3 rounded-xl hover:bg-[#01415e] transition text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
@@ -588,18 +743,12 @@ const MyAccount = () => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Submitting...
+                Updating...
               </span>
-            ) : userInfo.verification_status === 'rejected' ? (
-              'Resubmit Verification Request'
             ) : (
-              'Submit Verification Request'
+              'Update Profile'
             )}
           </button>
-
-          <p className="mt-4 text-sm text-gray-500 text-center font-josefin">
-            Your verification request will be sent to the admin team for approval. You'll be notified once your account is verified.
-          </p>
         </form>
       </div>
     </div>

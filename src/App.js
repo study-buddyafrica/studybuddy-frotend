@@ -91,6 +91,38 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
+// Admin Protected Route Component - checks authentication and is_superuser
+const AdminProtectedRoute = ({ children }) => {
+  const isAuthenticated = localStorage.getItem("access_token") !== null;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+  
+  // Check if user is superuser (admin)
+  const userInfo = localStorage.getItem("userInfo");
+  if (userInfo) {
+    try {
+      const user = JSON.parse(userInfo);
+      // Only allow access if is_superuser is explicitly true
+      if (user.is_superuser !== true) {
+        // Redirect non-admin users to their appropriate dashboard
+        const role = user.role;
+        if (role === 'teacher') return <Navigate to="/teacher-dashboard" />;
+        if (role === 'student') return <Navigate to="/student-dashboard/" />;
+        if (role === 'parent') return <Navigate to="/parent-dashboard/home" />;
+        return <Navigate to="/login" />;
+      }
+    } catch (e) {
+      console.error("Error parsing userInfo:", e);
+      return <Navigate to="/login" />;
+    }
+  } else {
+    return <Navigate to="/login" />;
+  }
+  
+  return children;
+};
+
 const App = () => {
   return (
     <Router>
@@ -271,7 +303,7 @@ const App = () => {
               </MainLayout>
             }
           />
-          <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+          <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="users" element={<Users />} />
             <Route path="teachers" element={<AdminTeachers />} />

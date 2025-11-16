@@ -13,10 +13,19 @@ const StudentLiveClass = ({userInfo}) => {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const response = await axios.get(`${FHOST}/lessons/api/live-sessions`);
-        setSessions(response.data);
+        const token = localStorage.getItem('access_token');
+        const response = await axios.get(`${FHOST}/api/live-sessions/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        // Handle paginated response - students see sessions they booked
+        const sessionsList = response.data?.results || response.data || [];
+        setSessions(Array.isArray(sessionsList) ? sessionsList : []);
       } catch (error) {
         console.error("Error fetching sessions:", error);
+        setSessions([]);
       }
     };
     fetchSessions();
@@ -30,27 +39,48 @@ const StudentLiveClass = ({userInfo}) => {
   const handleConfirmJoin = async () => {
     if (!selectedSession) return;
 
-    const sessionData = {
-      id: selectedSession.id,
-      title: selectedSession.title,
-      description: selectedSession.description,
-      zoom_link: selectedSession.zoom_link,
-      scheduled_date: selectedSession.scheduled_date,
-      basic_info: selectedSession.basic_info,
-      price: selectedSession.price,
-      teacher: selectedSession.teacher || null,
-      subject: selectedSession.subject || null,
-    };
-
     try {
-      await axios.post(`${FHOST}/lessons/api/join-session/${userInfo?.id}`, sessionData);
-      setConfirmedSessions((prev) => ({
-        ...prev,
-        [selectedSession.id]: true,
-      }));
-      setShowPaymentForm(false);
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Authentication required. Please login again.');
+        return;
+      }
+
+      // Get session_booking_id from the session
+      // This should be available from the booking that created this session
+      const sessionBookingId = selectedSession.session_booking_id || selectedSession.booking_id;
+      
+      if (!sessionBookingId) {
+        alert('Session booking ID not found. Cannot join session.');
+        return;
+      }
+
+      const response = await axios.post(
+        `${FHOST}/api/student/live-session/${sessionBookingId}/join/`,
+        {},
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setConfirmedSessions((prev) => ({
+          ...prev,
+          [selectedSession.id]: true,
+        }));
+        setShowPaymentForm(false);
+        alert('Successfully joined the live session!');
+      }
     } catch (error) {
-      console.error("Error confirming session:", error);
+      console.error("Error joining session:", error);
+      const errorMsg = error.response?.data?.message || 
+                      error.response?.data?.error || 
+                      error.response?.data?.detail ||
+                      'Failed to join session. Please try again.';
+      alert(errorMsg);
     }
   };
 
@@ -119,10 +149,31 @@ const StudentLiveClass = ({userInfo}) => {
                   Join Class
                 </button>
               ) : (
-                <div className="mt-4 p-2 bg-green-200 text-green-800 text-sm rounded-lg">
-                  Confirmed! <a href={session.zoom_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Join Now</a>
+                <div className="mt-4 space-y-2">
+                  <div className="p-2 bg-green-200 text-green-800 text-sm rounded-lg">
+                    Confirmed! You can now join the session.
+                  </div>
+                  {session.student_meeting_link && (
+                    <a 
+                      href={session.student_meeting_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center"
+                    >
+                      Join Meeting
+                    </a>
+                  )}
+                  {session.whiteboard_link && (
+                    <a 
+                      href={session.whiteboard_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="block px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-center mt-2"
+                    >
+                      Open Whiteboard
+                    </a>
+                  )}
                 </div>
-
               )}
             </div>
           ))

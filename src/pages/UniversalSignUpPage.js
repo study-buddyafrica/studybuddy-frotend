@@ -123,67 +123,84 @@ const UniversalSignupPage = () => {
     setLoading(true);
 
     try {
-      // Prepare payload per backend contract
-      const payload = {
-        email: formData.email,
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        username: formData.username,
-        password: formData.password,
-        confirm_password: formData.confirmPassword,
-        role: formData.role,
-      };
-
-      const response = await fetch(`${FHOST}${registerEndpoint}`, {
+      // Step 1: Send verification code to email
+      // Django requires trailing slash for POST requests
+      const sendCodeResponse = await fetch(`${FHOST}/api/verify-email/request/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(payload),
+        headers: { 
+          "Content-Type": "application/json", 
+          "Accept": "application/json" 
+        },
+        body: JSON.stringify({
+          email: formData.email,
+        }),
       });
 
-      let rawText = await response.text();
-
-      // Robust error handling: attempt to parse JSON, fallback to raw text
-      let responseData = null;
+      // Parse response - handle both JSON and potential errors
+      let sendCodeData = {};
+      const contentType = sendCodeResponse.headers.get('content-type');
       try {
-        responseData = rawText ? JSON.parse(rawText) : null;
-      } catch (_) {
-        responseData = null;
+        if (contentType && contentType.includes('application/json')) {
+          sendCodeData = await sendCodeResponse.json();
+        } else {
+          const responseText = await sendCodeResponse.text();
+          console.error('Non-JSON response received:', responseText);
+          sendCodeData = { error: responseText || 'Unknown server error' };
+        }
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        sendCodeData = { error: 'Failed to parse server response' };
       }
 
-      if (!response.ok) {
-        const serverMsg = responseData?.detail || responseData?.message || responseData?.error;
-        const missing = responseData?.missing;
-
-        // Handle duplicate email error specifically (can come as 400, 409, or 500)
-        if ((response.status === 400 || response.status === 409 || response.status === 500) &&
-            (serverMsg?.includes('email') && serverMsg?.includes('already exists') ||
-             rawText?.includes('duplicate key') ||
-             rawText?.includes('IntegrityError'))) {
+      if (!sendCodeResponse.ok) {
+        console.error('Verification request failed:', {
+          status: sendCodeResponse.status,
+          statusText: sendCodeResponse.statusText,
+          data: sendCodeData
+        });
+        
+        const errorMsg = sendCodeData.detail || sendCodeData.message || sendCodeData.error || 
+          `Server error (${sendCodeResponse.status}): ${sendCodeResponse.statusText}`;
+        
+        if (errorMsg.includes('email') && errorMsg.includes('already exists')) {
           setErrorMessage('An account with this email already exists. Please use a different email or try logging in.');
         } else {
-          const composed = missing
-            ? `Missing fields: ${missing.join(", ")}`
-            : serverMsg || rawText || `Signup failed: ${response.status} ${response.statusText}`;
-          setErrorMessage(composed);
+          setErrorMessage(errorMsg);
         }
-        console.error("Signup failed:", { status: response.status, responseData, rawText });
         setLoading(false);
         return;
       }
 
-      if (response.status === 201 || response.status === 200) {
-        setInformationalMessage(
-          "Account created successfully! Redirecting to login..."
-        );
-        // Redirect to login page after successful registration
+      // Step 2: If code sent successfully, redirect to verification page with form data
+      if (sendCodeResponse.status === 200 || sendCodeResponse.status === 201) {
+        setInformationalMessage('Verification code sent to your email! Redirecting to verification page...');
+        
+        // Store form data in sessionStorage to use after verification
+        const registrationData = {
+          email: formData.email,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          username: formData.username,
+          password: formData.password,
+          confirm_password: formData.confirmPassword,
+          role: formData.role,
+        };
+        
+        sessionStorage.setItem('pendingRegistration', JSON.stringify(registrationData));
+
+        // Redirect to verification page
         setTimeout(() => {
-          navigate("/login");
-        }, 2000);
+          navigate('/verify-code', { 
+            state: { 
+              email: formData.email, 
+              registrationData: registrationData 
+            } 
+          });
+        }, 1500);
       }
     } catch (error) {
       console.error("Signup network error:", error);
       setErrorMessage("Signup failed. Please check your connection and try again.");
-    } finally {
       setLoading(false);
     }
   };

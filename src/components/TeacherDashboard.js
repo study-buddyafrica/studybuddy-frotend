@@ -232,12 +232,62 @@ const TeacherDashboard = () => {
   useEffect(() => {
     const fetchLiveSessions = async () => {
       try {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          setError("Authentication required. Please login again.");
+          setLoading(false);
+          return;
+        }
+
         const response = await axios.get(
-          `${FHOST}/lessons/api/live-sessions/${userInfo?.id}`
+          `${FHOST}/api/live-sessions/`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-        setLiveSessions(response.data);
+        
+        // Handle paginated response structure
+        // Teachers see sessions they are teaching (filtered by backend)
+        if (response.data?.results && Array.isArray(response.data.results)) {
+          setLiveSessions(response.data.results);
+        } else if (Array.isArray(response.data)) {
+          // Fallback if response is directly an array
+          setLiveSessions(response.data);
+        } else {
+          setLiveSessions([]);
+        }
         setLoading(false);
       } catch (err) {
+        console.error('Error fetching live sessions:', err);
+        // Try to refresh token if 401/403
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          try {
+            const { authService } = await import("../services/authService");
+            const newToken = await authService.refreshToken();
+            // Retry with new token
+            const retryResponse = await axios.get(
+              `${FHOST}/api/live-sessions/`,
+              {
+                headers: {
+                  Authorization: `Bearer ${newToken}`,
+                },
+              }
+            );
+            if (retryResponse.data?.results && Array.isArray(retryResponse.data.results)) {
+              setLiveSessions(retryResponse.data.results);
+            } else if (Array.isArray(retryResponse.data)) {
+              setLiveSessions(retryResponse.data);
+            } else {
+              setLiveSessions([]);
+            }
+            setLoading(false);
+            return;
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
+          }
+        }
         setError("Failed to load live sessions. Please try again later.");
         setLoading(false);
       }

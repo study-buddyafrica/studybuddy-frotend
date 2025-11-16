@@ -5,6 +5,7 @@ import { CalendarIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 const LiveClass = ({ userInfo }) => {
   const [meetingDetails, setMeetingDetails] = useState({
+    session_booking_id: '',
     topic: '',
     agenda: '',
     start_time: '',
@@ -17,6 +18,7 @@ const LiveClass = ({ userInfo }) => {
 
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [meetingData, setMeetingData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -43,6 +45,32 @@ const LiveClass = ({ userInfo }) => {
     };
     fetchClasses();
   }, []);
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token || !userInfo?.id) return;
+
+        const response = await axios.get(`${FHOST}/lessons/api/bookings/teacher/${userInfo.id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        // Filter for accepted/confirmed bookings that can be used for live sessions
+        const allBookings = Array.isArray(response.data) ? response.data : [];
+        const availableBookings = allBookings.filter(
+          booking => ['accepted', 'confirmed'].includes((booking.status || '').toLowerCase())
+        );
+        setBookings(availableBookings);
+      } catch (err) {
+        console.error('Error fetching bookings:', err);
+        setBookings([]);
+      }
+    };
+    fetchBookings();
+  }, [userInfo?.id]);
 
   useEffect(() => {
     if (meetingDetails.class_id) {
@@ -88,54 +116,18 @@ const LiveClass = ({ userInfo }) => {
       }
 
       // Basic validation before request
+      if (!meetingDetails.session_booking_id) throw new Error('Please select a booking session.');
       if (!meetingDetails.topic.trim()) throw new Error('Please enter a class topic.');
       if (!meetingDetails.agenda.trim()) throw new Error('Please enter a class description.');
-      if (!meetingDetails.start_time) throw new Error('Please select a start time.');
-      if (!meetingDetails.duration || Number(meetingDetails.duration) <= 0) throw new Error('Please enter a valid duration.');
-
-      // Convert datetime-local (YYYY-MM-DDTHH:MM) to ISO format with Z (UTC)
-      // Input format: "2024-11-23T12:00" (from datetime-local input, local timezone)
-      // Output format: "2024-11-23T12:00:00Z" (ISO format with UTC timezone)
-      let isoStartTime = '';
-      if (meetingDetails.start_time) {
-        const timeStr = meetingDetails.start_time.trim();
-        if (timeStr.includes('Z')) {
-          // Already in ISO format with Z
-          isoStartTime = timeStr;
-        } else {
-          // Parse as local date and convert to UTC ISO string
-          try {
-            // datetime-local input is in local timezone
-            const localDate = new Date(timeStr);
-            if (!isNaN(localDate.getTime())) {
-              // Convert to ISO string (automatically converts to UTC and adds Z)
-              isoStartTime = localDate.toISOString();
-            } else {
-              // Fallback: if parsing fails, try to add seconds and Z
-              isoStartTime = timeStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
-                ? `${timeStr}:00Z`
-                : timeStr;
-            }
-          } catch {
-            // Final fallback
-            isoStartTime = timeStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
-              ? `${timeStr}:00Z`
-              : timeStr;
-          }
-        }
-      }
 
       const payload = {
-        topic: meetingDetails.topic,
-        agenda: meetingDetails.agenda,
-        duration: parseInt(meetingDetails.duration, 10) || 45,
-        start_time: isoStartTime,
-        timezone: meetingDetails.timezone || 'UTC',
-        subject_id: meetingDetails.subject_id || null,
+        session_booking_id: meetingDetails.session_booking_id,
+        title: meetingDetails.topic,
+        description: meetingDetails.agenda,
       };
 
       const response = await axios.post(
-        `${FHOST}/lessons/meetings/${userInfo?.id}`,
+        `${FHOST}/api/teacher/live-session/`,
         payload,
         {
           headers: {
@@ -145,18 +137,23 @@ const LiveClass = ({ userInfo }) => {
         }
       );
 
-      if (response.status === 201) {
+      if (response.status === 201 || response.status === 200) {
         const data = response.data;
         setMeetingData({
-          eventId: data?.google_meet_details?.event_id || null,
-          meetLink: data?.google_meet_details?.google_meet_link || data?.db_entry?.google_meet_link || null,
-          sessionId: data?.db_entry?.session_id || null,
-          title: data?.db_entry?.title || meetingDetails.topic,
+          id: data?.id || null,
+          meetLink: data?.meeting_link || data?.teacher_meeting_link || null,
+          studentLink: data?.student_meeting_link || null,
+          whiteboardLink: data?.whiteboard_link || null,
+          title: data?.title || meetingDetails.topic,
+          description: data?.description || meetingDetails.agenda,
+          startedAt: data?.started_at || null,
+          endedAt: data?.ended_at || null,
         });
         setShowPopup(true);
         
         // Reset form after successful creation
         setMeetingDetails({
+          session_booking_id: '',
           topic: '',
           agenda: '',
           start_time: '',
@@ -192,6 +189,31 @@ const LiveClass = ({ userInfo }) => {
         </h1>
 
         <form className="space-y-6">
+          {/* Booking Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Booking Session <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={meetingDetails.session_booking_id}
+              onChange={(e) => setMeetingDetails({ ...meetingDetails, session_booking_id: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+              required
+            >
+              <option value="">Choose a booking session</option>
+              {bookings.map((booking) => (
+                <option key={booking.id} value={booking.id}>
+                  {booking.student_name || 'Student'} - {booking.subject || 'Lesson'} - {booking.session_datetime ? new Date(booking.session_datetime).toLocaleString() : 'Date TBD'} ({booking.status})
+                </option>
+              ))}
+            </select>
+            {bookings.length === 0 && (
+              <p className="mt-2 text-sm text-gray-500">
+                No accepted or confirmed bookings available. Please accept a booking request first.
+              </p>
+            )}
+          </div>
+
           {/* Topic */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -221,19 +243,18 @@ const LiveClass = ({ userInfo }) => {
             />
           </div>
 
-          {/* Class Selection */}
+          {/* Class Selection (Optional) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Class
+                Select Class (Optional)
               </label>
               <select
                 value={meetingDetails.class_id}
                 onChange={(e) => setMeetingDetails({ ...meetingDetails, class_id: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                required
               >
-                <option value="">Choose a class</option>
+                <option value="">Choose a class (optional)</option>
                 {classes.map((cls) => (
                   <option key={cls.id} value={cls.id}>{cls.name}</option>
                 ))}
@@ -284,38 +305,14 @@ const LiveClass = ({ userInfo }) => {
             </div>
           </div>
 
-          {/* Time & Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Time
-              </label>
-              <div className="relative">
-                <input
-                  type="datetime-local"
-                  value={meetingDetails.start_time}
-                  onChange={(e) => setMeetingDetails({ ...meetingDetails, start_time: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  required
-                />
-                <CalendarIcon className="h-5 w-5 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
-              </div>
+          {/* Note: Time and duration are now determined by the booking session */}
+          {meetingDetails.session_booking_id && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <p className="text-sm text-blue-700">
+                <strong>Note:</strong> The session time and duration will be determined by the selected booking.
+              </p>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Duration (mins)
-              </label>
-              <input
-                type="number"
-                value={meetingDetails.duration}
-                onChange={(e) => setMeetingDetails({ ...meetingDetails, duration: parseInt(e.target.value, 10) })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                required
-              />
-            </div>
-
-          </div>
+          )}
 
           {/* Submit Button */}
           <button
@@ -335,7 +332,7 @@ const LiveClass = ({ userInfo }) => {
             ) : (
               <>
                 <CheckCircleIcon className="h-5 w-5" />
-                Create Google Meet
+                Create Live Session
               </>
             )}
           </button>
@@ -355,34 +352,86 @@ const LiveClass = ({ userInfo }) => {
             <div className="flex flex-col items-center text-center">
               <CheckCircleIcon className="h-16 w-16 text-green-500 mb-4" />
               <h2 className="text-2xl font-semibold text-[#015575] mb-2">
-                Google Meet Created!
+                Live Session Created!
               </h2>
               <p className="mb-6 text-gray-600">
-                Your meeting has been successfully created and scheduled.
+                Your live session has been successfully created. Google Meet links have been generated.
               </p>
               
               {meetingData.meetLink && (
-                <div className="w-full bg-gray-50 rounded-xl p-4 mb-4">
-                  <label className="block text-xs font-medium text-gray-500 mb-2 text-left">
-                    Google Meet Link:
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={meetingData.meetLink}
-                      readOnly
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-[#015575] font-medium bg-white"
-                    />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(meetingData.meetLink);
-                        alert('Link copied to clipboard!');
-                      }}
-                      className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm"
-                    >
-                      Copy
-                    </button>
+                <div className="w-full space-y-3 mb-4">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <label className="block text-xs font-medium text-gray-500 mb-2 text-left">
+                      Teacher Meeting Link:
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={meetingData.meetLink}
+                        readOnly
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-[#015575] font-medium bg-white"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(meetingData.meetLink);
+                          alert('Link copied to clipboard!');
+                        }}
+                        className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm"
+                      >
+                        Copy
+                      </button>
+                    </div>
                   </div>
+                  
+                  {meetingData.studentLink && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <label className="block text-xs font-medium text-gray-500 mb-2 text-left">
+                        Student Meeting Link:
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={meetingData.studentLink}
+                          readOnly
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-[#015575] font-medium bg-white"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(meetingData.studentLink);
+                            alert('Link copied to clipboard!');
+                          }}
+                          className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {meetingData.whiteboardLink && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <label className="block text-xs font-medium text-gray-500 mb-2 text-left">
+                        Whiteboard Link:
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={meetingData.whiteboardLink}
+                          readOnly
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-[#015575] font-medium bg-white"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(meetingData.whiteboardLink);
+                            alert('Link copied to clipboard!');
+                          }}
+                          className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

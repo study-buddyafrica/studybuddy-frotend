@@ -36,27 +36,24 @@ const TeacherSignUpPage = () => {
     }
 
     try {
-      let role = "teacher";
-      const response = await fetch(`${FHOST}/auth/register/`, {
+      // Step 1: Send verification code to email
+      // Django requires trailing slash for POST requests
+      const sendCodeResponse = await fetch(`${FHOST}/api/verify-email/request/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({
-          name,
-          email,
-          password,
-          role,
+          email: email,
         }),
       });
 
-      if (response.status === 409 || response.status === 400 || response.status === 500) {
-        // Handle duplicate emails (can come as 400, 409, or 500 with IntegrityError)
-        const data = await response.json().catch(() => ({}));
-        const errorMsg = data.detail || data.message || data.error || 'Email already exists';
-        if (errorMsg.includes('email') && errorMsg.includes('already exists') ||
-            errorMsg.includes('duplicate key') ||
-            errorMsg.includes('IntegrityError')) {
+      const sendCodeData = await sendCodeResponse.json().catch(() => ({}));
+
+      if (!sendCodeResponse.ok) {
+        const errorMsg = sendCodeData.detail || sendCodeData.message || sendCodeData.error || 'Failed to send verification code';
+        if (errorMsg.includes('email') && errorMsg.includes('already exists')) {
           setErrorMessage('An account with this email already exists. Please use a different email or try logging in.');
         } else {
           setErrorMessage(errorMsg);
@@ -64,15 +61,25 @@ const TeacherSignUpPage = () => {
         return;
       }
 
-      if (response.status === 201) {
-        const data = await response.json();
-        setInformationalMessage('Signup successful. Redirecting to login page...');
+      // Step 2: If code sent successfully, redirect to verification page with form data
+      if (sendCodeResponse.status === 200 || sendCodeResponse.status === 201) {
+        setInformationalMessage('Verification code sent to your email! Redirecting to verification page...');
+        
+        // Store form data in sessionStorage to use after verification
+        sessionStorage.setItem('pendingRegistration', JSON.stringify({
+          name,
+          email,
+          password,
+          role: 'teacher'
+        }));
 
+        // Redirect to verification page
         setTimeout(() => {
-          navigate('/login');
-        }, 2000);
+          navigate('/verify-code', { state: { email, registrationData: { name, email, password, role: 'teacher' } } });
+        }, 1500);
       }
     } catch (error) {
+      console.error('Signup error:', error);
       setErrorMessage('Signup failed. Please try again.');
       setTimeout(() => {
         setErrorMessage('');

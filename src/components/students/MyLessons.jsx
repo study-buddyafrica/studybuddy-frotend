@@ -20,40 +20,94 @@ const MyLessons = ({userInfo, darkMode}) => {
 
   const fetchScheduledLessons = async () => {
     try {
-      const response = await axios.get(`${FHOST}/lessons/api/bookings/student/${userInfo?.id}`);
-      if (Array.isArray(response.data)) {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.error('No access token available');
+        return;
+      }
+
+      // Try new endpoint first, fallback to old one
+      let response;
+      try {
+        response = await axios.get(`${FHOST}/api/student/session-bookings/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (newError) {
+        // Fallback to old endpoint
+        response = await axios.get(`${FHOST}/lessons/api/bookings/student/${userInfo?.id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+
+      const bookingsList = response.data?.results || response.data || [];
+      if (Array.isArray(bookingsList)) {
         // Map bookings into the expected UI shape
-        const mapped = response.data.map(b => ({
+        const mapped = bookingsList.map(b => ({
           id: b.id,
+          teacher_id: b.teacher_id,
           teacher_name: b.teacher_name || b.teacher_id,
           subject: b.subject || 'Lesson',
-          date: b.session_datetime,
-          time: b.session_datetime,
+          date: b.scheduled_start || b.session_datetime,
+          time: b.scheduled_start ? new Date(b.scheduled_start).toLocaleTimeString() : (b.session_datetime || ''),
+          scheduled_start: b.scheduled_start,
+          scheduled_end: b.scheduled_end,
           status: b.status,
-          cost: b.cost,
-          payment_status: b.status === 'accepted' ? 'pending' : 'n/a'
+          cost: Math.abs(parseFloat(b.cost || 0)),
+          payment_status: b.status === 'accepted' || b.status === 'confirmed' ? 'pending' : 'n/a',
+          is_allowed: b.is_allowed,
+          attended: b.attended,
+          duration_hours: b.duration_hours,
+          course: b.course,
         }));
         setScheduledLessons(mapped);
       }
     } catch (error) {
       console.error('Error fetching lessons:', error);
+      setScheduledLessons([]);
     }
   };
 
   const fetchPendingPayments = async () => {
     try {
-      // No explicit pending endpoint; derive from bookings
-      const response = await axios.get(`${FHOST}/lessons/api/bookings/student/${userInfo?.id}`);
-      if (Array.isArray(response.data)) {
-        const pending = response.data
-          .filter(p => p.status === 'accepted')
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      // Try new endpoint first, fallback to old one
+      let response;
+      try {
+        response = await axios.get(`${FHOST}/api/student/session-bookings/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (newError) {
+        // Fallback to old endpoint
+        response = await axios.get(`${FHOST}/lessons/api/bookings/student/${userInfo?.id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+
+      const bookingsList = response.data?.results || response.data || [];
+      if (Array.isArray(bookingsList)) {
+        const pending = bookingsList
+          .filter(p => p.status === 'accepted' || p.status === 'confirmed')
           .map(p => ({
             id: p.id,
+            teacher_id: p.teacher_id,
             teacher_name: p.teacher_name || p.teacher_id,
             subject: p.subject || 'Lesson',
-            lesson_date: p.session_datetime,
-            due_date: p.session_datetime,
-            amount: p.cost,
+            lesson_date: p.scheduled_start || p.session_datetime,
+            due_date: p.scheduled_end || p.scheduled_start || p.session_datetime,
+            amount: Math.abs(parseFloat(p.cost || 0)),
             lesson_id: p.id,
           }));
         setPendingPayments(pending);
@@ -81,6 +135,99 @@ const MyLessons = ({userInfo, darkMode}) => {
       }
     } catch (error) {
       alert('Payment failed. Please try again.');
+    }
+  };
+
+  const handleRescheduleBooking = async (bookingId, booking) => {
+    // This would open a modal/form to reschedule
+    // For now, we'll show an alert - you can implement a proper modal later
+    const newDate = prompt('Enter new date and time (YYYY-MM-DDTHH:MM format):');
+    if (!newDate) return;
+
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Authentication required. Please login again.');
+        return;
+      }
+
+      const scheduledStart = new Date(newDate).toISOString();
+      const durationHours = booking.duration_hours || 1;
+
+      const payload = {
+        teacher_id: booking.teacher_id,
+        scheduled_start: scheduledStart,
+        duration_hours: durationHours,
+        course: booking.course,
+      };
+
+      const response = await axios.patch(
+        `${FHOST}/api/student/session-bookings/${bookingId}/`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        alert('Booking rescheduled successfully!');
+        fetchScheduledLessons();
+        fetchPendingPayments();
+      }
+    } catch (error) {
+      console.error('Error rescheduling booking:', error);
+      const errorMsg = error.response?.data?.message || 
+                      error.response?.data?.error || 
+                      error.response?.data?.detail ||
+                      'Failed to reschedule booking. Please try again.';
+      alert(errorMsg);
+    }
+  };
+
+  const handleMarkAttended = async (bookingId, booking) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Authentication required. Please login again.');
+        return;
+      }
+
+      const scheduledStart = booking.scheduled_start ? new Date(booking.scheduled_start).toISOString() : new Date().toISOString();
+      const durationHours = booking.duration_hours || 1;
+
+      const payload = {
+        teacher_id: booking.teacher_id,
+        scheduled_start: scheduledStart,
+        duration_hours: durationHours,
+        course: booking.course,
+      };
+
+      const response = await axios.patch(
+        `${FHOST}/api/student/session-bookings/${bookingId}/`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        alert('Booking marked as attended! Teacher payment has been processed.');
+        fetchScheduledLessons();
+        fetchPendingPayments();
+      }
+    } catch (error) {
+      console.error('Error marking booking as attended:', error);
+      const errorMsg = error.response?.data?.message || 
+                      error.response?.data?.error || 
+                      error.response?.data?.detail ||
+                      'Failed to mark as attended. Please try again.';
+      alert(errorMsg);
     }
   };
 
@@ -231,6 +378,22 @@ const MyLessons = ({userInfo, darkMode}) => {
                           >
                             <FaCreditCard className="inline mr-2" />
                             Pay Now
+                          </button>
+                        )}
+                        {lesson.status === 'pending' && lesson.is_allowed && (
+                          <button 
+                            onClick={() => handleRescheduleBooking(lesson.id, lesson)}
+                            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                          >
+                            Reschedule
+                          </button>
+                        )}
+                        {lesson.status === 'pending' && !lesson.attended && (
+                          <button 
+                            onClick={() => handleMarkAttended(lesson.id, lesson)}
+                            className="mt-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+                          >
+                            Mark Attended
                           </button>
                         )}
                       </div>

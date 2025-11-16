@@ -84,13 +84,28 @@ export const authService = {
     }
 
     try {
-      // As per API spec: send refresh token in "access" field
-      const response = await axios.post(
-        `${FHOST}/api/token/refresh/`,
-        {
-          access: refreshToken, // As per user API specification
+      // Try standard JWT refresh format first (refresh field)
+      let response;
+      try {
+        response = await axios.post(
+          `${FHOST}/api/token/refresh/`,
+          {
+            refresh: refreshToken,
+          }
+        );
+      } catch (firstError) {
+        // If that fails, try with "access" field (as per some API specs)
+        if (firstError.response?.status === 400) {
+          response = await axios.post(
+            `${FHOST}/api/token/refresh/`,
+            {
+              access: refreshToken,
+            }
+          );
+        } else {
+          throw firstError;
         }
-      );
+      }
 
       const data = await response.data;
       const newAccessToken = data["access"];
@@ -103,9 +118,7 @@ export const authService = {
       throw new Error("No access token in refresh response");
     } catch (error) {
       console.error("Token refresh failed:", error.response?.data || error.message);
-      // Clear tokens on refresh failure
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
+      // Don't clear tokens - let the user stay logged in
       throw error;
     }
   },

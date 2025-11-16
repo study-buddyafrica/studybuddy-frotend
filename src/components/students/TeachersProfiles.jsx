@@ -167,25 +167,58 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
       return;
     }
 
-    const bookingData = {
-      teacher_id: selectedTeacher.id,
-      student_id: userInfo?.id,
-      date: formData.date,
-      time: formData.time,
-      cost: selectedTeacher.cost || 0,
-    };
-
     try {
-      const response = await axios.post(`${FHOST}/lessons/api/book-session`, bookingData);
-      if (response.data && response.data.success) {
-        setSuccessMessage("Session booked successfully! Waiting for teacher confirmation.");
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
+
+      // Convert date and time to ISO format for scheduled_start
+      const scheduledStart = new Date(`${formData.date}T${formData.time}:00`).toISOString();
+      
+      // Calculate duration_hours (default to 1 hour if not specified)
+      const durationHours = 1; // You can make this configurable if needed
+
+      // Get course ID if available (you may need to adjust this based on your data structure)
+      const courseId = selectedTeacher.course_id || selectedTeacher.id || null;
+
+      const bookingData = {
+        teacher_id: selectedTeacher.id,
+        scheduled_start: scheduledStart,
+        duration_hours: durationHours,
+        course: courseId,
+      };
+
+      const response = await axios.post(
+        `${FHOST}/api/student/session-bookings/`,
+        bookingData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 201 || response.status === 200) {
+        const booking = response.data;
+        setSuccessMessage(
+          `Session booked successfully! Cost: ${Math.abs(parseFloat(booking.cost || 0))}. Status: ${booking.status}. Waiting for teacher confirmation.`
+        );
         setIsScheduling(false);
+        setFormData({ date: "", time: "", student_id: userInfo?.id });
         setTimeout(() => setSuccessMessage(""), 5000);
       } else {
         alert("Failed to book session. Try again.");
       }
     } catch (error) {
-      alert("Error booking session. Please try again.");
+      console.error("Error booking session:", error);
+      const errorMsg = error.response?.data?.message || 
+                      error.response?.data?.error || 
+                      error.response?.data?.detail ||
+                      "Error booking session. Please try again.";
+      alert(errorMsg);
     }
   };
 

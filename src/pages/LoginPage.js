@@ -73,9 +73,36 @@ const LoginPage = () => {
 
           if (userListResp.ok && userListData?.results?.length) {
             const me = userListData.results[0];
-            if (me.is_superuser) me.role = 'admin';
+            
+            // STRICT CHECK: is_superuser must be explicitly true to be admin
+            // Check multiple possible formats from backend
+            const rawIsSuperUser = me.is_superuser;
+            const isSuperUser = rawIsSuperUser === true || 
+                               rawIsSuperUser === "true" || 
+                               rawIsSuperUser === 1 ||
+                               String(rawIsSuperUser).toLowerCase() === 'true';
+            
+            console.log("Login - Raw user data:", me);
+            console.log("Login - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser });
+            
+            // If user is superuser, ALWAYS set as admin regardless of role field
+            if (isSuperUser) {
+              me.is_superuser = true;
+              me.role = 'admin';
+              localStorage.setItem("userInfo", JSON.stringify(me));
+              console.log("Login - Admin user detected, redirecting to /admin");
+              navigate("/admin");
+              return;
+            }
+            
+            // Not a superuser, use role field
+            me.is_superuser = false;
+            const role = me?.role || null;
+            me.role = role;
+            
             localStorage.setItem("userInfo", JSON.stringify(me));
-            const role = me?.role;
+
+            console.log("Login - User role determined:", { is_superuser: me.is_superuser, role, userData: me });
 
             switch (role) {
               case "student":
@@ -102,9 +129,35 @@ const LoginPage = () => {
             let userData = null;
             try { userData = userOkRaw ? JSON.parse(userOkRaw) : null; } catch(_) { userData = null; }
             if (userResp.ok && userData) {
-              if (userData.is_superuser) userData.role = 'admin';
+              // STRICT CHECK: is_superuser must be explicitly true to be admin
+              const rawIsSuperUser = userData.is_superuser;
+              const isSuperUser = rawIsSuperUser === true || 
+                                 rawIsSuperUser === "true" || 
+                                 rawIsSuperUser === 1 ||
+                                 String(rawIsSuperUser).toLowerCase() === 'true';
+              
+              console.log("Login (fallback) - Raw user data:", userData);
+              console.log("Login (fallback) - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser });
+              
+              // If user is superuser, ALWAYS set as admin regardless of role field
+              if (isSuperUser) {
+                userData.is_superuser = true;
+                userData.role = 'admin';
+                localStorage.setItem("userInfo", JSON.stringify(userData));
+                console.log("Login (fallback) - Admin user detected, redirecting to /admin");
+                navigate("/admin");
+                return;
+              }
+              
+              // Not a superuser, use role field
+              userData.is_superuser = false;
+              const role = userData?.role || null;
+              userData.role = role;
+              
               localStorage.setItem("userInfo", JSON.stringify(userData));
-              const role = userData?.role;
+              
+              console.log("Login (fallback) - User role determined:", { is_superuser: userData.is_superuser, role, userData });
+              
               switch (role) {
                 case "student": navigate("/student-dashboard/"); break;
                 case "parent": navigate("/parent-dashboard/home"); break;
@@ -144,10 +197,32 @@ const LoginPage = () => {
       } else {
         // Set localstorage with user info empty first "UserInfo" to avoid any issues
         localStorage.removeItem("userInfo");
-        // Set localstorage with user info
-        if (UserInfo.is_superuser) UserInfo.role = 'admin';
+        
+        // STRICT CHECK: is_superuser must be explicitly true to be admin
+        const rawIsSuperUser = UserInfo.is_superuser;
+        const isSuperUser = rawIsSuperUser === true || 
+                           rawIsSuperUser === "true" || 
+                           rawIsSuperUser === 1 ||
+                           String(rawIsSuperUser).toLowerCase() === 'true';
+        
+        console.log("Google Login - Raw user data:", UserInfo);
+        console.log("Google Login - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser });
+        
+        // If user is superuser, ALWAYS set as admin regardless of role field
+        if (isSuperUser) {
+          UserInfo.is_superuser = true;
+          UserInfo.role = 'admin';
+          localStorage.setItem("userInfo", JSON.stringify(UserInfo));
+          console.log("Google Login - Admin user detected, redirecting to /admin");
+          navigate("/admin");
+          return;
+        }
+        
+        // Not a superuser, use role field
+        UserInfo.is_superuser = false;
+        const role = UserInfo?.role || null;
+        UserInfo.role = role;
         localStorage.setItem("userInfo", JSON.stringify(UserInfo));
-        const role = UserInfo?.role;
 
         switch (role) {
           case "student":

@@ -75,20 +75,35 @@ const MyLessons = ({userInfo}) => {
 
       // Upcoming lessons for this teacher
       try {
-        const lessonsResponse = await axios.get(`${FHOST}/lessons/api/live-sessions/${userInfo?.id}`);
-        const raw = lessonsResponse.data;
+        const token = localStorage.getItem('access_token');
+        const lessonsResponse = await axios.get(`${FHOST}/api/live-sessions/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        // Handle paginated response structure
+        const raw = lessonsResponse.data?.results || lessonsResponse.data || [];
         const normalized = Array.isArray(raw)
           ? raw.map(s => ({
               id: s.id,
-              title: s.title,
-              subject: s.subject?.name || '',
+              title: s.title || '',
+              description: s.description || '',
+              subject: '',
               grade: '',
-              date: s.scheduled_date,
-              time: '',
-              duration: s.basic_info?.duration || '',
-              status: 'scheduled',
+              date: s.started_at || '',
+              time: s.started_at ? new Date(s.started_at).toLocaleTimeString() : '',
+              duration: s.ended_at && s.started_at 
+                ? Math.round((new Date(s.ended_at) - new Date(s.started_at)) / 60000)
+                : '',
+              status: s.ended_at ? 'completed' : 'scheduled',
               current_students: 0,
               max_students: 0,
+              meeting_link: s.meeting_link || s.teacher_meeting_link || '',
+              student_meeting_link: s.student_meeting_link || '',
+              whiteboard_link: s.whiteboard_link || '',
+              session_booking_id: s.session_booking_id || s.booking_id || null,
+              booking_id: s.session_booking_id || s.booking_id || null,
             }))
           : [];
         setUpcomingLessons(normalized);
@@ -135,17 +150,47 @@ const MyLessons = ({userInfo}) => {
   const handleCreateLesson = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        topic: newLesson.title,
-        agenda: newLesson.description,
-        duration: parseInt(newLesson.duration || '60', 10),
-        start_time: newLesson.date && newLesson.time ? `${newLesson.date}T${newLesson.time}:00Z` : undefined,
-        subject_id: null
-      };
-      const response = await axios.post(`${FHOST}/lessons/meetings/${userInfo?.id}`, payload);
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setErrorMessage('Authentication required. Please login again.');
+        return;
+      }
+
+      // Calculate started_at and ended_at
+      const startDateTime = newLesson.date && newLesson.time 
+        ? `${newLesson.date}T${newLesson.time}:00Z`
+        : undefined;
       
-      if (response.status === 201) {
-        setSuccessMessage('Lesson created successfully!');
+      if (!startDateTime) {
+        setErrorMessage('Please select both date and time.');
+        return;
+      }
+
+      const durationMinutes = parseInt(newLesson.duration || '60', 10);
+      const startDate = new Date(startDateTime);
+      const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+      const endDateTime = endDate.toISOString();
+
+      const payload = {
+        title: newLesson.title,
+        description: newLesson.description || '',
+        started_at: startDateTime,
+        ended_at: endDateTime,
+      };
+
+      const response = await axios.post(
+        `${FHOST}/api/live-sessions/`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      if (response.status === 201 || response.status === 200) {
+        setSuccessMessage('Live session created successfully!');
         setShowCreateLessonModal(false);
         setNewLesson({
           title: '',
@@ -162,7 +207,11 @@ const MyLessons = ({userInfo}) => {
       }
     } catch (error) {
       console.error('Error creating lesson:', error);
-      setErrorMessage('Failed to create lesson. Please try again.');
+      const errorMsg = error.response?.data?.message || 
+                      error.response?.data?.error || 
+                      error.response?.data?.detail ||
+                      'Failed to create lesson. Please try again.';
+      setErrorMessage(errorMsg);
     }
   };
 
@@ -190,6 +239,76 @@ const MyLessons = ({userInfo}) => {
     } catch (error) {
       console.error('Error rejecting request:', error);
       setErrorMessage('Failed to reject request. Please try again.');
+    }
+  };
+
+  const handleMarkAttended = async (sessionId, session) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setErrorMessage('Authentication required. Please login again.');
+        return;
+      }
+
+      // Get the session_booking_id from the session
+      // We need to find the booking associated with this session
+      const sessionBookingId = session.session_booking_id || session.booking_id;
+      
+      if (!sessionBookingId) {
+        setErrorMessage('Session booking ID not found. Cannot mark as attended.');
+        return;
+      }
+
+      const payload = {
+        session_booking_id: sessionBookingId,
+        title: session.title || '',
+        description: session.description || '',
+      };
+
+      // Try PATCH first, then PUT if needed
+      let response;
+      try {
+        response = await axios.patch(
+          `${FHOST}/api/teacher/live-session/update/${sessionId}/`,
+          payload,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      } catch (patchError) {
+        // If PATCH fails, try PUT
+        if (patchError.response?.status === 405 || patchError.response?.status === 404) {
+          response = await axios.put(
+            `${FHOST}/api/teacher/live-session/update/${sessionId}/`,
+            payload,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+        } else {
+          throw patchError;
+        }
+      }
+
+      if (response.status === 200 || response.status === 201) {
+        setSuccessMessage('Session marked as attended successfully! Payment has been processed.');
+        fetchData();
+        setTimeout(() => setSuccessMessage(''), 5000);
+      }
+    } catch (error) {
+      console.error('Error marking session as attended:', error);
+      const errorMsg = error.response?.data?.message || 
+                      error.response?.data?.error || 
+                      error.response?.data?.detail ||
+                      'Failed to mark session as attended. Please try again.';
+      setErrorMessage(errorMsg);
+      setTimeout(() => setErrorMessage(''), 5000);
     }
   };
 
@@ -326,7 +445,7 @@ const MyLessons = ({userInfo}) => {
               {upcomingLessons.map((lesson) => (
                 <div key={lesson.id} className="bg-white p-6 rounded-lg shadow-sm border">
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-800">{lesson.title}</h3>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                         <span className="flex items-center gap-1">
@@ -339,23 +458,46 @@ const MyLessons = ({userInfo}) => {
                         </span>
                         <span className="flex items-center gap-1">
                           <FaCalendarAlt />
-                          {new Date(lesson.date).toLocaleDateString()}
+                          {lesson.date ? new Date(lesson.date).toLocaleDateString() : 'Date TBD'}
                         </span>
                         <span className="flex items-center gap-1">
                           <FaClock />
                           {lesson.time} ({lesson.duration} min)
                         </span>
                       </div>
+                      {lesson.meeting_link && (
+                        <div className="mt-3">
+                          <a 
+                            href={lesson.meeting_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 text-sm underline"
+                          >
+                            Join Meeting
+                          </a>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-600">
+                    <div className="text-right ml-4">
+                      <div className="text-sm text-gray-600 mb-2">
                         {lesson.current_students}/{lesson.max_students} students
                       </div>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        lesson.status === 'scheduled' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mb-2 ${
+                        lesson.status === 'scheduled' ? 'bg-green-100 text-green-800' : 
+                        lesson.status === 'completed' ? 'bg-gray-100 text-gray-800' : 
+                        'bg-yellow-100 text-yellow-800'
                       }`}>
                         {lesson.status}
                       </span>
+                      {lesson.status === 'scheduled' && lesson.id && (
+                        <button
+                          onClick={() => handleMarkAttended(lesson.id, lesson)}
+                          className="mt-2 w-full bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm flex items-center gap-1"
+                        >
+                          <FaCheck />
+                          Mark Attended
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
