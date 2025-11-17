@@ -9,6 +9,7 @@ export const mockUsers = [
       access_token: "mock_teacher_access_token",
       refresh_token: "mock_teacher_refresh_token",
     },
+    is_superuser: false,
   },
   {
     id: 2,
@@ -16,6 +17,7 @@ export const mockUsers = [
     password: "student123",
     name: "Tylan Student",
     role: "student",
+    is_superuser: false,
     auth: {
       access_token: "mock_student_access_token",
       refresh_token: "mock_student_refresh_token",
@@ -27,6 +29,7 @@ export const mockUsers = [
     password: "parent123",
     name: "Reginah Parent",
     role: "parent",
+    is_superuser: false,
     auth: {
       access_token: "mock_parent_access_token",
       refresh_token: "mock_parent_refresh_token",
@@ -37,7 +40,8 @@ export const mockUsers = [
     email: "admin@example.com",
     password: "admin123",
     name: "Admin User",
-    role: "admin",
+    role: "teacher", // backend doesn't send "admin" roles, uses superuser flag
+    is_superuser: true,
     auth: {
       access_token: "mock_admin_access_token",
       refresh_token: "mock_admin_refresh_token",

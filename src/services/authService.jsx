@@ -32,6 +32,7 @@ export const authService = {
             name: user.name,
             email: user.email,
             role: user.role,
+            is_superuser: user.is_superuser === true,
             auth: user.auth,
           },
         },

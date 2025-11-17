@@ -264,6 +264,60 @@ const MyAccount = () => {
     }));
   };
 
+  // Helper function to extract error message from HTML error responses
+  const extractErrorFromHTML = (htmlString) => {
+    if (typeof htmlString !== 'string') {
+      return null;
+    }
+    
+    // Check if it's HTML (could be partial HTML too)
+    if (!htmlString.includes('<!DOCTYPE html>') && !htmlString.includes('<html') && !htmlString.includes('<h1>')) {
+      return null;
+    }
+    
+    try {
+      // Extract error title from <h1> tag (more flexible regex)
+      const titleMatch = htmlString.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+      const title = titleMatch ? titleMatch[1].trim() : null;
+      
+      // Extract exception value from <pre class="exception_value"> (more flexible)
+      const exceptionMatch = htmlString.match(/<pre[^>]*class="exception_value"[^>]*>([^<]+)<\/pre>/i);
+      const exception = exceptionMatch ? exceptionMatch[1].trim() : null;
+      
+      if (title || exception) {
+        let errorMsg = '';
+        if (title) {
+          // Clean up title - remove "at /path" part and extra whitespace
+          errorMsg = title.replace(/\s+at\s+.*$/, '').replace(/\s+/g, ' ').trim();
+        }
+        if (exception) {
+          // Clean up the exception message
+          const cleanException = exception
+            .replace(/\[Errno \d+\]\s*/, '') // Remove errno
+            .replace(/&#x27;/g, "'") // Decode HTML entities
+            .replace(/&#39;/g, "'")
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          if (errorMsg) {
+            errorMsg += ': ' + cleanException;
+          } else {
+            errorMsg = cleanException;
+          }
+        }
+        return errorMsg || null;
+      }
+    } catch (e) {
+      console.error("Error parsing HTML error response:", e);
+    }
+    
+    return null;
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -294,41 +348,77 @@ const MyAccount = () => {
     try {
       const formDataToSend = new FormData();
       
-      // Add all form fields according to API endpoint
-      if (formData.bio) formDataToSend.append("bio", formData.bio);
-      if (formData.phone) formDataToSend.append("phone", formData.phone);
-      if (formData.hourly_rate) formDataToSend.append("hourly_rate", formData.hourly_rate);
-      if (formData.experience) formDataToSend.append("experience", formData.experience);
-      if (formData.birth_date) formDataToSend.append("birth_date", formData.birth_date);
-      if (formData.tsc_number) formDataToSend.append("tsc_number", formData.tsc_number);
-      if (formData.id_number) formDataToSend.append("id_number", formData.id_number);
-      if (formData.gender) formDataToSend.append("gender", formData.gender);
+      // Add all form fields according to API endpoint - only send non-empty values
+      if (formData.bio && formData.bio.trim()) {
+        formDataToSend.append("bio", formData.bio.trim());
+      }
+      if (formData.phone && formData.phone.trim()) {
+        formDataToSend.append("phone", formData.phone.trim());
+      }
+      if (formData.hourly_rate && formData.hourly_rate.toString().trim()) {
+        formDataToSend.append("hourly_rate", formData.hourly_rate.toString().trim());
+      }
+      if (formData.experience && formData.experience.toString().trim()) {
+        formDataToSend.append("experience", formData.experience.toString().trim());
+      }
+      if (formData.birth_date && formData.birth_date.trim()) {
+        formDataToSend.append("birth_date", formData.birth_date.trim());
+      }
+      if (formData.tsc_number && formData.tsc_number.trim()) {
+        formDataToSend.append("tsc_number", formData.tsc_number.trim());
+      }
+      if (formData.id_number && formData.id_number.trim()) {
+        formDataToSend.append("id_number", formData.id_number.trim());
+      }
+      if (formData.gender && formData.gender.trim()) {
+        formDataToSend.append("gender", formData.gender.trim());
+      }
 
-      // Add subjects and grades as arrays
-      // Always send them, even if empty (backend may need empty arrays)
-      if (formData.subjects && Array.isArray(formData.subjects)) {
+      // Add subjects and grades as arrays - only if they have values
+      if (formData.subjects && Array.isArray(formData.subjects) && formData.subjects.length > 0) {
         formData.subjects.forEach(subjectId => {
-          formDataToSend.append("subjects", subjectId);
+          if (subjectId != null && subjectId !== '') {
+            formDataToSend.append("subjects", subjectId);
+          }
         });
       }
-      if (formData.grade && Array.isArray(formData.grade)) {
+      if (formData.grade && Array.isArray(formData.grade) && formData.grade.length > 0) {
         formData.grade.forEach(gradeId => {
-          formDataToSend.append("grade", gradeId);
+          if (gradeId != null && gradeId !== '') {
+            formDataToSend.append("grade", gradeId);
+          }
         });
       }
       
       // Add profile photo if selected
-      if (profilePhoto) {
+      if (profilePhoto && profilePhoto instanceof File) {
         formDataToSend.append("profile_picture", profilePhoto);
       }
 
       // Add certificates if selected
-      if (formData.academic_certificate) {
+      if (formData.academic_certificate && formData.academic_certificate instanceof File) {
         formDataToSend.append("academic_certificate", formData.academic_certificate);
       }
-      if (formData.tsc_number_certificate) {
+      if (formData.tsc_number_certificate && formData.tsc_number_certificate instanceof File) {
         formDataToSend.append("tsc_number_certificate", formData.tsc_number_certificate);
       }
+
+      // Log what we're sending (for debugging - remove in production)
+      console.log("Sending profile update with fields:", {
+        bio: formData.bio ? "present" : "missing",
+        phone: formData.phone ? "present" : "missing",
+        hourly_rate: formData.hourly_rate ? "present" : "missing",
+        experience: formData.experience ? "present" : "missing",
+        birth_date: formData.birth_date ? "present" : "missing",
+        tsc_number: formData.tsc_number ? "present" : "missing",
+        id_number: formData.id_number ? "present" : "missing",
+        gender: formData.gender ? "present" : "missing",
+        subjects_count: formData.subjects?.length || 0,
+        grades_count: formData.grade?.length || 0,
+        has_profile_photo: !!profilePhoto,
+        has_academic_cert: !!formData.academic_certificate,
+        has_tsc_cert: !!formData.tsc_number_certificate,
+      });
 
       // Try the request, and if we get 401/403, refresh token and retry
       let response;
@@ -394,26 +484,105 @@ const MyAccount = () => {
       }
     } catch (error) {
       console.error("Error updating profile:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
       
       // Check if it's an authentication error
       if (error.response?.status === 403) {
         const errorDetail = error.response?.data?.detail || 
                            error.response?.data?.message || 
-                           error.response?.data?.error;
+                           error.response?.data?.error ||
+                           error.response?.data?.errors;
         setErrorMessage(
-          `Access denied (403 Forbidden). ${errorDetail || 'Your session may have expired. Please try logging out and logging back in.'}`
+          `Access denied (403 Forbidden). ${errorDetail ? (typeof errorDetail === 'string' ? errorDetail : JSON.stringify(errorDetail)) : 'Your session may have expired. Please try logging out and logging back in.'}`
         );
       } else if (error.response?.status === 401) {
         setErrorMessage("Authentication failed. Please log out and log back in.");
+      } else if (error.response?.status === 500) {
+        // 500 Internal Server Error - show detailed error message
+        let errorData = error.response?.data;
+        let errorMsg = "Server error occurred while updating profile. ";
+        
+        // Check if HTML is in responseText (fallback)
+        if (!errorData || (typeof errorData === 'object' && !errorData.detail && !errorData.message)) {
+          const responseText = error.response?.request?.responseText;
+          if (responseText && typeof responseText === 'string' && responseText.includes('<!DOCTYPE html>')) {
+            errorData = responseText;
+          }
+        }
+        
+        // Handle case where axios might have tried to parse HTML as JSON
+        if (errorData && typeof errorData === 'object' && errorData.toString) {
+          const dataString = errorData.toString();
+          if (dataString.includes('<!DOCTYPE html>') || dataString.includes('<h1>')) {
+            errorData = dataString;
+          }
+        }
+        
+        if (errorData) {
+          // Check if errorData is an HTML string
+          if (typeof errorData === 'string' && (errorData.includes('<!DOCTYPE html>') || errorData.includes('<h1>'))) {
+            const htmlError = extractErrorFromHTML(errorData);
+            if (htmlError) {
+              errorMsg += htmlError;
+            } else {
+              errorMsg += "A server configuration error occurred. Please contact support.";
+            }
+          } else if (typeof errorData === 'object') {
+            // Try to extract meaningful error message from JSON
+            if (errorData.detail) {
+              errorMsg += typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
+            } else if (errorData.message) {
+              errorMsg += typeof errorData.message === 'string' ? errorData.message : JSON.stringify(errorData.message);
+            } else if (errorData.error) {
+              errorMsg += typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error);
+            } else if (errorData.errors) {
+              errorMsg += typeof errorData.errors === 'string' ? errorData.errors : JSON.stringify(errorData.errors);
+            } else {
+              errorMsg += "An unexpected error occurred. Please contact support.";
+            }
+          } else if (typeof errorData === 'string') {
+            // Try to extract from HTML string
+            const extracted = extractErrorFromHTML(errorData);
+            errorMsg += extracted || "An unexpected error occurred. Please contact support.";
+          } else {
+            errorMsg += "An unexpected error occurred. Please contact support.";
+          }
+        } else {
+          errorMsg += "Please check the console for more details and contact support if the issue persists.";
+        }
+        
+        setErrorMessage(errorMsg);
+      } else if (error.response?.status === 400) {
+        // 400 Bad Request - validation errors
+        const errorData = error.response?.data;
+        let errorMsg = "Validation error: ";
+        
+        if (errorData?.errors) {
+          // Handle field-specific errors
+          const fieldErrors = Object.entries(errorData.errors)
+            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+            .join('; ');
+          errorMsg += fieldErrors;
+        } else if (errorData?.detail) {
+          errorMsg += typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
+        } else if (errorData?.message) {
+          errorMsg += typeof errorData.message === 'string' ? errorData.message : JSON.stringify(errorData.message);
+        } else {
+          errorMsg += JSON.stringify(errorData);
+        }
+        
+        setErrorMessage(errorMsg);
       } else {
         const errorMsg = error.response?.data?.message || 
                         error.response?.data?.error || 
                         error.response?.data?.detail ||
+                        error.response?.data?.errors ||
                         error.response?.data ||
                         "Profile update failed. Please try again.";
         setErrorMessage(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
       }
-      setTimeout(() => setErrorMessage(""), 8000);
+      setTimeout(() => setErrorMessage(""), 10000);
     } finally {
       setLoading(false);
     }

@@ -11,6 +11,7 @@ const TeacherSignUpPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
@@ -37,11 +38,11 @@ const TeacherSignUpPage = () => {
       return;
     }
   
+    setInformationalMessage('');
+    setErrorMessage('');
+    setLoading(true);
+
     try {
-      // -----------------------
-      // TEMPORARILY DISABLE EMAIL VERIFICATION
-      // -----------------------
-      /*
       const sendCodeResponse = await fetch(`${FHOST}/api/verify-email/request/`, {
         method: 'POST',
         headers: {
@@ -50,9 +51,22 @@ const TeacherSignUpPage = () => {
         },
         body: JSON.stringify({ email }),
       });
-  
-      const sendCodeData = await sendCodeResponse.json().catch(() => ({}));
-  
+
+      let sendCodeData = {};
+      const contentType = sendCodeResponse.headers.get('content-type');
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          sendCodeData = await sendCodeResponse.json();
+        } else {
+          const responseText = await sendCodeResponse.text();
+          console.error('Non-JSON response received:', responseText);
+          sendCodeData = { error: responseText || 'Unknown server error' };
+        }
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        sendCodeData = { error: 'Failed to parse server response' };
+      }
+
       if (!sendCodeResponse.ok) {
         const errorMsg = sendCodeData.detail || sendCodeData.message || sendCodeData.error || 'Failed to send verification code';
         if (errorMsg.includes('email') && errorMsg.includes('already exists')) {
@@ -60,33 +74,24 @@ const TeacherSignUpPage = () => {
         } else {
           setErrorMessage(errorMsg);
         }
+        setLoading(false);
         return;
       }
-  
+
       if (sendCodeResponse.status === 200 || sendCodeResponse.status === 201) {
         setInformationalMessage('Verification code sent to your email! Redirecting to verification page...');
-        sessionStorage.setItem('pendingRegistration', JSON.stringify({ name, email, password, role: 'teacher' }));
+        const registrationData = { name, email, password, role: 'teacher' };
+        sessionStorage.setItem('pendingRegistration', JSON.stringify(registrationData));
         setTimeout(() => {
-          navigate('/verify-code', { state: { email, registrationData: { name, email, password, role: 'teacher' } } });
+          navigate('/verify-code', { state: { email, registrationData } });
         }, 1500);
       }
-      */
-  
-      // -----------------------
-      // TEMPORARY FLOW: Direct signup success
-      // -----------------------
-      setInformationalMessage("Account created successfully! Redirecting to login...");
-      
-      // Optional: Store user info in sessionStorage if needed
-      sessionStorage.setItem('userRegistration', JSON.stringify({ name, email, password, role: 'teacher' }));
-  
-      setTimeout(() => {
-        navigate('/login');
-      }, 1500);
-  
+
+      setLoading(false);
     } catch (error) {
       console.error('Signup error:', error);
       setErrorMessage('Signup failed. Please try again.');
+      setLoading(false);
       setTimeout(() => {
         setErrorMessage('');
       }, 3000);
@@ -177,6 +182,7 @@ const TeacherSignUpPage = () => {
             <button
               type="submit"
               className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 text-sm font-medium"
+              disabled={loading}
             >
               Sign Up
             </button>
@@ -190,7 +196,7 @@ const TeacherSignUpPage = () => {
           <div class="flex-1 border-t border-grey"></div>
         </div>
         <div className="mt-1">
-          <button className="flex items-center justify-center gap-3 bg-blue-950 p-2 rounded-lg w-full">
+          <button className="flex items-center justify-center gap-3 bg-blue-950 p-2 rounded-lg w-full" disabled={loading}>
             <FcGoogle className="text-3xl" />
             <span className="text-white text-lg">Signup with Google</span>
           </button>

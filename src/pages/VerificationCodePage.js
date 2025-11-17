@@ -5,8 +5,10 @@ import { FHOST } from "../components/constants/Functions";
 const VerificationCodePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const email = location.state?.email || "";
-  const registrationData = location.state?.registrationData || null;
+  
+  // Get email from location state or sessionStorage
+  const [email, setEmail] = useState(location.state?.email || "");
+  const [registrationData, setRegistrationData] = useState(location.state?.registrationData || null);
 
   const [verificationCode, setVerificationCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -14,21 +16,36 @@ const VerificationCodePage = () => {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
 
-  // Redirect if no email provided
+  // Get email and registration data from sessionStorage if not in location state
   useEffect(() => {
     if (!email) {
-      // Try to get from sessionStorage
       const pendingReg = sessionStorage.getItem('pendingRegistration');
       if (pendingReg) {
-        const data = JSON.parse(pendingReg);
-        if (data.email) {
-          // Email found in sessionStorage, continue
-          return;
+        try {
+          const data = JSON.parse(pendingReg);
+          if (data.email) {
+            setEmail(data.email);
+            setRegistrationData(data);
+            return;
+          }
+        } catch (e) {
+          console.error("Error parsing pendingRegistration:", e);
         }
       }
       navigate("/signup");
+    } else if (!registrationData) {
+      // Email is in location state but registrationData might not be
+      const pendingReg = sessionStorage.getItem('pendingRegistration');
+      if (pendingReg) {
+        try {
+          const data = JSON.parse(pendingReg);
+          setRegistrationData(data);
+        } catch (e) {
+          console.error("Error parsing pendingRegistration:", e);
+        }
+      }
     }
-  }, [email, navigate]);
+  }, [email, registrationData, navigate]);
 
   const handleVerify = async (e) => {
     e.preventDefault();
@@ -37,31 +54,135 @@ const VerificationCodePage = () => {
     setErrorMessage("");
     setInformationalMessage("");
 
+    // Get email from state or sessionStorage
+    let currentEmail = email;
+    if (!currentEmail) {
+      const pendingReg = sessionStorage.getItem('pendingRegistration');
+      if (pendingReg) {
+        try {
+          const data = JSON.parse(pendingReg);
+          currentEmail = data.email;
+        } catch (e) {
+          console.error("Error parsing pendingRegistration:", e);
+        }
+      }
+    }
+
+    if (!currentEmail) {
+      setErrorMessage("Email not found. Please start the signup process again.");
+      setTimeout(() => navigate("/signup"), 2000);
+      return;
+    }
+
     if (!verificationCode || verificationCode.length < 4) {
-      setErrorMessage("Please enter a valid verification code");
+      setErrorMessage("Please enter a valid verification code (at least 4 digits)");
       return;
     }
 
     setLoading(true);
 
     try {
-      // Step 1: Verify the code
+      // Step 1: Verify the code using POST method
+      console.log("Verifying code for email:", currentEmail);
+      console.log("Verification code (raw):", verificationCode);
+      console.log("Verification code (type):", typeof verificationCode);
+      
+      // Clean and prepare the code - send as string (backend likely expects string)
+      const codeTrimmed = verificationCode.trim();
+      const codeToSend = codeTrimmed; // Keep as string
+      
+      console.log("Code to send:", codeToSend, "Type:", typeof codeToSend);
+      
       const verifyResponse = await fetch(`${FHOST}/api/verify-email/confirm/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify({
-          email: email,
-          verification_code: verificationCode,
+          email: currentEmail.trim(),
+          code: codeToSend,
         }),
       });
 
-      const verifyData = await verifyResponse.json().catch(() => ({}));
+      // Parse response - handle both JSON and text responses
+      let verifyData = {};
+      const contentType = verifyResponse.headers.get('content-type');
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          verifyData = await verifyResponse.json();
+        } else {
+          const responseText = await verifyResponse.text();
+          console.error('Non-JSON response received:', responseText);
+          verifyData = { error: responseText || 'Unknown server error' };
+        }
+      } catch (parseError) {
+        console.error('Failed to parse verification response:', parseError);
+        verifyData = { error: 'Failed to parse server response' };
+      }
 
       if (!verifyResponse.ok) {
-        setErrorMessage(
-          verifyData.message ||
-            `Verification failed: ${verifyResponse.status} ${verifyResponse.statusText}`
-        );
+        console.error("Verification failed:", {
+          status: verifyResponse.status,
+          statusText: verifyResponse.statusText,
+          data: verifyData,
+          codeSent: codeToSend,
+          emailSent: currentEmail
+        });
+        
+        let errorMsg = "Verification failed. ";
+        if (verifyResponse.status === 400) {
+          // Check for specific error details
+          if (verifyData.errors && Array.isArray(verifyData.errors) && verifyData.errors.length > 0) {
+            // Extract error messages from the errors array
+            const errorDetails = verifyData.errors.map(err => {
+              if (typeof err === 'string') {
+                return err;
+              } else if (err.detail) {
+                return err.detail;
+              } else if (err.message) {
+                return err.message;
+              } else if (err.msg) {
+                return err.msg;
+              } else if (err.code) {
+                return err.code;
+              } else {
+                // Try to extract from nested structure
+                const keys = Object.keys(err);
+                if (keys.length > 0) {
+                  return keys.map(key => {
+                    const value = err[key];
+                    if (Array.isArray(value)) {
+                      return `${key}: ${value.join(', ')}`;
+                    } else if (typeof value === 'string') {
+                      return `${key}: ${value}`;
+                    }
+                    return `${key}: ${JSON.stringify(value)}`;
+                  }).join('; ');
+                }
+                return JSON.stringify(err);
+              }
+            }).filter(msg => msg && msg.trim()).join('; ');
+            
+            errorMsg += errorDetails || "Invalid verification code. Please check and try again.";
+          } else if (verifyData.detail) {
+            errorMsg += typeof verifyData.detail === 'string' ? verifyData.detail : JSON.stringify(verifyData.detail);
+          } else if (verifyData.message) {
+            errorMsg += typeof verifyData.message === 'string' ? verifyData.message : JSON.stringify(verifyData.message);
+          } else if (verifyData.error) {
+            errorMsg += typeof verifyData.error === 'string' ? verifyData.error : JSON.stringify(verifyData.error);
+          } else {
+            // Log the full error data for debugging
+            console.error("Full error data:", verifyData);
+            errorMsg += "Invalid verification code. Please check and try again. If the problem persists, try requesting a new code.";
+          }
+        } else if (verifyResponse.status === 404) {
+          errorMsg += "Verification code not found or expired. Please request a new code.";
+        } else {
+          errorMsg += verifyData.detail || verifyData.message || verifyData.error || `${verifyResponse.status} ${verifyResponse.statusText}`;
+        }
+        
+        setErrorMessage(errorMsg);
         setLoading(false);
         return;
       }
@@ -69,61 +190,146 @@ const VerificationCodePage = () => {
       // Step 2: If verification successful, complete registration
       if (verifyResponse.status === 200 || verifyResponse.status === 201) {
         // Get registration data from location state or sessionStorage
-        const regData = registrationData || JSON.parse(sessionStorage.getItem('pendingRegistration') || '{}');
-        
-        if (regData && regData.email && regData.password) {
-          // Complete registration
-          try {
-            let registerEndpoint = '/api/users/register';
-            if (regData.role === 'teacher') {
-              registerEndpoint = '/auth/register/';
+        let regData = registrationData;
+        if (!regData) {
+          const storedData = sessionStorage.getItem('pendingRegistration');
+          if (storedData) {
+            try {
+              regData = JSON.parse(storedData);
+            } catch (e) {
+              console.error("Error parsing stored registration data:", e);
             }
+          }
+        }
 
-            // Handle different registration payloads based on role and form structure
+        if (regData && regData.email && regData.password) {
+          try {
+            // Use the same endpoint for all roles
+            const registerEndpoint = '/api/users/register/';
+
+            // Build the registration payload - all roles use the same format
             let registerPayload;
-            if (regData.role === 'teacher') {
-              // Teacher signup uses name field
+            
+            // Check if we have first_name and last_name (from universal signup)
+            if (regData.first_name && regData.last_name) {
               registerPayload = {
-                name: regData.name,
-                email: regData.email,
-                password: regData.password,
-                role: regData.role,
-              };
-            } else if (regData.first_name && regData.last_name) {
-              // Universal signup uses first_name, last_name, username
-              registerPayload = {
-                email: regData.email,
+                email: regData.email || currentEmail,
                 first_name: regData.first_name,
                 last_name: regData.last_name,
-                username: regData.username,
+                username: regData.username || regData.email?.split('@')[0] || '',
                 password: regData.password,
-                confirm_password: regData.confirm_password,
-                role: regData.role,
+                confirm_password: regData.confirm_password || regData.password,
+                role: regData.role || 'student',
+              };
+            } else if (regData.name) {
+              // Handle cases where we only have 'name' (split into first_name and last_name)
+              const nameParts = regData.name.trim().split(/\s+/);
+              const firstName = nameParts[0] || '';
+              const lastName = nameParts.slice(1).join(' ') || '';
+              
+              registerPayload = {
+                email: regData.email || currentEmail,
+                first_name: firstName,
+                last_name: lastName || firstName, // Use first_name as fallback if no last name
+                username: regData.username || regData.email?.split('@')[0] || firstName.toLowerCase(),
+                password: regData.password,
+                confirm_password: regData.confirm_password || regData.password,
+                role: regData.role || 'student',
               };
             } else {
-              // Student signup uses name field
+              // Fallback - create from email if no name data
+              const emailPrefix = (regData.email || currentEmail).split('@')[0];
               registerPayload = {
-                name: regData.name,
-                email: regData.email,
+                email: regData.email || currentEmail,
+                first_name: emailPrefix,
+                last_name: emailPrefix,
+                username: regData.username || emailPrefix,
                 password: regData.password,
-                role: regData.role,
+                confirm_password: regData.confirm_password || regData.password,
+                role: regData.role || 'student',
               };
             }
+
+            console.log("Registering user with payload:", { ...registerPayload, password: '[REDACTED]' });
+            console.log("Using endpoint:", registerEndpoint);
 
             const registerResponse = await fetch(`${FHOST}${registerEndpoint}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
               },
               body: JSON.stringify(registerPayload),
             });
 
-            const registerData = await registerResponse.json().catch(() => ({}));
+            // Parse response - handle both JSON and text responses
+            let registerData = {};
+            let responseText = '';
+            const registerContentType = registerResponse.headers.get('content-type');
+            try {
+              responseText = await registerResponse.text();
+              if (registerContentType && registerContentType.includes('application/json')) {
+                try {
+                  registerData = JSON.parse(responseText);
+                } catch (jsonError) {
+                  // If JSON parsing fails, treat as HTML/text
+                  registerData = { error: responseText };
+                }
+              } else {
+                // Non-JSON response (likely HTML error page)
+                registerData = { error: responseText || 'Unknown server error' };
+              }
+            } catch (parseError) {
+              console.error('Failed to parse registration response:', parseError);
+              registerData = { error: responseText || 'Failed to parse server response' };
+            }
 
             if (!registerResponse.ok) {
-              setErrorMessage(
-                registerData.detail || registerData.message || registerData.error || 'Registration failed'
-              );
+              console.error("Registration failed:", {
+                status: registerResponse.status,
+                statusText: registerResponse.statusText,
+                data: registerData
+              });
+              
+              let errorMsg = "Registration failed. ";
+              
+              // Check if responseText or errorData contains HTML
+              let errorDataStr = responseText || 
+                                (typeof registerData === 'string' ? registerData : null) ||
+                                (typeof registerData === 'object' && registerData.error ? registerData.error : null);
+              
+              if (errorDataStr && typeof errorDataStr === 'string' && (errorDataStr.includes('<!DOCTYPE html>') || errorDataStr.includes('<h1>'))) {
+                // Extract error from HTML
+                const titleMatch = errorDataStr.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+                const title = titleMatch ? titleMatch[1].trim().replace(/\s+at\s+.*$/, '').replace(/\s*\(404\)\s*/, '') : null;
+                if (title) {
+                  errorMsg += title;
+                } else {
+                  errorMsg += "Server error occurred. Please try again.";
+                }
+              } else if (registerResponse.status === 400) {
+                // Handle validation errors
+                if (registerData.errors) {
+                  const fieldErrors = Object.entries(registerData.errors)
+                    .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+                    .join('; ');
+                  errorMsg += fieldErrors;
+                } else if (registerData.detail) {
+                  errorMsg += typeof registerData.detail === 'string' ? registerData.detail : JSON.stringify(registerData.detail);
+                } else if (registerData.message) {
+                  errorMsg += typeof registerData.message === 'string' ? registerData.message : JSON.stringify(registerData.message);
+                } else if (registerData.error) {
+                  errorMsg += typeof registerData.error === 'string' ? registerData.error : JSON.stringify(registerData.error);
+                } else {
+                  errorMsg += "Invalid registration data. Please check your information.";
+                }
+              } else if (registerResponse.status === 404) {
+                errorMsg += "Registration endpoint not found. Please contact support.";
+              } else {
+                errorMsg += registerData.detail || registerData.message || registerData.error || `${registerResponse.status} ${registerResponse.statusText}`;
+              }
+              
+              setErrorMessage(errorMsg);
               setLoading(false);
               return;
             }
@@ -134,18 +340,23 @@ const VerificationCodePage = () => {
               setInformationalMessage(
                 "Email verified and account created successfully! Redirecting to login..."
               );
+              setLoading(false);
               setTimeout(() => navigate("/login"), 2000);
+              return;
             }
           } catch (regError) {
             console.error('Registration error:', regError);
-            setErrorMessage("Registration failed. Please try again.");
+            setErrorMessage("Registration failed. Please try again. Error: " + (regError.message || "Unknown error"));
             setLoading(false);
+            return;
           }
         } else {
-          // No registration data, just verify email (existing flow)
+          // No registration data found - just verification was successful
+          console.warn("Verification successful but no registration data found");
           setInformationalMessage(
             "Email verified successfully! Redirecting to login..."
           );
+          setLoading(false);
           setTimeout(() => navigate("/login"), 2000);
         }
       }
@@ -159,29 +370,65 @@ const VerificationCodePage = () => {
   };
 
   const handleResendCode = async () => {
-    if (resendLoading || !email) return;
+    if (resendLoading) return;
+
+    // Get email from state or sessionStorage
+    let currentEmail = email;
+    if (!currentEmail) {
+      const pendingReg = sessionStorage.getItem('pendingRegistration');
+      if (pendingReg) {
+        try {
+          const data = JSON.parse(pendingReg);
+          currentEmail = data.email;
+        } catch (e) {
+          console.error("Error parsing pendingRegistration:", e);
+        }
+      }
+    }
+
+    if (!currentEmail) {
+      setErrorMessage("Email not found. Please start the signup process again.");
+      return;
+    }
 
     setResendLoading(true);
     setErrorMessage("");
     setInformationalMessage("");
 
     try {
-      const response = await fetch(`${FHOST}/auth/resend-verification-code`, {
+      const response = await fetch(`${FHOST}/api/verify-email/request/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email }),
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({ email: currentEmail }),
       });
 
-      const responseData = await response.json();
+      // Parse response - handle both JSON and text responses
+      let responseData = {};
+      const contentType = response.headers.get('content-type');
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          responseData = await response.json();
+        } else {
+          const responseText = await response.text();
+          console.error('Non-JSON resend response:', responseText);
+          responseData = { error: responseText || 'Unknown server error' };
+        }
+      } catch (parseError) {
+        console.error('Failed to parse resend response:', parseError);
+        responseData = { error: 'Failed to parse server response' };
+      }
 
       if (!response.ok) {
-        setErrorMessage(
-          responseData.message || "Failed to resend verification code"
-        );
+        const errorMsg = responseData.detail || responseData.message || responseData.error || "Failed to resend verification code";
+        setErrorMessage(errorMsg);
       } else {
-        setInformationalMessage("Verification code resent successfully!");
+        setInformationalMessage("Verification code resent successfully! Please check your email.");
       }
     } catch (error) {
+      console.error("Resend code error:", error);
       setErrorMessage("Failed to resend code. Please try again.");
     } finally {
       setResendLoading(false);
@@ -195,7 +442,21 @@ const VerificationCodePage = () => {
     }
   };
 
-  if (!email) {
+  // Get email for display
+  const displayEmail = email || (() => {
+    const pendingReg = sessionStorage.getItem('pendingRegistration');
+    if (pendingReg) {
+      try {
+        const data = JSON.parse(pendingReg);
+        return data.email || "";
+      } catch (e) {
+        return "";
+      }
+    }
+    return "";
+  })();
+
+  if (!displayEmail) {
     return null; // Will redirect in useEffect
   }
 
@@ -225,7 +486,7 @@ const VerificationCodePage = () => {
           <p className="text-gray-600 font-josefin">
             We've sent a verification code to
           </p>
-          <p className="text-[#0288d1] font-semibold font-josefin">{email}</p>
+          <p className="text-[#0288d1] font-semibold font-josefin">{displayEmail}</p>
         </div>
 
         <form onSubmit={handleVerify} className="space-y-6">

@@ -113,20 +113,36 @@ const TeacherDashboard = () => {
       // Allow bypass for testing in development (set 'dev_mode' to 'true' in localStorage to bypass)
       const allowTestingAccess = localStorage.getItem('dev_mode') === 'true';
       
-      // Flow: Verification → Access (Profile update is optional)
-      if (finalStatus !== 'approved' && !allowTestingAccess) {
-        // Not verified - show verification notice
-        setIsBlocked(true);
-        setShowVerificationNotice(true);
-
-        // Show welcome modal if never verified or rejected
-        if (!finalStatus || finalStatus === null || finalStatus === 'rejected') {
-          setShowWelcomeModal(true);
-        }
-      } else {
+      // Flow: 
+      // - If status is null/undefined: Profile not submitted yet - block access
+      // - If status is 'pending': Profile submitted, waiting for admin - allow access but show notice
+      // - If status is 'approved': Fully verified - full access
+      // - If status is 'rejected': Profile rejected - allow access but show resubmit notice
+      
+      if (finalStatus === 'approved' || allowTestingAccess) {
         // Verified - full access
         setIsBlocked(false);
         setShowVerificationNotice(false);
+        setShowWelcomeModal(false);
+      } else if (finalStatus === 'pending') {
+        // Profile submitted, waiting for admin approval - allow access but show notice
+        setIsBlocked(false); // Don't block access
+        setShowVerificationNotice(true); // Show notice that verification is pending
+        setShowWelcomeModal(false);
+      } else if (!finalStatus || finalStatus === null) {
+        // Profile not submitted yet - block access and show welcome modal
+        setIsBlocked(true);
+        setShowVerificationNotice(true);
+        setShowWelcomeModal(true);
+      } else if (finalStatus === 'rejected') {
+        // Profile rejected - allow access but show resubmit notice
+        setIsBlocked(false); // Don't block access
+        setShowVerificationNotice(true);
+        setShowWelcomeModal(false);
+      } else {
+        // Unknown status - allow access but show notice
+        setIsBlocked(false);
+        setShowVerificationNotice(true);
         setShowWelcomeModal(false);
       }
 
