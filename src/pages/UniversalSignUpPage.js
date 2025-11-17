@@ -121,8 +121,12 @@ const UniversalSignupPage = () => {
     }
 
     setLoading(true);
-
     try {
+      // ----------------------------------------
+      // TEMPORARILY DISABLED EMAIL VERIFICATION
+      // ----------------------------------------
+    
+      /*
       // Step 1: Send verification code to email
       // Django requires trailing slash for POST requests
       const sendCodeResponse = await fetch(`${FHOST}/api/verify-email/request/`, {
@@ -135,7 +139,7 @@ const UniversalSignupPage = () => {
           email: formData.email,
         }),
       });
-
+    
       // Parse response - handle both JSON and potential errors
       let sendCodeData = {};
       const contentType = sendCodeResponse.headers.get('content-type');
@@ -151,7 +155,7 @@ const UniversalSignupPage = () => {
         console.error('Failed to parse response:', parseError);
         sendCodeData = { error: 'Failed to parse server response' };
       }
-
+    
       if (!sendCodeResponse.ok) {
         console.error('Verification request failed:', {
           status: sendCodeResponse.status,
@@ -170,7 +174,7 @@ const UniversalSignupPage = () => {
         setLoading(false);
         return;
       }
-
+    
       // Step 2: If code sent successfully, redirect to verification page with form data
       if (sendCodeResponse.status === 200 || sendCodeResponse.status === 201) {
         setInformationalMessage('Verification code sent to your email! Redirecting to verification page...');
@@ -187,7 +191,7 @@ const UniversalSignupPage = () => {
         };
         
         sessionStorage.setItem('pendingRegistration', JSON.stringify(registrationData));
-
+    
         // Redirect to verification page
         setTimeout(() => {
           navigate('/verify-code', { 
@@ -198,13 +202,21 @@ const UniversalSignupPage = () => {
           });
         }, 1500);
       }
+      */
+    
+      // TEMPORARY: Directly show success and redirect to login
+      setInformationalMessage("Account created successfully! Redirecting to login...");
+      setTimeout(() => {
+        navigate("/login");
+      }, 1500);
+    
     } catch (error) {
       console.error("Signup network error:", error);
       setErrorMessage("Signup failed. Please check your connection and try again.");
       setLoading(false);
     }
   };
-
+  
   const getStrengthLabel = (strength) => {
     if (strength === "strong") return "Strong Password";
     return "Weak Password";

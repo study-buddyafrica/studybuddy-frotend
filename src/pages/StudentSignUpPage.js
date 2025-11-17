@@ -17,40 +17,43 @@ const StudentSignUpPage = () => {
 
   const handleSignup = async (e) => {
     e.preventDefault();
-
+  
+    // -----------------------
     // Validation checks
+    // -----------------------
     if (!name || !email || !password || !confirmPassword) {
       setErrorMessage('All fields are required!');
       return;
     }
-
+  
     if (password.length < 8) {
       setErrorMessage('Password must be at least 8 characters long.');
       return;
     }
-
+  
     if (password !== confirmPassword) {
       setErrorMessage('Passwords do not match!');
-      setConfirmPassword('');  // Clear the confirmPassword field to avoid confusion
+      setConfirmPassword(''); // Clear confirmPassword field
       return;
     }
-
+  
     try {
-      // Step 1: Send verification code to email
-      // Django requires trailing slash for POST requests
+      // -----------------------
+      // TEMPORARILY DISABLE EMAIL VERIFICATION
+      // -----------------------
+      /*
+      // Original code to send verification code to email
       const sendCodeResponse = await fetch(`${FHOST}/api/verify-email/request/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({
-          email: email,
-        }),
+        body: JSON.stringify({ email }),
       });
-
+  
       const sendCodeData = await sendCodeResponse.json().catch(() => ({}));
-
+  
       if (!sendCodeResponse.ok) {
         const errorMsg = sendCodeData.detail || sendCodeData.message || sendCodeData.error || 'Failed to send verification code';
         if (errorMsg.includes('email') && errorMsg.includes('already exists')) {
@@ -60,24 +63,28 @@ const StudentSignUpPage = () => {
         }
         return;
       }
-
-      // Step 2: If code sent successfully, redirect to verification page with form data
+  
       if (sendCodeResponse.status === 200 || sendCodeResponse.status === 201) {
         setInformationalMessage('Verification code sent to your email! Redirecting to verification page...');
-        
-        // Store form data in sessionStorage to use after verification
-        sessionStorage.setItem('pendingRegistration', JSON.stringify({
-          name,
-          email,
-          password,
-          role: 'student'
-        }));
-
-        // Redirect to verification page
+        sessionStorage.setItem('pendingRegistration', JSON.stringify({ name, email, password, role: 'student' }));
         setTimeout(() => {
           navigate('/verify-code', { state: { email, registrationData: { name, email, password, role: 'student' } } });
         }, 1500);
       }
+      */
+  
+      // -----------------------
+      // TEMPORARY FLOW: Direct signup success
+      // -----------------------
+      setInformationalMessage("Account created successfully! Redirecting to login...");
+      
+      // Optional: Store user info in sessionStorage if needed
+      sessionStorage.setItem('userRegistration', JSON.stringify({ name, email, password, role: 'student' }));
+  
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+  
     } catch (error) {
       console.error('Signup error:', error);
       setErrorMessage('Signup failed. Please try again.');
@@ -86,7 +93,7 @@ const StudentSignUpPage = () => {
       }, 3000);
     }
   };
-
+  
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6">

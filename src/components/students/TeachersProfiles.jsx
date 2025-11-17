@@ -46,7 +46,7 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
     const fetchWithRetry = async (attempts = 3) => {
       for (let i = 0; i < attempts; i++) {
         try {
-          return await axios.get(`${FHOST}/users/teachers`);
+          return await axios.get(`${FHOST}/api/teachers`);
         } catch (err) {
           const status = err?.response?.status;
           const retryAfter = Number(err?.response?.headers?.['retry-after']);
@@ -59,6 +59,7 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
         }
       }
     };
+    
     // Fetch teachers data from the backend
     const fetchTeachers = async () => {
       try {
