@@ -375,17 +375,22 @@ const MyAccount = () => {
       }
 
       // Add subjects and grades as arrays - only if they have values
+      // Extract IDs if they are objects
       if (formData.subjects && Array.isArray(formData.subjects) && formData.subjects.length > 0) {
         formData.subjects.forEach(subjectId => {
-          if (subjectId != null && subjectId !== '') {
-            formDataToSend.append("subjects", subjectId);
+          // Handle both string IDs and object IDs
+          const id = typeof subjectId === 'object' && subjectId !== null ? (subjectId.id || subjectId) : subjectId;
+          if (id != null && id !== '') {
+            formDataToSend.append("subjects", id);
           }
         });
       }
       if (formData.grade && Array.isArray(formData.grade) && formData.grade.length > 0) {
         formData.grade.forEach(gradeId => {
-          if (gradeId != null && gradeId !== '') {
-            formDataToSend.append("grade", gradeId);
+          // Handle both string IDs and object IDs
+          const id = typeof gradeId === 'object' && gradeId !== null ? (gradeId.id || gradeId) : gradeId;
+          if (id != null && id !== '') {
+            formDataToSend.append("grade", id);
           }
         });
       }
@@ -423,6 +428,11 @@ const MyAccount = () => {
       // Try the request, and if we get 401/403, refresh token and retry
       let response;
       try {
+        // Ensure token is valid
+        if (!token) {
+          throw new Error("No authentication token available");
+        }
+
         response = await axios.patch(
           `${FHOST}/api/teacher/profile/update/`,
           formDataToSend,
@@ -558,18 +568,35 @@ const MyAccount = () => {
         const errorData = error.response?.data;
         let errorMsg = "Validation error: ";
         
+        console.error("400 Error details:", errorData);
+        
         if (errorData?.errors) {
-          // Handle field-specific errors
-          const fieldErrors = Object.entries(errorData.errors)
-            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
-            .join('; ');
-          errorMsg += fieldErrors;
+          // Handle field-specific errors - can be object or array
+          if (typeof errorData.errors === 'object' && !Array.isArray(errorData.errors)) {
+            const fieldErrors = Object.entries(errorData.errors)
+              .map(([field, messages]) => {
+                const msg = Array.isArray(messages) ? messages.join(', ') : String(messages);
+                return `${field}: ${msg}`;
+              })
+              .join('; ');
+            errorMsg += fieldErrors;
+          } else if (Array.isArray(errorData.errors)) {
+            errorMsg += errorData.errors.map(err => 
+              typeof err === 'string' ? err : JSON.stringify(err)
+            ).join('; ');
+          } else {
+            errorMsg += String(errorData.errors);
+          }
         } else if (errorData?.detail) {
           errorMsg += typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
         } else if (errorData?.message) {
           errorMsg += typeof errorData.message === 'string' ? errorData.message : JSON.stringify(errorData.message);
+        } else if (errorData) {
+          // Try to extract any meaningful error information
+          const errorString = typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
+          errorMsg += errorString;
         } else {
-          errorMsg += JSON.stringify(errorData);
+          errorMsg += "Please check all required fields are filled correctly.";
         }
         
         setErrorMessage(errorMsg);

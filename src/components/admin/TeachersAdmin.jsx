@@ -254,23 +254,35 @@ const TeachersAdmin = () => {
       if (!window.confirm('Are you sure you want to approve this teacher\'s verification?')) return;
 
       // Verify teacher with all required fields
-      const response = await axios.post(`${FHOST}/api/teachers/${teacherId}/verify_teacher`, {
-        tsc_number: dataToUse.tsc_number,
-        tsc_number_certificate: dataToUse.tsc_number_certificate,
-        academic_certificate: dataToUse.academic_certificate,
-        experience: dataToUse.experience,
-        subjects: dataToUse.subjects,
-        id_number: dataToUse.id_number,
-        hourly_rate: dataToUse.hourly_rate,
-        bio: dataToUse.bio,
-        phone: dataToUse.phone,
-        profile_picture: dataToUse.profile_picture,
-        birth_date: dataToUse.birth_date,
-        gender: dataToUse.gender,
-        grade: dataToUse.grade,
-      }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
+      if (!token) {
+        alert('No authentication token found. Please log in again.');
+        return;
+      }
+
+      const response = await axios.post(
+        `${FHOST}/api/teachers/${teacherId}/verify_teacher/`,
+        {
+          tsc_number: dataToUse.tsc_number,
+          tsc_number_certificate: dataToUse.tsc_number_certificate,
+          academic_certificate: dataToUse.academic_certificate,
+          experience: dataToUse.experience,
+          subjects: dataToUse.subjects,
+          id_number: dataToUse.id_number,
+          hourly_rate: dataToUse.hourly_rate,
+          bio: dataToUse.bio,
+          phone: dataToUse.phone,
+          profile_picture: dataToUse.profile_picture,
+          birth_date: dataToUse.birth_date,
+          gender: dataToUse.gender,
+          grade: dataToUse.grade,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
       
       // Update teacher in list with approved status
       setTeachers(teachers.map(t =>
@@ -357,23 +369,35 @@ const TeachersAdmin = () => {
       }
 
       // Unverify/reject teacher
-      const response = await axios.post(`${FHOST}/api/teachers/${teacherId}/unverify_teacher`, {
-        tsc_number: dataToUse.tsc_number,
-        tsc_number_certificate: dataToUse.tsc_number_certificate,
-        academic_certificate: dataToUse.academic_certificate,
-        experience: dataToUse.experience,
-        subjects: dataToUse.subjects,
-        id_number: dataToUse.id_number,
-        hourly_rate: dataToUse.hourly_rate,
-        bio: dataToUse.bio,
-        phone: dataToUse.phone,
-        profile_picture: dataToUse.profile_picture,
-        birth_date: dataToUse.birth_date,
-        gender: dataToUse.gender,
-        grade: dataToUse.grade,
-      }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
+      if (!token) {
+        alert('No authentication token found. Please log in again.');
+        return;
+      }
+
+      const response = await axios.post(
+        `${FHOST}/api/teachers/${teacherId}/unverify_teacher/`,
+        {
+          tsc_number: dataToUse.tsc_number,
+          tsc_number_certificate: dataToUse.tsc_number_certificate,
+          academic_certificate: dataToUse.academic_certificate,
+          experience: dataToUse.experience,
+          subjects: dataToUse.subjects,
+          id_number: dataToUse.id_number,
+          hourly_rate: dataToUse.hourly_rate,
+          bio: dataToUse.bio,
+          phone: dataToUse.phone,
+          profile_picture: dataToUse.profile_picture,
+          birth_date: dataToUse.birth_date,
+          gender: dataToUse.gender,
+          grade: dataToUse.grade,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
       
       // Update teacher in list with rejected status
       setTeachers(teachers.map(t =>
