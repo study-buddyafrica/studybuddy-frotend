@@ -154,111 +154,131 @@ const StudentProfileUpdate = ({ userInfo }) => {
     try {
       const formDataToSend = new FormData();
       
-      if (formData.birth_date) formDataToSend.append("birth_date", formData.birth_date);
-      if (formData.contact_name) formDataToSend.append("contact_name", formData.contact_name);
-      if (formData.guardian_contact) formDataToSend.append("guardian_contact", formData.guardian_contact);
-      if (formData.grade) formDataToSend.append("grade", formData.grade);
-      if (formData.school) formDataToSend.append("school", formData.school);
+      // Append all required fields according to API spec
+      if (formData.birth_date) {
+        formDataToSend.append("birth_date", formData.birth_date);
+      }
+      if (formData.contact_name) {
+        formDataToSend.append("contact_name", formData.contact_name);
+      }
+      if (formData.guardian_contact) {
+        formDataToSend.append("guardian_contact", formData.guardian_contact);
+      }
+      if (formData.grade) {
+        // Ensure grade is sent as UUID string if it's an object
+        const gradeValue = typeof formData.grade === 'object' ? formData.grade.id : formData.grade;
+        formDataToSend.append("grade", gradeValue);
+      }
+      if (formData.school) {
+        // Ensure school is sent as UUID string if it's an object
+        const schoolValue = typeof formData.school === 'object' ? formData.school.id : formData.school;
+        formDataToSend.append("school", schoolValue);
+      }
       
-      formData.subjects.forEach(subjectId => {
-        formDataToSend.append("subjects", subjectId);
-      });
+      // Append subjects array
+      if (formData.subjects && Array.isArray(formData.subjects)) {
+        formData.subjects.forEach(subjectId => {
+          const subjectValue = typeof subjectId === 'object' ? subjectId.id : subjectId;
+          formDataToSend.append("subjects", subjectValue);
+        });
+      }
       
+      // Append profile picture if provided
       if (profilePhoto) {
         formDataToSend.append("profile_picture", profilePhoto);
       }
+      
+      console.log("Submitting profile data:", {
+        birth_date: formData.birth_date,
+        contact_name: formData.contact_name,
+        guardian_contact: formData.guardian_contact,
+        grade: formData.grade,
+        school: formData.school,
+        subjects: formData.subjects,
+        hasPhoto: !!profilePhoto
+      });
 
-      // Try PATCH first, if 404 then try PUT (for creating new profile)
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        throw new Error("No authentication token found. Please login again.");
+      }
+
+      // Try POST first to create profile (if it doesn't exist)
+      // Then try PUT (upsert - create or update)
+      // Finally try PATCH (update only)
       let response;
+      let lastError = null;
+
+      // Strategy 1: Try POST to create new profile
       try {
-        response = await axios.patch(
-          `${FHOST}/api/student/profile/update/${userInfo.id}/`,
+        response = await axios.post(
+          `${FHOST}/api/student/profile/`,
           formDataToSend,
           {
             headers: {
               "Content-Type": "multipart/form-data",
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+              Authorization: `Bearer ${token}`,
             },
           }
         );
-      } catch (patchError) {
-        // If 404, try PUT to create the profile
-        if (patchError.response?.status === 404) {
+        console.log("Profile created successfully via POST");
+      } catch (postError) {
+        console.log("POST failed, trying PUT:", postError.response?.status, postError.response?.data);
+        lastError = postError;
+        
+        // Strategy 2: Try PUT (should create if not exists, update if exists)
+        try {
+          response = await axios.put(
+            `${FHOST}/api/student/profile/update/${userInfo.id}/`,
+            formDataToSend,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          console.log("Profile updated/created successfully via PUT");
+        } catch (putError) {
+          console.log("PUT failed, trying PATCH:", putError.response?.status, putError.response?.data);
+          lastError = putError;
+          
+          // Strategy 3: Try PATCH (update only - if profile exists)
           try {
-            response = await axios.put(
+            response = await axios.patch(
               `${FHOST}/api/student/profile/update/${userInfo.id}/`,
               formDataToSend,
               {
                 headers: {
                   "Content-Type": "multipart/form-data",
-                  Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+                  Authorization: `Bearer ${token}`,
                 },
               }
             );
-          } catch (putError) {
-            // PUT also failed - try alternative creation endpoints
-            console.error("Both PATCH and PUT failed:", { 
-              patchError: {
-                status: patchError.response?.status,
-                data: patchError.response?.data,
-                url: patchError.config?.url
-              },
-              putError: {
-                status: putError.response?.status,
-                data: putError.response?.data,
-                url: putError.config?.url
-              }
+            console.log("Profile updated successfully via PATCH");
+          } catch (patchError) {
+            console.error("All methods failed:", {
+              POST: { status: postError.response?.status, data: postError.response?.data },
+              PUT: { status: putError.response?.status, data: putError.response?.data },
+              PATCH: { status: patchError.response?.status, data: patchError.response?.data }
             });
             
-            if (putError.response?.status === 404) {
-              // Both PATCH and PUT returned 404 - profile doesn't exist
-              // Extract detailed error information from backend
-              const putErrorData = putError.response?.data;
-              const patchErrorData = patchError.response?.data;
-              
-              // Try to get detailed error messages
-              let errorMessages = [];
-              
-              if (putErrorData?.errors && Array.isArray(putErrorData.errors)) {
-                errorMessages = putErrorData.errors.map(err => 
-                  typeof err === 'string' ? err : err.message || JSON.stringify(err)
-                );
-              }
-              
-              if (putErrorData?.detail) {
-                errorMessages.push(putErrorData.detail);
-              }
-              
-              if (putErrorData?.message) {
-                errorMessages.push(putErrorData.message);
-              }
-              
-              if (patchErrorData?.detail) {
-                errorMessages.push(patchErrorData.detail);
-              }
-              
-              const errorDetail = errorMessages.length > 0 
-                ? errorMessages.join('. ')
-                : `Profile not found at ${putError.config?.url}. The profile may need to be created first.`;
-              
+            // All methods failed - provide helpful error message
+            const errorData = patchError.response?.data || putError.response?.data || postError.response?.data;
+            const errorDetail = errorData?.detail || errorData?.message || errorData?.error;
+            
+            if (patchError.response?.status === 404 && putError.response?.status === 404 && postError.response?.status === 404) {
               throw new Error(
                 errorDetail || 
-                "Profile not found. The profile may need to be created first. Please contact support if this is your first time updating your profile."
+                "Profile endpoint not found. Please ensure the profile API endpoint is configured correctly."
               );
             } else {
-              // PUT failed with non-404 error
-              const errorDetail = putError.response?.data?.detail || 
-                                putError.response?.data?.message ||
-                                patchError.response?.data?.detail ||
-                                patchError.response?.data?.message;
               throw new Error(
                 errorDetail || 
                 "Failed to update profile. Please check your connection and try again."
               );
             }
           }
-        } else {
-          throw patchError;
         }
       }
 

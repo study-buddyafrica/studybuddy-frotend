@@ -44,9 +44,15 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
     let isMounted = true;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const fetchWithRetry = async (attempts = 3) => {
+      const token = localStorage.getItem('access_token');
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+      
       for (let i = 0; i < attempts; i++) {
         try {
-          return await axios.get(`${FHOST}/api/teachers`);
+          return await axios.get(`${FHOST}/api/teachers`, { headers });
         } catch (err) {
           const status = err?.response?.status;
           const retryAfter = Number(err?.response?.headers?.['retry-after']);
@@ -204,12 +210,17 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
 
       if (response.status === 201 || response.status === 200) {
         const booking = response.data;
+        const cost = booking.cost || booking.amount || 0;
+        const status = booking.status || 'pending';
         setSuccessMessage(
-          `Session booked successfully! Cost: ${Math.abs(parseFloat(booking.cost || 0))}. Status: ${booking.status}. Waiting for teacher confirmation.`
+          `Session booked successfully! Cost: ${Math.abs(parseFloat(cost))}. Status: ${status}. Waiting for teacher confirmation.`
         );
         setIsScheduling(false);
         setFormData({ date: "", time: "", student_id: userInfo?.id });
-        setTimeout(() => setSuccessMessage(""), 5000);
+        setSelectedTeacher(null); // Go back to teacher list
+        setTimeout(() => {
+          setSuccessMessage("");
+        }, 5000);
       } else {
         alert("Failed to book session. Try again.");
       }

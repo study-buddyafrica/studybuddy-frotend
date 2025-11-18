@@ -86,12 +86,39 @@ const ParentDashboard = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [studentFundAmount, setStudentFundAmount] = useState("");
   const [editingStudent, setEditingStudent] = useState(null);
-  // Refresh parent wallet balance (used after successful funding)
+  // Refresh parent wallet balance and transactions (used after successful funding)
   const fetchParentBalance = async () => {
     try {
       if (!userInfo) return;
-      const balanceRes = await axios.get(`${FHOST}/payments/wallet/${userInfo.id}`);
-      setWalletBalance(balanceRes.data.balance || 0);
+      const token = localStorage.getItem("access_token");
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+
+      // Fetch wallet info using new API
+      const walletResponse = await axios.get(`${FHOST}/api/wallet/`, { headers });
+      if (walletResponse.data?.results?.length > 0) {
+        const wallet = walletResponse.data.results[0];
+        setWalletBalance(parseFloat(wallet.balance) || 0);
+      }
+
+      // Fetch transactions using new API
+      const transactionsResponse = await axios.get(`${FHOST}/api/transactions/`, { headers });
+      const transactionsData = transactionsResponse.data?.results || [];
+      
+      // Transform transactions to match the expected format
+      const formattedTransactions = transactionsData.map(tx => ({
+        id: tx.id,
+        date: new Date(tx.timestamp || tx.created_at),
+        description: tx.description || "Transaction",
+        type: tx.transaction_type,
+        amount: parseFloat(tx.amount || 0),
+        status: tx.status,
+        payment_method: tx.payment_method,
+      }));
+      
+      setTransactions(formattedTransactions);
     } catch (error) {
       console.error("Failed to refresh parent balance:", error);
     }
@@ -139,6 +166,8 @@ const ParentDashboard = () => {
         }
       };
       checkProfileCompletion();
+      // Fetch wallet balance and transactions
+      fetchParentBalance();
     } else {
       // Redirect to login if no user info found
       window.location.href = "/";
@@ -152,11 +181,19 @@ const ParentDashboard = () => {
       const updatedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
       if (updatedUserInfo) {
         setUserInfo(updatedUserInfo);
+        fetchParentBalance();
       }
     };
     window.addEventListener('profile-updated', onProfileUpdate);
     return () => window.removeEventListener('profile-updated', onProfileUpdate);
   }, []);
+
+  // Fetch wallet data when userInfo changes
+  useEffect(() => {
+    if (userInfo?.id) {
+      fetchParentBalance();
+    }
+  }, [userInfo?.id]);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -878,7 +915,7 @@ const ParentDashboard = () => {
                       <div>
                         <p className="text-green-100 text-sm">Total Deposits</p>
                         <p className="text-3xl font-bold">
-                          Ksh {transactions.filter(tx => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0).toLocaleString()}
+                          Ksh {transactions.filter(tx => tx.type === 'deposit').reduce((sum, tx) => sum + (tx.amount || 0), 0).toLocaleString()}
                         </p>
                       </div>
                                              {ArrowTrendingUpIcon ? <ArrowTrendingUpIcon className="w-12 h-12 text-green-200" /> : <div className="w-12 h-12 bg-green-200 rounded-full"></div>}
@@ -937,16 +974,18 @@ const ParentDashboard = () => {
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             tx.type === 'deposit'
                               ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
+                              : tx.type === 'withdrawal'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
                           }`}>
-                            {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
+                            {tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : 'Transaction'}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span className={`font-semibold ${
-                            tx.amount > 0 ? "text-green-600" : "text-red-600"
+                            tx.type === 'deposit' ? "text-green-600" : "text-red-600"
                           }`}>
-                            {tx.amount > 0 ? '+' : ''}Ksh {Math.abs(tx.amount).toLocaleString()}
+                            {tx.type === 'deposit' ? '+' : '-'}Ksh {Math.abs(tx.amount || 0).toLocaleString()}
                           </span>
                         </td>
                       </tr>

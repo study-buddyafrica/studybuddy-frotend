@@ -42,29 +42,35 @@ const Dashboard = () => {
       console.log('Fetching fallback data from existing endpoints...');
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
       
-      // Try to get teachers count
-      const teachersRes = await axios.get(`${FHOST}/users/teachers`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }).catch(() => null);
-      
-      // Try to get all users
-      const usersRes = await axios.get(`${FHOST}/admin/all-users`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }).catch(() => null);
-      
       let totalUsers = 0;
       let totalTeachers = 0;
       let totalStudents = 0;
       let totalParents = 0;
       
-      if (usersRes?.data?.success && Array.isArray(usersRes.data.users)) {
-        const users = usersRes.data.users;
-        totalUsers = users.length;
-        totalTeachers = users.filter(u => u.role === 'teacher').length;
-        totalStudents = users.filter(u => u.role === 'student').length;
-        totalParents = users.filter(u => u.role === 'parent').length;
-      } else if (teachersRes?.data?.teachers) {
-        totalTeachers = teachersRes.data.teachers.length;
+      // Fetch users by role from the new API
+      const roles = ['teacher', 'student', 'parent'];
+      
+      for (const role of roles) {
+        try {
+          const res = await axios.get(`${FHOST}/api/users/users-list?role=${role}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          }).catch(() => null);
+          
+          if (res?.data?.results && Array.isArray(res.data.results)) {
+            const count = res.data.results.length;
+            totalUsers += count;
+            
+            if (role === 'teacher') {
+              totalTeachers = count;
+            } else if (role === 'student') {
+              totalStudents = count;
+            } else if (role === 'parent') {
+              totalParents = count;
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch ${role} count:`, err);
+        }
       }
       
       console.log('Fallback data:', { totalUsers, totalTeachers, totalStudents, totalParents });

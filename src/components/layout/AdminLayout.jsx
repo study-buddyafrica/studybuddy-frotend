@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -28,6 +28,17 @@ const navigation = [
 
 const AdminLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    // Clear all authentication data
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('userInfo');
+    
+    // Redirect to login page
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -43,8 +54,8 @@ const AdminLayout = () => {
                 <ul className="-mx-1 space-y-1">
                   {navigation.map((item) => (
                     <li key={item.name}>
-                      <a
-                        href={item.href}
+                      <Link
+                        to={item.href}
                         className={`group flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium ${
                           item.href === location.pathname
                             ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
@@ -55,7 +66,7 @@ const AdminLayout = () => {
                           <item.icon className="h-4 w-4" aria-hidden="true" />
                         </span>
                         {item.name}
-                      </a>
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -64,7 +75,10 @@ const AdminLayout = () => {
           </nav>
         </div>
         <div className="absolute bottom-0 w-full border-t border-gray-200 dark:border-gray-800 p-4">
-          <button className="flex w-full items-center justify-center rounded-md bg-red-50 px-2 py-2 text-sm font-medium text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30">
+          <button 
+            onClick={handleLogout}
+            className="flex w-full items-center justify-center rounded-md bg-red-50 px-2 py-2 text-sm font-medium text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30 transition-colors"
+          >
             <LogOut className="mr-3 h-5 w-5" />
             Logout
           </button>

@@ -34,14 +34,75 @@ const Intasend = ({ fetchTransactionHistory, userInfo }) => {
       previousResponseRef.current = response;
       
       try {
-        await axios.post(`${FHOST}/payments/api/intasend/deposit`, {
+        console.log('IntaSend payment completed. Response:', response);
+        console.log('Sending deposit to backend for user:', userInfo?.id);
+        
+        const depositResponse = await axios.post(`${FHOST}/payments/api/intasend/deposit`, {
           response: response,
           user_id: userInfo?.id,
           transaction_id: response.tracking_id,
+          amount: response.amount || response.value,
         });
-        fetchTransactionHistory();
+        
+        console.log('Deposit API response:', depositResponse.data);
+        
+        // Also try to create transaction directly in new API if deposit endpoint doesn't
+        // This is a fallback to ensure transaction is created
+        try {
+          const token = localStorage.getItem('access_token');
+          if (token && depositResponse.data) {
+            // Try to create transaction in new API structure
+            await axios.post(`${FHOST}/api/transactions/`, {
+              transaction_identifier: response.tracking_id || response.invoice_id,
+              amount: String(response.amount || response.value || 0),
+              transaction_type: 'deposit',
+              payment_method: 'mpesa',
+              status: 'completed',
+              description: `Deposit via IntaSend - ${response.tracking_id}`,
+              metadata_info: JSON.stringify(response),
+            }, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              }
+            }).catch(err => {
+              console.log('Direct transaction creation failed (might already exist):', err.response?.data);
+            });
+          }
+        } catch (directTxError) {
+          console.log('Note: Direct transaction creation skipped:', directTxError.message);
+        }
+        
+        // Refresh wallet immediately
+        if (fetchTransactionHistory) {
+          fetchTransactionHistory();
+        }
+        
+        // Retry fetching wallet data after delays to catch async backend processing
+        setTimeout(() => {
+          if (fetchTransactionHistory) {
+            console.log('Refreshing wallet after 2 seconds...');
+            fetchTransactionHistory();
+          }
+        }, 2000);
+        
+        setTimeout(() => {
+          if (fetchTransactionHistory) {
+            console.log('Refreshing wallet after 5 seconds...');
+            fetchTransactionHistory();
+          }
+        }, 5000);
+        
+        setTimeout(() => {
+          if (fetchTransactionHistory) {
+            console.log('Refreshing wallet after 10 seconds...');
+            fetchTransactionHistory();
+          }
+        }, 10000);
       } catch (error) {
-        console.error("There was an error sending the data:", error);
+        console.error("There was an error sending the deposit data:", error);
+        console.error("Error details:", error.response?.data);
+        alert(`Deposit processing error: ${error.response?.data?.detail || error.response?.data?.message || error.message}. Please contact support if the amount was deducted.`);
       } finally {
         isProcessingRef.current = false;
         setIsProcessing(false);

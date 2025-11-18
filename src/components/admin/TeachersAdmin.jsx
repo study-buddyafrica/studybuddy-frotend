@@ -244,10 +244,10 @@ const TeachersAdmin = () => {
         }
       }
 
-      // Check if all required fields exist
+      // Check if all required fields exist - APPROVE only if all fields are NOT empty
       const { missingFields, allFieldsPresent } = checkRequiredFields(dataToUse);
       if (!allFieldsPresent) {
-        alert(`Cannot verify teacher. Missing required fields: ${missingFields.join(', ')}\n\nPlease ensure all fields are filled before approving.`);
+        alert(`Cannot approve teacher. Missing required fields: ${missingFields.join(', ')}\n\nPlease ensure all fields are filled before approving.`);
         return;
       }
 
@@ -272,7 +272,7 @@ const TeachersAdmin = () => {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       
-      // Update teacher in list
+      // Update teacher in list with approved status
       setTeachers(teachers.map(t =>
         t.id === teacherId
           ? { ...t, verified: true, verification_status: 'approved' }
@@ -285,7 +285,30 @@ const TeachersAdmin = () => {
         setTeacherDetails(null);
       }
       
-      alert('Teacher verification approved successfully!');
+      alert('Teacher verification approved successfully! Status changed to approved.');
+      
+      // Refresh the teachers list to get updated data
+      const tRes = await axios.get(`${FHOST}/api/users/users-list?role=teacher`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }).catch(() => null);
+      
+      if (tRes?.data?.results && Array.isArray(tRes.data.results)) {
+        const teachersWithDetails = tRes.data.results.map((teacher) => {
+          const verificationStatus = teacher.verification_status || teacher.teacher_profile?.verification_status || 'pending';
+          return {
+            id: teacher.id,
+            full_name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim() || teacher.username,
+            username: teacher.username,
+            email: teacher.email,
+            verified: verificationStatus === 'approved',
+            verification_status: verificationStatus,
+            grade: teacher.grade || teacher.teacher_profile?.grade || [],
+            grades: teacher.grade || teacher.teacher_profile?.grade || [],
+            balance: teacher.balance || teacher.teacher_profile?.balance || 0,
+          };
+        });
+        setTeachers(teachersWithDetails);
+      }
     } catch (err) {
       console.error('Failed to approve teacher verification:', err);
       const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to approve teacher verification. Please try again.';
@@ -294,7 +317,6 @@ const TeachersAdmin = () => {
   };
 
   const rejectTeacherVerification = async (teacherId, teacherData = null) => {
-    if (!window.confirm('Are you sure you want to reject this teacher\'s verification?')) return;
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
       
@@ -322,7 +344,19 @@ const TeachersAdmin = () => {
         }
       }
 
-      // Unverify teacher with all required fields
+      // Check if required fields are null/empty - REJECT if fields are null
+      const { missingFields, allFieldsPresent } = checkRequiredFields(dataToUse);
+      if (allFieldsPresent) {
+        const confirmReject = window.confirm(
+          'All required fields are present. Are you sure you want to reject this teacher\'s verification?'
+        );
+        if (!confirmReject) return;
+      } else {
+        // Fields are null/empty - this is a valid reason to reject
+        if (!window.confirm(`Teacher has missing required fields: ${missingFields.join(', ')}\n\nDo you want to reject this teacher's verification?`)) return;
+      }
+
+      // Unverify/reject teacher
       const response = await axios.post(`${FHOST}/api/teachers/${teacherId}/unverify_teacher`, {
         tsc_number: dataToUse.tsc_number,
         tsc_number_certificate: dataToUse.tsc_number_certificate,
@@ -341,7 +375,7 @@ const TeachersAdmin = () => {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       
-      // Update teacher in list
+      // Update teacher in list with rejected status
       setTeachers(teachers.map(t =>
         t.id === teacherId
           ? { ...t, verified: false, verification_status: 'rejected' }
@@ -354,7 +388,30 @@ const TeachersAdmin = () => {
         setTeacherDetails(null);
       }
       
-      alert('Teacher verification rejected.');
+      alert('Teacher verification rejected. Status changed to rejected.');
+      
+      // Refresh the teachers list to get updated data
+      const tRes = await axios.get(`${FHOST}/api/users/users-list?role=teacher`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }).catch(() => null);
+      
+      if (tRes?.data?.results && Array.isArray(tRes.data.results)) {
+        const teachersWithDetails = tRes.data.results.map((teacher) => {
+          const verificationStatus = teacher.verification_status || teacher.teacher_profile?.verification_status || 'pending';
+          return {
+            id: teacher.id,
+            full_name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim() || teacher.username,
+            username: teacher.username,
+            email: teacher.email,
+            verified: verificationStatus === 'approved',
+            verification_status: verificationStatus,
+            grade: teacher.grade || teacher.teacher_profile?.grade || [],
+            grades: teacher.grade || teacher.teacher_profile?.grade || [],
+            balance: teacher.balance || teacher.teacher_profile?.balance || 0,
+          };
+        });
+        setTeachers(teachersWithDetails);
+      }
     } catch (err) {
       console.error('Failed to reject teacher verification:', err);
       const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to reject teacher verification. Please try again.';

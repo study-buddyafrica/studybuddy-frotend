@@ -91,17 +91,30 @@ const ParentProfileUpdate = ({ userInfo }) => {
 
       const formDataToSend = new FormData();
       
-      if (formData.birth_date) formDataToSend.append("birth_date", formData.birth_date);
+      // Append all required fields according to API spec
+      if (formData.birth_date) {
+        formDataToSend.append("birth_date", formData.birth_date);
+      }
       
+      // Append profile picture if provided
       if (profilePhoto) {
         formDataToSend.append("profile_picture", profilePhoto);
       }
+      
+      console.log("Submitting parent profile data:", {
+        birth_date: formData.birth_date,
+        hasPhoto: !!profilePhoto
+      });
 
-      // Try PATCH first, if 401 try to refresh token, if 404 try PUT
+      // Try POST first to create profile (if it doesn't exist)
+      // Then try PUT (upsert - create or update)
+      // Finally try PATCH (update only)
       let response;
+      
+      // Strategy 1: Try POST to create new profile
       try {
-        response = await axios.patch(
-          `${FHOST}/api/parent/profile/update/${userInfo.id}/`,
+        response = await axios.post(
+          `${FHOST}/api/parent/profile/`,
           formDataToSend,
           {
             headers: {
@@ -110,34 +123,29 @@ const ParentProfileUpdate = ({ userInfo }) => {
             },
           }
         );
-      } catch (patchError) {
-        // If 401, try to refresh token and retry
-        if (patchError.response?.status === 401) {
+        console.log("Parent profile created successfully via POST");
+      } catch (postError) {
+        console.log("POST failed, trying PUT:", postError.response?.status, postError.response?.data);
+        
+        // Strategy 2: Try PUT (should create if not exists, update if exists)
+        try {
+          response = await axios.put(
+            `${FHOST}/api/parent/profile/update/${userInfo.id}/`,
+            formDataToSend,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          console.log("Parent profile updated/created successfully via PUT");
+        } catch (putError) {
+          console.log("PUT failed, trying PATCH:", putError.response?.status, putError.response?.data);
+          
+          // Strategy 3: Try PATCH (update only - if profile exists)
           try {
-            const { authService } = await import("../../services/authService");
-            const newToken = await authService.refreshToken();
             response = await axios.patch(
-              `${FHOST}/api/parent/profile/update/${userInfo.id}/`,
-              formDataToSend,
-              {
-                headers: {
-                  "Content-Type": "multipart/form-data",
-                  Authorization: `Bearer ${newToken}`,
-                },
-              }
-            );
-          } catch (refreshError) {
-            setErrorMessage("Session expired. Please login again.");
-            setTimeout(() => {
-              window.location.href = "/login";
-            }, 2000);
-            setLoading(false);
-            return;
-          }
-        } else if (patchError.response?.status === 404) {
-          // If 404, try PUT to create the profile
-          try {
-            response = await axios.put(
               `${FHOST}/api/parent/profile/update/${userInfo.id}/`,
               formDataToSend,
               {
@@ -147,70 +155,30 @@ const ParentProfileUpdate = ({ userInfo }) => {
                 },
               }
             );
-          } catch (putError) {
-            // PUT also failed - try alternative creation endpoints
-            console.error("Both PATCH and PUT failed:", { 
-              patchError: {
-                status: patchError.response?.status,
-                data: patchError.response?.data,
-                url: patchError.config?.url
-              },
-              putError: {
-                status: putError.response?.status,
-                data: putError.response?.data,
-                url: putError.config?.url
-              }
+            console.log("Parent profile updated successfully via PATCH");
+          } catch (patchError) {
+            console.error("All methods failed for parent profile:", {
+              POST: { status: postError.response?.status, data: postError.response?.data },
+              PUT: { status: putError.response?.status, data: putError.response?.data },
+              PATCH: { status: patchError.response?.status, data: patchError.response?.data }
             });
             
-            if (putError.response?.status === 404) {
-              // Both PATCH and PUT returned 404 - profile doesn't exist
-              // Extract detailed error information from backend
-              const putErrorData = putError.response?.data;
-              const patchErrorData = patchError.response?.data;
-              
-              // Try to get detailed error messages
-              let errorMessages = [];
-              
-              if (putErrorData?.errors && Array.isArray(putErrorData.errors)) {
-                errorMessages = putErrorData.errors.map(err => 
-                  typeof err === 'string' ? err : err.message || JSON.stringify(err)
-                );
-              }
-              
-              if (putErrorData?.detail) {
-                errorMessages.push(putErrorData.detail);
-              }
-              
-              if (putErrorData?.message) {
-                errorMessages.push(putErrorData.message);
-              }
-              
-              if (patchErrorData?.detail) {
-                errorMessages.push(patchErrorData.detail);
-              }
-              
-              const errorDetail = errorMessages.length > 0 
-                ? errorMessages.join('. ')
-                : `Profile not found at ${putError.config?.url}. The profile may need to be created first.`;
-              
+            // All methods failed - provide helpful error message
+            const errorData = patchError.response?.data || putError.response?.data || postError.response?.data;
+            const errorDetail = errorData?.detail || errorData?.message || errorData?.error;
+            
+            if (patchError.response?.status === 404 && putError.response?.status === 404 && postError.response?.status === 404) {
               throw new Error(
                 errorDetail || 
-                "Profile not found. The profile may need to be created first. Please contact support if this is your first time updating your profile."
+                "Profile endpoint not found. Please ensure the profile API endpoint is configured correctly."
               );
             } else {
-              // PUT failed with non-404 error
-              const errorDetail = putError.response?.data?.detail || 
-                                putError.response?.data?.message ||
-                                patchError.response?.data?.detail ||
-                                patchError.response?.data?.message;
               throw new Error(
                 errorDetail || 
                 "Failed to update profile. Please check your connection and try again."
               );
             }
           }
-        } else {
-          throw patchError;
         }
       }
 

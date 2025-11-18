@@ -75,28 +75,68 @@ const MyWallet = ({ userInfo }) => {
   const fetchTransactionHistory = async () => {
     try {
       setLoading(true);
-      // Fetch transaction history
+      setErrorMessage('');
       const token = localStorage.getItem('access_token');
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`/payments/transactions/${userInfo?.id}`, { headers });
-      const transactions = response?.data?.transactions || [];
-      // Fetch wallet balance separately
-      const balanceRes = await axios.get(`/payments/wallet/${userInfo?.id}`, { headers });
-      const currentBalance = balanceRes?.data?.balance || 0;
-      setAmount(currentBalance);
-      // Use wallet balance as available earnings
-      setTeacherEarnings(currentBalance);
-      setPendingEarnings(0);
-      // Map deposits/withdrawals using backend field names
-      const deposits = transactions.filter((t) => t.type === 'deposit');
-      setTopupHistory(deposits);
-      const withdrawals = transactions.filter((t) => t.type === 'withdrawal');
-      setWithdrawalHistory(withdrawals);
+      if (!token) {
+        setErrorMessage('No authentication token found. Please login again.');
+        return;
+      }
+
+      const headers = { 
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+
+      console.log('Fetching wallet data for user:', userInfo?.id);
+
+      // Fetch wallet info using new API
+      try {
+        const walletResponse = await axios.get(`${FHOST}/api/wallet/`, { headers });
+        console.log('Wallet API response:', walletResponse.data);
+        
+        if (walletResponse.data?.results?.length > 0) {
+          // Find wallet for current user (in case multiple wallets returned)
+          const userWallet = walletResponse.data.results.find(w => w.user === userInfo?.id) || walletResponse.data.results[0];
+          const currentBalance = parseFloat(userWallet.balance) || 0;
+          console.log('Current wallet balance:', currentBalance, 'Wallet data:', userWallet);
+          setAmount(currentBalance);
+          setTeacherEarnings(currentBalance);
+          setPendingEarnings(0);
+        } else {
+          console.warn('No wallet found in response. Creating wallet might be needed.');
+          setAmount(0);
+        }
+      } catch (walletError) {
+        console.error('Error fetching wallet:', walletError);
+        setErrorMessage(`Wallet error: ${walletError.response?.data?.detail || walletError.message}`);
+      }
+
+      // Fetch transactions using new API
+      try {
+        const transactionsResponse = await axios.get(`${FHOST}/api/transactions/`, { headers });
+        console.log('Transactions API response:', transactionsResponse.data);
+        const transactions = transactionsResponse.data?.results || [];
+        
+        // Filter transactions by type
+        const deposits = transactions.filter((t) => t.transaction_type === 'deposit');
+        const withdrawals = transactions.filter((t) => t.transaction_type === 'withdrawal');
+        
+        console.log('Deposits found:', deposits.length, 'Withdrawals found:', withdrawals.length);
+        setTopupHistory(deposits);
+        setWithdrawalHistory(withdrawals);
+      } catch (transError) {
+        console.error('Error fetching transactions:', transError);
+        setErrorMessage(`Transactions error: ${transError.response?.data?.detail || transError.message}`);
+        setTopupHistory([]);
+        setWithdrawalHistory([]);
+      }
+      
       // Lesson payments feed (optional; keep empty until backend provides)
       setLessonPayments([]);
     } catch (err) {
       console.error('Error fetching transaction history:', err);
-      setErrorMessage('Failed to load wallet data.');
+      const errorMsg = err.response?.data?.detail || err.response?.data?.message || err.message || 'Failed to load wallet data.';
+      setErrorMessage(`Error: ${errorMsg}`);
       setTopupHistory([]);
       setWithdrawalHistory([]);
       setLessonPayments([]);
@@ -119,15 +159,22 @@ const MyWallet = ({ userInfo }) => {
     
     try {
       setLoading(true);
+      setErrorMessage('');
+      setSuccessMessage('');
       const token = localStorage.getItem('access_token');
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.post(`/payments/teacher_withdraw`, {
-        teacher_id: userInfo?.id,
+      const headers = { 
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+      
+      // Use new withdrawal API endpoint
+      const response = await axios.post(`${FHOST}/api/withdraw/`, {
         amount: parseFloat(withdrawalAmount),
-        mpesa_number: mpesaNumber
+        account_number: mpesaNumber,
+        payment_method: "mpesa",
       }, { headers });
       
-      if (response.status === 200) {
+      if (response.status === 200 || response.status === 201) {
         setSuccessMessage('Withdrawal initiated successfully! You will receive the funds in your M-Pesa account shortly.');
         setShowWithdrawalModal(false);
         setWithdrawalAmount('');
@@ -136,23 +183,49 @@ const MyWallet = ({ userInfo }) => {
       }
     } catch (error) {
       console.error('Error initiating withdrawal:', error);
-      setErrorMessage('Failed to initiate withdrawal. Please try again.');
+      const errorMsg = error.response?.data?.detail || error.response?.data?.message || 'Failed to initiate withdrawal. Please try again.';
+      setErrorMessage(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTransactionHistory();
+    if (userInfo?.id) {
+      fetchTransactionHistory();
+    }
+  }, [userInfo?.id]);
+
+  // Refresh wallet data periodically to catch updates from deposits
+  useEffect(() => {
+    if (!userInfo?.id) return;
+    
+    const interval = setInterval(() => {
+      fetchTransactionHistory();
+    }, 10000); // Refresh every 10 seconds
+
+    return () => clearInterval(interval);
   }, [userInfo?.id]);
 
   return (
     <div className="min-h-screen bg-gray-50 font-josefin">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <h1 className="text-3xl font-lilita text-[#015575] text-center mb-8">
-          My Wallet
-        </h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-lilita text-[#015575]">
+            My Wallet
+          </h1>
+          <button
+            onClick={fetchTransactionHistory}
+            disabled={loading}
+            className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#014060] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
 
         {/* Wallet Summary Grid */}
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -289,10 +362,10 @@ const MyWallet = ({ userInfo }) => {
                         {new Date(transaction.timestamp).toLocaleDateString()}
                       </p>
                       <p className="text-xs text-gray-500">M-Pesa Withdrawal</p>
-                      <p className="text-xs text-gray-500">{transaction.details?.mpesa_number}</p>
+                      <p className="text-xs text-gray-500">{transaction.account_number || transaction.details?.mpesa_number}</p>
                     </div>
                     <span className="text-red-600 font-semibold">
-                      -Ksh {transaction.amount.toLocaleString()}
+                      -{transaction.amount_currency || "Ksh"} {parseFloat(transaction.amount || 0).toLocaleString()}
                     </span>
                   </div>
                 ))
@@ -406,13 +479,31 @@ const MyWallet = ({ userInfo }) => {
 
         {/* Success/Error Messages */}
         {successMessage && (
-          <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 max-w-md">
             {successMessage}
           </div>
         )}
         {errorMessage && (
-          <div className="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-            {errorMessage}
+          <div className="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 max-w-md">
+            <div className="flex items-center justify-between">
+              <span>{errorMessage}</span>
+              <button
+                onClick={() => setErrorMessage('')}
+                className="ml-4 text-white hover:text-gray-200"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Debug Info (only in development) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-4 p-4 bg-gray-100 rounded-lg text-xs">
+            <p><strong>User ID:</strong> {userInfo?.id}</p>
+            <p><strong>Balance:</strong> {amount}</p>
+            <p><strong>Deposits:</strong> {topupHistory.length}</p>
+            <p><strong>Withdrawals:</strong> {withdrawalHistory.length}</p>
           </div>
         )}
       </div>

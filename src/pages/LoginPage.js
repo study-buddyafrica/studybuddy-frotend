@@ -82,11 +82,14 @@ const LoginPage = () => {
                                rawIsSuperUser === 1 ||
                                String(rawIsSuperUser).toLowerCase() === 'true';
             
-            console.log("Login - Raw user data:", me);
-            console.log("Login - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser });
+            // Additional check: if email is admin@gmail.com, treat as admin
+            const isAdminEmail = email.toLowerCase() === 'admin@gmail.com';
             
-            // If user is superuser, ALWAYS set as admin regardless of role field
-            if (isSuperUser) {
+            console.log("Login - Raw user data:", me);
+            console.log("Login - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser, isAdminEmail });
+            
+            // If user is superuser OR admin email, ALWAYS set as admin regardless of role field
+            if (isSuperUser || isAdminEmail) {
               me.is_superuser = true;
               me.role = 'admin';
               localStorage.setItem("userInfo", JSON.stringify(me));
@@ -136,11 +139,14 @@ const LoginPage = () => {
                                  rawIsSuperUser === 1 ||
                                  String(rawIsSuperUser).toLowerCase() === 'true';
               
-              console.log("Login (fallback) - Raw user data:", userData);
-              console.log("Login (fallback) - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser });
+              // Additional check: if email is admin@gmail.com, treat as admin
+              const isAdminEmail = email.toLowerCase() === 'admin@gmail.com';
               
-              // If user is superuser, ALWAYS set as admin regardless of role field
-              if (isSuperUser) {
+              console.log("Login (fallback) - Raw user data:", userData);
+              console.log("Login (fallback) - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser, isAdminEmail });
+              
+              // If user is superuser OR admin email, ALWAYS set as admin regardless of role field
+              if (isSuperUser || isAdminEmail) {
                 userData.is_superuser = true;
                 userData.role = 'admin';
                 localStorage.setItem("userInfo", JSON.stringify(userData));
@@ -205,11 +211,14 @@ const LoginPage = () => {
                            rawIsSuperUser === 1 ||
                            String(rawIsSuperUser).toLowerCase() === 'true';
         
-        console.log("Google Login - Raw user data:", UserInfo);
-        console.log("Google Login - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser });
+        // Additional check: if email is admin@gmail.com, treat as admin
+        const isAdminEmail = user.email.toLowerCase() === 'admin@gmail.com';
         
-        // If user is superuser, ALWAYS set as admin regardless of role field
-        if (isSuperUser) {
+        console.log("Google Login - Raw user data:", UserInfo);
+        console.log("Google Login - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser, isAdminEmail });
+        
+        // If user is superuser OR admin email, ALWAYS set as admin regardless of role field
+        if (isSuperUser || isAdminEmail) {
           UserInfo.is_superuser = true;
           UserInfo.role = 'admin';
           localStorage.setItem("userInfo", JSON.stringify(UserInfo));
