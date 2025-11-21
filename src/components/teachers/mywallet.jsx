@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import Intasend from "../payments/Intasend";
 import { FHOST } from "../constants/Functions";
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { Line } from 'react-chartjs-2';
@@ -9,7 +8,6 @@ import {
   FaMobileAlt, 
   FaChartLine, 
   FaDownload, 
-  FaEye,
   FaTimes
 } from 'react-icons/fa';
 import {
@@ -44,9 +42,25 @@ const MyWallet = ({ userInfo }) => {
   const [pendingEarnings, setPendingEarnings] = useState(0);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [mpesaNumber, setMpesaNumber] = useState('');
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositMpesaNumber, setDepositMpesaNumber] = useState('');
+  const [depositLoading, setDepositLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [depositInfo, setDepositInfo] = useState(null);
+  const [showDepositInfoModal, setShowDepositInfoModal] = useState(false);
+
+
+  const parseDetails = (details) => {
+    if (!details) return {};
+    if (typeof details === 'object') return details;
+    try {
+      return JSON.parse(details);
+    } catch {
+      return { raw: details };
+    }
+  };
 
   const chartData = {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
@@ -115,9 +129,11 @@ const MyWallet = ({ userInfo }) => {
       try {
         const transactionsResponse = await axios.get(`${FHOST}/api/transactions/`, { headers });
         console.log('Transactions API response:', transactionsResponse.data);
-        const transactions = transactionsResponse.data?.results || [];
+        const transactions = (transactionsResponse.data?.results || []).map((t) => ({
+          ...t,
+          details: parseDetails(t.details || t.metadata || t.metadata_info),
+        }));
         
-        // Filter transactions by type
         const deposits = transactions.filter((t) => t.transaction_type === 'deposit');
         const withdrawals = transactions.filter((t) => t.transaction_type === 'withdrawal');
         
@@ -190,21 +206,67 @@ const MyWallet = ({ userInfo }) => {
     }
   };
 
+  const handleDeposit = async (e) => {
+    e.preventDefault();
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      setErrorMessage('Please enter a valid deposit amount.');
+      return;
+    }
+
+    try {
+      setDepositLoading(true);
+      setErrorMessage('');
+      setSuccessMessage('');
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setErrorMessage('Authentication required. Please login again.');
+        setDepositLoading(false);
+        return;
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+
+      const payload = {
+        amount: parseFloat(depositAmount),
+        payment_method: "mpesa",
+        mpesa_number: depositMpesaNumber || undefined,
+      };
+
+      const response = await axios.post(`${FHOST}/api/wallet/deposit/`, payload, { headers });
+
+      if (response.status === 200 || response.status === 201) {
+        const data = response.data;
+      
+        // store deposit info
+        setDepositInfo(data);
+        setShowDepositInfoModal(true);
+      
+        // close amount modal
+        setShowPopup(false);
+      
+        // clear fields
+        setDepositAmount('');
+        setDepositMpesaNumber('');
+      
+        fetchTransactionHistory();
+      }
+      
+    } catch (error) {
+      console.error('Error initiating deposit:', error);
+      const errorMsg = error.response?.data?.detail || error.response?.data?.message || 'Failed to initiate deposit. Please try again.';
+      setErrorMessage(errorMsg);
+    } finally {
+      setDepositLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (userInfo?.id) {
       fetchTransactionHistory();
     }
-  }, [userInfo?.id]);
-
-  // Refresh wallet data periodically to catch updates from deposits
-  useEffect(() => {
-    if (!userInfo?.id) return;
-    
-    const interval = setInterval(() => {
-      fetchTransactionHistory();
-    }, 10000); // Refresh every 10 seconds
-
-    return () => clearInterval(interval);
   }, [userInfo?.id]);
 
   return (
@@ -215,16 +277,6 @@ const MyWallet = ({ userInfo }) => {
           <h1 className="text-3xl font-lilita text-[#015575]">
             My Wallet
           </h1>
-          <button
-            onClick={fetchTransactionHistory}
-            disabled={loading}
-            className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#014060] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
         </div>
 
         {/* Wallet Summary Grid */}
@@ -355,20 +407,37 @@ const MyWallet = ({ userInfo }) => {
               {withdrawalHistory.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">No withdrawals yet</p>
               ) : (
-                withdrawalHistory.slice(0, 5).map((transaction, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <div>
-                      <p className="font-medium text-sm">
-                        {new Date(transaction.timestamp).toLocaleDateString()}
+                withdrawalHistory.slice(0, 5).map((transaction, index) => {
+                  const details = transaction.details || {};
+                  const accountDisplay = details.mpesa_number || details.account_number || transaction.account_number || 'N/A';
+                  const method = transaction.payment_method || details.payment_method || 'M-Pesa';
+                  const status = (transaction.status || details.status || 'processing').toUpperCase();
+                  const reference = transaction.transaction_identifier || details.reference || transaction.id || `REF-${index + 1}`;
+                  return (
+                    <div key={index} className="p-4 bg-gray-50 rounded-xl space-y-1 border border-gray-100">
+                      <div className="flex justify-between text-sm font-medium text-gray-800">
+                        <span>{new Date(transaction.timestamp || transaction.created_at || Date.now()).toLocaleDateString()}</span>
+                        <span className="text-red-600">
+                          -{transaction.amount_currency || "Ksh"} {parseFloat(transaction.amount || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">Method: {method}</p>
+                      <p className="text-xs text-gray-500">Account: {accountDisplay}</p>
+                      <p className="text-xs text-gray-500">Reference: {reference}</p>
+                      <p className="text-xs">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          status === 'COMPLETED'
+                            ? 'bg-green-100 text-green-700'
+                            : status === 'FAILED'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {status}
+                        </span>
                       </p>
-                      <p className="text-xs text-gray-500">M-Pesa Withdrawal</p>
-                      <p className="text-xs text-gray-500">{transaction.account_number || transaction.details?.mpesa_number}</p>
                     </div>
-                    <span className="text-red-600 font-semibold">
-                      -{transaction.amount_currency || "Ksh"} {parseFloat(transaction.amount || 0).toLocaleString()}
-                    </span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -379,7 +448,7 @@ const MyWallet = ({ userInfo }) => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl p-6 w-full max-w-md">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-[#015575]">Add Funds</h3>
+                <h3 className="text-xl font-semibold text-[#015575]">Deposit Funds</h3>
                 <button 
                   onClick={() => setShowPopup(false)}
                   className="p-2 text-gray-500 hover:text-gray-700"
@@ -387,11 +456,64 @@ const MyWallet = ({ userInfo }) => {
                   <XMarkIcon className="w-6 h-6" />
                 </button>
               </div>
-              <Intasend 
-                fetchTransactionHistory={fetchTransactionHistory} 
-                userInfo={userInfo}
-                onClose={() => setShowPopup(false)}
-              />
+              <form onSubmit={handleDeposit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Amount (KES) *
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    step="1"
+                    required
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    placeholder="Enter amount e.g. 500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    M-Pesa Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={depositMpesaNumber}
+                    onChange={(e) => setDepositMpesaNumber(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    placeholder="2547XXXXXXXX (optional)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave blank to use your default wallet number if configured.
+                  </p>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700">
+                  You&apos;ll receive an STK push on the number linked to your wallet. Confirm on your phone to complete the deposit.
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!depositLoading) {
+                        setShowPopup(false);
+                        setDepositAmount('');
+                        setDepositMpesaNumber('');
+                      }
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    disabled={depositLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={depositLoading}
+                    className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4] disabled:opacity-70"
+                  >
+                    {depositLoading ? 'Processing...' : 'Deposit'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -476,6 +598,58 @@ const MyWallet = ({ userInfo }) => {
             </div>
           </div>
         )}
+        {/* Deposit Info Modal */}
+{showDepositInfoModal && depositInfo && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-xl font-semibold text-[#015575]">
+          Deposit Details
+        </h3>
+        <button
+          onClick={() => setShowDepositInfoModal(false)}
+          className="p-2 text-gray-500 hover:text-gray-700"
+        >
+          <XMarkIcon className="w-6 h-6" />
+        </button>
+      </div>
+
+      <div className="space-y-3 text-sm">
+        <p><strong>Message:</strong> {depositInfo.message}</p>
+        <p><strong>Transaction ID:</strong> {depositInfo.transaction_id}</p>
+        <p><strong>API Ref:</strong> {depositInfo.api_ref}</p>
+
+        <div className="bg-gray-50 p-3 rounded-lg">
+          <h4 className="font-semibold mb-2">Amount Details</h4>
+          <p>Original Amount: Ksh {depositInfo.amount_details.original_amount}</p>
+          <p>Fee: Ksh {depositInfo.amount_details.fee_amount}</p>
+          <p>Total Checkout: Ksh {depositInfo.amount_details.total_checkout_amount}</p>
+          <p>You Pay: Ksh {depositInfo.amount_details.you_pay}</p>
+          <p>You Get: Ksh {depositInfo.amount_details.you_get}</p>
+        </div>
+
+        <div className="bg-gray-50 p-3 rounded-lg">
+          <h4 className="font-semibold mb-2">Fee Breakdown</h4>
+          {depositInfo.fee_breakdown.fee_structure.map((item, idx) => (
+            <p key={idx}>{item.range}: {item.fee}</p>
+          ))}
+          <p className="text-xs mt-2">{depositInfo.fee_breakdown.note}</p>
+        </div>
+      </div>
+
+      <div className="flex justify-end mt-6">
+        <button
+          onClick={() => window.open(depositInfo.checkout_url, "_blank")}
+          className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4]"
+        >
+          Proceed to Checkout
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
+
 
         {/* Success/Error Messages */}
         {successMessage && (

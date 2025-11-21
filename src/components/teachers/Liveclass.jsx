@@ -4,6 +4,7 @@ import { FHOST } from '../constants/Functions';
 import { CalendarIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 const LiveClass = ({ userInfo }) => {
+  const [useBooking, setUseBooking] = useState(true);
   const [meetingDetails, setMeetingDetails] = useState({
     session_booking_id: '',
     topic: '',
@@ -52,7 +53,7 @@ const LiveClass = ({ userInfo }) => {
         const token = localStorage.getItem('access_token');
         if (!token || !userInfo?.id) return;
 
-        const response = await axios.get(`${FHOST}/lessons/api/bookings/teacher/${userInfo.id}`, {
+        const response = await axios.get(`${FHOST}/api/booked-sessions/${userInfo.id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

@@ -61,6 +61,23 @@ const MyAccount = () => {
         if (response.data.profile_picture) {
           setProfilePhotoPreview(response.data.profile_picture);
         }
+
+        const derivedStatus =
+          response.data.verification_status ||
+          (response.data.is_verified ? "approved" : response.data.is_rejected ? "rejected" : "pending");
+
+        setUserInfo((prev) => {
+          const merged = {
+            ...(prev || {}),
+            ...response.data,
+            verification_status: derivedStatus,
+            teacher_profile_id: response.data.id || prev?.teacher_profile_id,
+          };
+          localStorage.setItem("userInfo", JSON.stringify(merged));
+          return merged;
+        });
+
+        window.dispatchEvent(new Event("verification-status-changed"));
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -481,8 +498,12 @@ const MyAccount = () => {
         if (updatedUserInfo.verification_status !== 'approved') {
           updatedUserInfo.verification_status = 'pending';
         }
+        if (updatedProfile?.id && !updatedUserInfo.teacher_profile_id) {
+          updatedUserInfo.teacher_profile_id = updatedProfile.id;
+        }
         localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
         setUserInfo(updatedUserInfo);
+        window.dispatchEvent(new Event('verification-status-changed'));
         
         // Notify other components to refresh
         window.dispatchEvent(new Event('profile-updated'));

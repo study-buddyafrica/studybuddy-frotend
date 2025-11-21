@@ -22,12 +22,10 @@ import {
 } from "react-icons/fa";
 import { FHOST } from "./constants/Functions";
 import MyLessons from "./teachers/MyLessons";
-import MyStudents from "./teachers/MyStudents";
 import Liveclass from "./teachers/Liveclass";
 import MyAccount from "./teachers/MyAccount";
 import TeacherProfileUpdate from "./teachers/TeacherProfileUpdate";
 import UpcomingClasses from "./teachers/UpcomingClasses";
-import VideoEditor from "./teachers/VideoEditor";
 import Scheduler from "./teachers/Scheduler";
 import { useLocation, useNavigate } from "react-router-dom";
 import MyWallet from "./teachers/mywallet";
@@ -62,6 +60,48 @@ const TeacherDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const normalizeTeacherStatus = (record, fallbackStatus = null) => {
+    if (!record) return fallbackStatus || null;
+    if (record.verification_status) return record.verification_status;
+    if (record.is_verified === true) return "approved";
+    if (record.is_rejected === true || record.status === "rejected") return "rejected";
+    return fallbackStatus || "pending";
+  };
+
+  const fetchTeacherRecord = async (token, userData) => {
+    if (!token || !userData) return null;
+    const profileId = userData.teacher_profile_id || userData?.teacher_profile?.id;
+    const headers = { Authorization: `Bearer ${token}` };
+
+    try {
+      if (profileId) {
+        const res = await axios.get(`${FHOST}/api/teachers/${profileId}/`, { headers });
+        return res.data;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch teacher by profile id, falling back to list lookup", err);
+    }
+
+    try {
+      const res = await axios.get(`${FHOST}/api/teachers/`, { headers });
+      const results = res.data?.results || res.data || [];
+      if (Array.isArray(results)) {
+        return (
+          results.find((teacher) => {
+            if (!teacher) return false;
+            const teacherUserId =
+              typeof teacher.user === "object" ? teacher.user?.id : teacher.user;
+            return teacherUserId && String(teacherUserId) === String(userData.id);
+          }) || null
+        );
+      }
+    } catch (err) {
+      console.error("Failed to fetch teacher list for status lookup:", err);
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     const refreshState = async () => {
       const userData = JSON.parse(localStorage.getItem("userInfo"));
@@ -86,27 +126,39 @@ const TeacherDashboard = () => {
         console.error("Error fetching profile:", error);
       }
 
-      // Fetch latest user data from backend to get verification status
-      let finalStatus = userData.verification_status;
+      // Fetch latest teacher data from backend to get verification status
+      let finalStatus = userData.verification_status || null;
       try {
-        const response = await axios.get(`${FHOST}/users/teacher/${userData.id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-        if (response.data) {
-          const latestUserData = response.data;
-          finalStatus = latestUserData.verification_status || userData.verification_status;
+        const token = localStorage.getItem("access_token");
+        if (token) {
+          const teacherRecord = await fetchTeacherRecord(token, userData);
+          if (teacherRecord) {
+            const normalizedStatus = normalizeTeacherStatus(teacherRecord, finalStatus);
+            finalStatus = normalizedStatus;
+            setVerificationStatus(normalizedStatus);
+
+            const updatedUserInfo = {
+              ...userData,
+              teacher_profile_id: teacherRecord.id || userData.teacher_profile_id,
+              teacher_profile: teacherRecord,
+              verification_status: normalizedStatus,
+              is_verified: teacherRecord.is_verified,
+            };
+
+            localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
+            setUserInfo(updatedUserInfo);
+
+            if (userData.verification_status !== normalizedStatus) {
+              window.dispatchEvent(new Event("verification-status-changed"));
+            }
+          } else {
+            setVerificationStatus(finalStatus);
+          }
+        } else {
           setVerificationStatus(finalStatus);
-          
-          // Update localStorage with latest data
-          const updatedUserInfo = { ...userData, ...latestUserData };
-          localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
-          setUserInfo(updatedUserInfo);
         }
       } catch (error) {
-        // Fallback to localStorage data if API call fails
-        finalStatus = userData.verification_status;
+        console.error("Error fetching teacher verification status:", error);
         setVerificationStatus(finalStatus);
       }
       
@@ -463,17 +515,6 @@ const TeacherDashboard = () => {
               </li>
               <li>
                 <button 
-                  onClick={() => handleMenuItemClick("students")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "students" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
-                  <FaUsers className="mr-3" />
-                  My Students
-                  {activeComponent === "students" && <FaChevronRight className="ml-auto" />}
-                </button>
-              </li>
-              <li>
-                <button 
                   onClick={() => handleMenuItemClick("lessons")}
                   disabled={isBlocked}
                   className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "lessons" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
@@ -516,27 +557,7 @@ const TeacherDashboard = () => {
                   {activeComponent === "schedule" && <FaChevronRight className="ml-auto" />}
                 </button>
               </li>
-              <li>
-                <button 
-                  onClick={() => handleMenuItemClick("videoeditor")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "videoeditor" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
-                  <FaCameraRetro className="mr-3" />
-                  Video Editor
-                  {activeComponent === "videoeditor" && <FaChevronRight className="ml-auto" />}
-                </button>
-              </li>
-              <li>
-                <button 
-                  onClick={() => handleMenuItemClick("profileupdate")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "profileupdate" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
-                >
-                  <FaUserCircle className="mr-3" />
-                  Update Profile
-                  {activeComponent === "profileupdate" && <FaChevronRight className="ml-auto" />}
-                </button>
-              </li>
+          
               <li>
                 <button 
                   onClick={() => handleMenuItemClick("myaccount")}
@@ -845,10 +866,8 @@ const TeacherDashboard = () => {
               return (
                 <>
                   {activeComponent === "lessons" && <MyLessons userInfo={userInfo} />}
-                  {activeComponent === "students" && <MyStudents userInfo={userInfo} />}
                   {activeComponent === "liveclass" && <Liveclass userInfo={userInfo} />}
                   {activeComponent === "mywallet" && <MyWallet userInfo={userInfo} />}
-                  {activeComponent === "videoeditor" && <VideoEditor />}
                   {activeComponent === "schedule" && <Scheduler userInfo={userInfo} />}
                   {activeComponent === "upcomingclasses" && <UpcomingClasses liveSessions={liveSessions} />}
                   {activeComponent === "profileupdate" && <TeacherProfileUpdate />}

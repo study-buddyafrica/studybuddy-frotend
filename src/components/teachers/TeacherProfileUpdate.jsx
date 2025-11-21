@@ -10,6 +10,41 @@ const TeacherProfileUpdate = () => {
   const [userInfo, setUserInfo] = useState({});
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState(null);
+  const normalizeList = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (typeof item === "number") return item.toString();
+          if (item && typeof item === "object") {
+            return (
+              item.name ||
+              item.subject ||
+              item.title ||
+              item.label ||
+              item.value ||
+              item.id ||
+              ""
+            ).toString();
+          }
+          return "";
+        })
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    if (typeof value === "number") {
+      return [value.toString()];
+    }
+    return [];
+  };
+
   const [formData, setFormData] = useState({
     bio: "",
     phone: "",
@@ -24,16 +59,14 @@ const TeacherProfileUpdate = () => {
     id_number: "",
     gender: "",
   });
-  const [availableSubjects, setAvailableSubjects] = useState([]);
-  const [availableGrades, setAvailableGrades] = useState([]);
+  const [subjectInput, setSubjectInput] = useState("");
+  const [gradeInput, setGradeInput] = useState("");
 
   useEffect(() => {
     const UserInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (UserInfo) {
       setUserInfo(UserInfo);
       fetchProfile();
-      fetchSubjects();
-      fetchGrades();
     }
   }, []);
 
@@ -50,8 +83,8 @@ const TeacherProfileUpdate = () => {
           bio: response.data.bio || "",
           phone: response.data.phone || "",
           hourly_rate: response.data.hourly_rate || "",
-          subjects: response.data.subjects || [],
-          grade: response.data.grade || [],
+          subjects: normalizeList(response.data.subjects),
+          grade: normalizeList(response.data.grade),
           experience: response.data.experience || "",
           birth_date: response.data.birth_date || "",
           academic_certificate: null,
@@ -63,39 +96,11 @@ const TeacherProfileUpdate = () => {
         if (response.data.profile_picture) {
           setProfilePhotoPreview(response.data.profile_picture);
         }
+        setSubjectInput(normalizeList(response.data.subjects).join(", "));
+        setGradeInput(normalizeList(response.data.grade).join(", "));
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
-    }
-  };
-
-  const fetchSubjects = async () => {
-    try {
-      const response = await axios.get(`${FHOST}/admin/get-subjects/`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data?.classes) {
-        setAvailableSubjects(response.data.classes);
-      }
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
-    }
-  };
-
-  const fetchGrades = async () => {
-    try {
-      const response = await axios.get(`${FHOST}/admin/get-classes`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data?.classes) {
-        setAvailableGrades(response.data.classes);
-      }
-    } catch (error) {
-      console.error("Error fetching grades:", error);
     }
   };
 
@@ -126,12 +131,25 @@ const TeacherProfileUpdate = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleMultiSelect = (name, value, checked) => {
-    setFormData(prev => ({
+  const parseListInput = (value) =>
+    value
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const handleSubjectInputChange = (value) => {
+    setSubjectInput(value);
+    setFormData((prev) => ({
       ...prev,
-      [name]: checked
-        ? [...prev[name], value]
-        : prev[name].filter(id => id !== value)
+      subjects: parseListInput(value),
+    }));
+  };
+
+  const handleGradeInputChange = (value) => {
+    setGradeInput(value);
+    setFormData((prev) => ({
+      ...prev,
+      grade: parseListInput(value),
     }));
   };
 
@@ -167,12 +185,12 @@ const TeacherProfileUpdate = () => {
       if (formData.id_number) formDataToSend.append("id_number", formData.id_number);
       if (formData.gender) formDataToSend.append("gender", formData.gender);
       
-      formData.subjects.forEach(subjectId => {
-        formDataToSend.append("subjects", subjectId);
+      formData.subjects.forEach(subjectValue => {
+        formDataToSend.append("subjects", subjectValue);
       });
       
-      formData.grade.forEach(gradeId => {
-        formDataToSend.append("grade", gradeId);
+      formData.grade.forEach(gradeValue => {
+        formDataToSend.append("grade", gradeValue);
       });
       
       if (profilePhoto) {
@@ -378,39 +396,37 @@ const TeacherProfileUpdate = () => {
           {/* Subjects */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
             <h3 className="text-xl font-semibold text-[#015575] mb-6">Subjects</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {availableSubjects.map((subject) => (
-                <label key={subject.id} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.subjects.includes(subject.id)}
-                    onChange={(e) => handleMultiSelect("subjects", subject.id, e.target.checked)}
-                    className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
-                    disabled={loading}
-                  />
-                  <span className="text-gray-700">{subject.subject || subject.name}</span>
-                </label>
-              ))}
-            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Enter the subject IDs or names separated by commas or new lines.
+            </p>
+            <textarea
+              value={subjectInput}
+              onChange={(e) => handleSubjectInputChange(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent min-h-[100px]"
+              placeholder="e.g. Mathematics, English, Biology"
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              The backend will store these values exactly as entered.
+            </p>
           </div>
 
           {/* Grades */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
             <h3 className="text-xl font-semibold text-[#015575] mb-6">Grades</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {availableGrades.map((grade) => (
-                <label key={grade.id} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.grade.includes(grade.id)}
-                    onChange={(e) => handleMultiSelect("grade", grade.id, e.target.checked)}
-                    className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
-                    disabled={loading}
-                  />
-                  <span className="text-gray-700">{grade.name}</span>
-                </label>
-              ))}
-            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Enter the grade IDs or labels separated by commas or new lines.
+            </p>
+            <textarea
+              value={gradeInput}
+              onChange={(e) => handleGradeInputChange(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent min-h-[100px]"
+              placeholder="e.g. Grade 6, Grade 7, Grade 8"
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              These values are sent to the server as arrays, matching the required payload.
+            </p>
           </div>
 
           {/* Bio */}

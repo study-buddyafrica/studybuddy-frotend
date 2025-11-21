@@ -24,24 +24,28 @@ const StudentsHome = ({setActiveComponent}) => {
     // Fetch teachers data from the backend
     const fetchTeachers = async () => {
       try {
-        const response = await axios.get(`${FHOST}/users/teachers`);
-        if (response.data.success) {
-          const formattedTeachers = response.data.teachers.map((teacher) => ({
-            ...teacher,
-            profilePicture: teacher.profilePicture || 'https://via.placeholder.com/50',
-            registered_on: teacher.registered_on
-              ? new Date(teacher.registered_on).toLocaleDateString()
-              : 'Not Registered',
-            rating: teacher.rating || 4.5,
-            availability: teacher.availability || [
-              { date: '2024-11-27', time: '9:00 AM - 11:00 AM', isAvailable: true },
-              { date: '2024-11-27', time: '3:00 PM - 5:00 PM', isAvailable: true },
-            ],
-          }));
-          setTeachers(formattedTeachers);
-        } else {
-          setError('Failed to fetch teachers');
-        }
+        const token = localStorage.getItem('access_token');
+        const response = await axios.get(`${FHOST}/api/teachers/list/`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+
+        const results = response.data?.results || [];
+
+        const formattedTeachers = results.map((teacher) => ({
+          id: teacher.id,
+          full_name: teacher.full_name || 'Teacher',
+          bio: teacher.bio || '',
+          subjects: teacher.subjects || [],
+          is_verified: teacher.is_verified,
+          profilePicture: teacher.profile_picture || 'https://via.placeholder.com/50',
+          rating: teacher.rating || 4.5,
+          availability: teacher.availability || [
+            { date: '2024-11-27', time: '9:00 AM - 11:00 AM', isAvailable: true },
+            { date: '2024-11-27', time: '3:00 PM - 5:00 PM', isAvailable: true },
+          ],
+        }));
+
+        setTeachers(formattedTeachers);
       } catch (err) {
         setError('An error occurred while fetching teachers data');
       } finally {

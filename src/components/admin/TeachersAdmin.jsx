@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { FHOST } from "../constants/Functions.jsx";
 import { Check, X, Search, Filter, BadgeDollarSign, Eye, FileText } from "lucide-react";
@@ -19,6 +19,14 @@ const gradeOptions = [
   "Grade 12",
 ];
 
+const coerceArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.filter((item) => item !== undefined && item !== null && item !== "");
+  }
+  return [value].filter((item) => item !== undefined && item !== null && item !== "");
+};
+
 const TeachersAdmin = () => {
   const [teachers, setTeachers] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
@@ -32,53 +40,116 @@ const TeachersAdmin = () => {
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [availableGrades, setAvailableGrades] = useState([]);
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        // Fetch teachers using the new user endpoint with role filter
-        const tRes = await axios.get(`${FHOST}/api/users/users-list?role=teacher`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }).catch(() => null);
-        
-        if (tRes?.data?.results && Array.isArray(tRes.data.results)) {
-          // Map teachers from the response - verification_status should be in the user data
-          const teachersWithDetails = tRes.data.results.map((teacher) => {
-            // Try to get verification_status from teacher profile or user data
-            const verificationStatus = teacher.verification_status || teacher.teacher_profile?.verification_status || 'pending';
-            return {
-              id: teacher.id,
-              full_name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim() || teacher.username,
-              username: teacher.username,
-              email: teacher.email,
-              verified: verificationStatus === 'approved',
-              verification_status: verificationStatus,
-              grade: teacher.grade || teacher.teacher_profile?.grade || [],
-              grades: teacher.grade || teacher.teacher_profile?.grade || [],
-              balance: teacher.balance || teacher.teacher_profile?.balance || 0,
-            };
-          });
-          setTeachers(teachersWithDetails);
-        } else {
-          setTeachers([]);
-        }
-        // Backend does not expose a pending withdrawals listing; leave empty for now
-        setWithdrawals([]);
-        
-        // Fetch subjects and grades for display
-        fetchSubjects();
-        fetchGrades();
-      } catch (e) {
-        console.error("Failed to load teachers:", e);
-        setError("Failed to load data");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAll();
+  const normalizeVerificationStatus = (profile = {}) => {
+    const rawStatus =
+      profile?.verification_status ??
+      profile?.status ??
+      profile?.review_status ??
+      profile?.state ??
+      (profile?.is_verified === true
+        ? "approved"
+        : profile?.is_verified === false &&
+          (profile?.is_rejected || profile?.was_rejected)
+        ? "rejected"
+        : profile?.is_verified === false
+        ? "pending"
+        : null);
+
+    if (!rawStatus) {
+      return "pending";
+    }
+
+    const normalized = rawStatus.toString().toLowerCase();
+    if (["rejected", "declined", "failed"].includes(normalized)) return "rejected";
+    if (["approved", "verified", "complete"].includes(normalized)) return "approved";
+    return "pending";
+  };
+
+  const buildTeachersFromProfiles = (profilesResults) => {
+    if (!profilesResults || !Array.isArray(profilesResults)) {
+      return [];
+    }
+
+    return profilesResults.map((profile) => {
+      const verification_status = normalizeVerificationStatus(profile);
+      const fullName =
+        profile.full_name ||
+        `${profile.first_name || profile.user?.first_name || ""} ${profile.last_name || profile.user?.last_name || ""}`.trim() ||
+        profile.user?.username ||
+        profile.email ||
+        "Unnamed Teacher";
+
+      const gradeList = coerceArray(profile.grade);
+      const subjectList = coerceArray(profile.subjects);
+
+      return {
+        id: profile.id,
+        teacher_profile_id: profile.id,
+        user_id: profile.user,
+        full_name: fullName,
+        username: profile.user?.username || fullName,
+        email: profile.email || profile.user?.email || "N/A",
+        verified: verification_status === "approved",
+        verification_status,
+        grade: gradeList,
+        grades: gradeList,
+        subjects: subjectList,
+        hourly_rate: profile.hourly_rate,
+        bio: profile.bio || "",
+        balance:
+          typeof profile.user?.balance === "number"
+            ? profile.user.balance
+            : typeof profile.balance === "number"
+            ? profile.balance
+            : 0,
+        phone: profile.phone || profile.user?.phone,
+        is_verified: profile.is_verified,
+        raw_profile: {
+          ...profile,
+          verification_status,
+          grade: gradeList,
+          subjects: subjectList,
+          balance:
+            typeof profile.user?.balance === "number"
+              ? profile.user.balance
+              : typeof profile.balance === "number"
+              ? profile.balance
+              : 0,
+          email: profile.email || profile.user?.email || "N/A",
+          phone: profile.phone || profile.user?.phone || "",
+          first_name: profile.first_name || profile.user?.first_name || "",
+          last_name: profile.last_name || profile.user?.last_name || "",
+          username: profile.user?.username || fullName,
+        },
+      };
+    });
+  };
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+      const profilesRes = await axios.get(`${FHOST}/api/teachers/`, { headers }).catch(() => null);
+      const teachersWithDetails = buildTeachersFromProfiles(profilesRes?.data?.results);
+      setTeachers(teachersWithDetails);
+      setWithdrawals([]);
+    } catch (e) {
+      console.error("Failed to load teachers:", e);
+      setError("Failed to load data");
+      setTeachers([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchAll();
+    fetchSubjects();
+    fetchGrades();
+  }, [fetchAll]);
 
   const fetchSubjects = async () => {
     try {
@@ -108,9 +179,32 @@ const TeachersAdmin = () => {
     }
   };
 
-  const fetchTeacherDetails = async (teacherId) => {
+  const hydrateTeacherDetails = (data) => {
+    if (!data) return null;
+    return {
+      ...data,
+      email: data.email || data.user?.email || "",
+      first_name: data.first_name || data.user?.first_name || "",
+      last_name: data.last_name || data.user?.last_name || "",
+      grade: coerceArray(data.grade || data.grades),
+      subjects: coerceArray(data.subjects),
+      verification_status: data.verification_status || (data.is_verified ? "approved" : "pending"),
+    };
+  };
+
+  const fetchTeacherDetails = async (teacherProfileId, fallbackProfile = null) => {
+    if (!teacherProfileId) {
+      alert("Teacher profile not found yet. Ask the teacher to complete their profile.");
+      return;
+    }
     setLoadingDetails(true);
-    setSelectedTeacher(teacherId);
+    setSelectedTeacher(teacherProfileId);
+    const localTeacher =
+      fallbackProfile ||
+      teachers.find((t) => (t.teacher_profile_id || t.id) === teacherProfileId)?.raw_profile;
+    if (localTeacher) {
+      setTeacherDetails(hydrateTeacherDetails(localTeacher));
+    }
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
       if (!token) {
@@ -119,55 +213,16 @@ const TeachersAdmin = () => {
         return;
       }
 
-      let teacherData = null;
-      let errorMessage = null;
-
-      // Try to fetch from teachers endpoint first (for admin viewing other teachers)
-      try {
-        const teacherResponse = await axios.get(`${FHOST}/api/teachers/${teacherId}/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (teacherResponse.data) {
-          teacherData = teacherResponse.data;
-        }
-      } catch (err) {
-        console.error("Error fetching from /api/teachers/:", err);
-        errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message;
-        
-        // If that fails, try fetching from users endpoint
-        try {
-          const userResponse = await axios.get(`${FHOST}/api/users/users-list?role=teacher`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (userResponse.data?.results) {
-            const teacher = userResponse.data.results.find(t => t.id === teacherId || String(t.id) === String(teacherId));
-            if (teacher) {
-              teacherData = teacher;
-            }
-          }
-        } catch (err2) {
-          console.error("Error fetching from users-list:", err2);
-          if (!errorMessage) {
-            errorMessage = err2.response?.data?.detail || err2.response?.data?.message || err2.message;
-          }
-        }
-      }
-      
-      if (teacherData) {
+      const teacherResponse = await axios.get(`${FHOST}/api/teachers/${teacherProfileId}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (teacherResponse.data) {
         // Merge teacher profile data if it exists in a nested structure
         const mergedData = {
-          ...teacherData,
-          ...(teacherData.teacher_profile || {}),
-          // Ensure we have user info
-          email: teacherData.email || teacherData.user?.email,
-          first_name: teacherData.first_name || teacherData.user?.first_name,
-          last_name: teacherData.last_name || teacherData.user?.last_name,
+          ...teacherResponse.data,
+          ...(teacherResponse.data.teacher_profile || {}),
         };
-        setTeacherDetails(mergedData);
-      } else {
-        const msg = errorMessage || "Teacher not found or you don't have permission to view this teacher's details.";
-        alert(msg);
-        setSelectedTeacher(null);
+        setTeacherDetails(hydrateTeacherDetails(mergedData));
       }
     } catch (error) {
       console.error("Error fetching teacher details:", error);
@@ -216,18 +271,25 @@ const TeachersAdmin = () => {
     setWithdrawals((prev) => prev.filter((w) => w.id !== withdrawalId));
   };
 
-  const approveTeacherVerification = async (teacherId, teacherData = null) => {
+  const approveTeacherVerification = async (teacherProfileId, teacherData = null) => {
+    if (!teacherProfileId) {
+      alert("Teacher profile missing. Cannot approve until profile is created.");
+      return;
+    }
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
       
       // If teacherData not provided, fetch it
       let dataToUse = teacherData;
       if (!dataToUse) {
         // Try to fetch from teachers endpoint first (for admin viewing other teachers)
         try {
-          const teacherResponse = await axios.get(`${FHOST}/api/teachers/${teacherId}/`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          });
+          const teacherResponse = await axios.get(
+            `${FHOST}/api/teachers/${teacherProfileId}/`,
+            {
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            }
+          );
           dataToUse = teacherResponse.data;
         } catch (err) {
           // If that fails, try the teacher profile endpoint
@@ -260,7 +322,7 @@ const TeachersAdmin = () => {
       }
 
       const response = await axios.post(
-        `${FHOST}/api/teachers/${teacherId}/verify_teacher/`,
+        `${FHOST}/api/teachers/${teacherProfileId}/verify_teacher/`,
         {
           tsc_number: dataToUse.tsc_number,
           tsc_number_certificate: dataToUse.tsc_number_certificate,
@@ -285,42 +347,22 @@ const TeachersAdmin = () => {
       );
       
       // Update teacher in list with approved status
-      setTeachers(teachers.map(t =>
-        t.id === teacherId
-          ? { ...t, verified: true, verification_status: 'approved' }
-          : t
-      ));
+      setTeachers((prev) =>
+        prev.map((t) =>
+          t.teacher_profile_id === teacherProfileId
+            ? { ...t, verified: true, verification_status: "approved" }
+            : t
+        )
+      );
       
       // Close modal if open
-      if (selectedTeacher === teacherId) {
+      if (selectedTeacher === teacherProfileId) {
         setSelectedTeacher(null);
         setTeacherDetails(null);
       }
       
       alert('Teacher verification approved successfully! Status changed to approved.');
-      
-      // Refresh the teachers list to get updated data
-      const tRes = await axios.get(`${FHOST}/api/users/users-list?role=teacher`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }).catch(() => null);
-      
-      if (tRes?.data?.results && Array.isArray(tRes.data.results)) {
-        const teachersWithDetails = tRes.data.results.map((teacher) => {
-          const verificationStatus = teacher.verification_status || teacher.teacher_profile?.verification_status || 'pending';
-          return {
-            id: teacher.id,
-            full_name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim() || teacher.username,
-            username: teacher.username,
-            email: teacher.email,
-            verified: verificationStatus === 'approved',
-            verification_status: verificationStatus,
-            grade: teacher.grade || teacher.teacher_profile?.grade || [],
-            grades: teacher.grade || teacher.teacher_profile?.grade || [],
-            balance: teacher.balance || teacher.teacher_profile?.balance || 0,
-          };
-        });
-        setTeachers(teachersWithDetails);
-      }
+      await fetchAll();
     } catch (err) {
       console.error('Failed to approve teacher verification:', err);
       const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to approve teacher verification. Please try again.';
@@ -328,18 +370,25 @@ const TeachersAdmin = () => {
     }
   };
 
-  const rejectTeacherVerification = async (teacherId, teacherData = null) => {
+  const rejectTeacherVerification = async (teacherProfileId, teacherData = null) => {
+    if (!teacherProfileId) {
+      alert("Teacher profile missing. Cannot reject until profile is created.");
+      return;
+    }
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
       
       // If teacherData not provided, fetch it
       let dataToUse = teacherData;
       if (!dataToUse) {
         // Try to fetch from teachers endpoint first (for admin viewing other teachers)
         try {
-          const teacherResponse = await axios.get(`${FHOST}/api/teachers/${teacherId}/`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          });
+          const teacherResponse = await axios.get(
+            `${FHOST}/api/teachers/${teacherProfileId}/`,
+            {
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            }
+          );
           dataToUse = teacherResponse.data;
         } catch (err) {
           // If that fails, try the teacher profile endpoint
@@ -375,7 +424,7 @@ const TeachersAdmin = () => {
       }
 
       const response = await axios.post(
-        `${FHOST}/api/teachers/${teacherId}/unverify_teacher/`,
+        `${FHOST}/api/teachers/${teacherProfileId}/unverify_teacher/`,
         {
           tsc_number: dataToUse.tsc_number,
           tsc_number_certificate: dataToUse.tsc_number_certificate,
@@ -400,42 +449,22 @@ const TeachersAdmin = () => {
       );
       
       // Update teacher in list with rejected status
-      setTeachers(teachers.map(t =>
-        t.id === teacherId
-          ? { ...t, verified: false, verification_status: 'rejected' }
-          : t
-      ));
+      setTeachers((prev) =>
+        prev.map((t) =>
+          t.teacher_profile_id === teacherProfileId
+            ? { ...t, verified: false, verification_status: "rejected" }
+            : t
+        )
+      );
       
       // Close modal if open
-      if (selectedTeacher === teacherId) {
+      if (selectedTeacher === teacherProfileId) {
         setSelectedTeacher(null);
         setTeacherDetails(null);
       }
       
       alert('Teacher verification rejected. Status changed to rejected.');
-      
-      // Refresh the teachers list to get updated data
-      const tRes = await axios.get(`${FHOST}/api/users/users-list?role=teacher`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }).catch(() => null);
-      
-      if (tRes?.data?.results && Array.isArray(tRes.data.results)) {
-        const teachersWithDetails = tRes.data.results.map((teacher) => {
-          const verificationStatus = teacher.verification_status || teacher.teacher_profile?.verification_status || 'pending';
-          return {
-            id: teacher.id,
-            full_name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim() || teacher.username,
-            username: teacher.username,
-            email: teacher.email,
-            verified: verificationStatus === 'approved',
-            verification_status: verificationStatus,
-            grade: teacher.grade || teacher.teacher_profile?.grade || [],
-            grades: teacher.grade || teacher.teacher_profile?.grade || [],
-            balance: teacher.balance || teacher.teacher_profile?.balance || 0,
-          };
-        });
-        setTeachers(teachersWithDetails);
-      }
+      await fetchAll();
     } catch (err) {
       console.error('Failed to reject teacher verification:', err);
       const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to reject teacher verification. Please try again.';
@@ -509,7 +538,7 @@ const TeachersAdmin = () => {
                   <td className="px-6 py-4 text-sm">
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => fetchTeacherDetails(t.id)} 
+                        onClick={() => fetchTeacherDetails(t.teacher_profile_id || t.id, t.raw_profile)} 
                         className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
                       >
                         <Eye className="h-4 w-4 mr-1"/>View Details
@@ -517,14 +546,14 @@ const TeachersAdmin = () => {
                       {t.verification_status !== 'approved' && (
                         <>
                           <button 
-                            onClick={() => approveTeacherVerification(t.id)} 
+                            onClick={() => approveTeacherVerification(t.teacher_profile_id || t.id, t.raw_profile)} 
                             className="inline-flex items-center px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
                           >
                             <Check className="h-4 w-4 mr-1"/>Approve
                           </button>
                           {t.verification_status === 'pending' && (
                             <button 
-                              onClick={() => rejectTeacherVerification(t.id)} 
+                              onClick={() => rejectTeacherVerification(t.teacher_profile_id || t.id, t.raw_profile)} 
                               className="inline-flex items-center px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
                             >
                               <X className="h-4 w-4 mr-1"/>Reject
@@ -683,13 +712,26 @@ const TeachersAdmin = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
-                      <span className={`px-2 inline-flex text-xs font-semibold rounded-full ${
-                        teacherDetails.is_verified 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {teacherDetails.is_verified ? 'Verified' : 'Not Verified'}
-                      </span>
+                      {(() => {
+                        const status = (teacherDetails.verification_status || (teacherDetails.is_verified ? 'approved' : 'pending')).toLowerCase();
+                        const statusLabel =
+                          status === 'approved'
+                            ? 'Approved'
+                            : status === 'rejected'
+                            ? 'Rejected'
+                            : 'Pending';
+                        const colorClass =
+                          status === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : status === 'rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800';
+                        return (
+                          <span className={`px-2 inline-flex text-xs font-semibold rounded-full ${colorClass}`}>
+                            {statusLabel}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     {/* Subjects */}

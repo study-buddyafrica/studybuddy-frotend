@@ -29,11 +29,11 @@ import {
 
 const navigation = [
     { name: "Home", href: "/teacher-dashboard", icon: <LayoutDashboard size={20} /> },
-    { name: "My Students", href: "/teacher-dashboard/students", icon: <Users size={20} /> },
+   // { name: "My Students", href: "/teacher-dashboard/students", icon: <Users size={20} /> },
     { name: "Lessons", href: "/teacher-dashboard/lessons", icon: <BookOpen size={20} /> },
     { name: "Live Classes", href: "/teacher-dashboard/liveclasses", icon: <Video size={20} /> },
     { name: "Schedule", href: "/teacher-dashboard/schedule", icon: <Calendar size={20} /> },
-    { name: "Video Editor", href: "/teacher-dashboard/videoeditor", icon: <GraduationCap size={20} /> },
+   // { name: "Video Editor", href: "/teacher-dashboard/videoeditor", icon: <GraduationCap size={20} /> },
     { name: "My Wallet", href: "/teacher-dashboard/mywallet", icon: <Wallet size={20} /> },
     { name: "My Account", href: "/teacher-dashboard/myaccount", icon: <User size={20} /> },
 ];

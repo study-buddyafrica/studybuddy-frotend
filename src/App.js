@@ -37,7 +37,7 @@ import MyWallet from "./components/students/MyWallet";
 import MyLessons from "./components/students/MyLessons";
 import TeacherProfiles from "./components/students/TeachersProfiles";
 
-import VideoApp from "./components/students/VideoApp";
+
 import StudentsHome from "./components/students/studentsHome";
 
 // Teachers components
@@ -45,7 +45,6 @@ import TeacherLessons from "./components/teachers/MyLessons";
 import TeacherLiveclass from "./components/teachers/Liveclass";
 import TeacherAccount from "./components/teachers/MyAccount";
 import TeacherUpcomingClasses from "./components/teachers/UpcomingClasses";
-import TeacherVideoEditor from "./components/teachers/VideoEditor";
 import TeacherScheduler from "./components/teachers/Scheduler";
 import TeacherWallet from "./components/teachers/mywallet";
 

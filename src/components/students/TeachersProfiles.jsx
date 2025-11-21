@@ -37,22 +37,21 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
     "12": ["Mathematics", "English", "Biology", "Chemistry", "Physics", "History", "Geography", "Computer Studies"]
   };
 
-  // Get student's grade/class from userInfo
+  // Get student's grade/class from userInfo (currently not used for backend filtering)
   const studentGrade = userInfo?.grade || userInfo?.class || "All Grades";
 
   useEffect(() => {
     let isMounted = true;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    const fetchWithRetry = async (attempts = 3) => {
-      const token = localStorage.getItem('access_token');
+    const fetchWithRetry = async (attempts = 3, params = {}) => {
       const headers = {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       };
       
       for (let i = 0; i < attempts; i++) {
         try {
-          return await axios.get(`${FHOST}/api/teachers`, { headers });
+          // New teachers list endpoint (paginated)
+          return await axios.get(`${FHOST}/api/teachers/list/`, { headers, params });
         } catch (err) {
           const status = err?.response?.status;
           const retryAfter = Number(err?.response?.headers?.['retry-after']);
@@ -69,29 +68,39 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
     // Fetch teachers data from the backend
     const fetchTeachers = async () => {
       try {
-        const response = await fetchWithRetry(3);
-        if (isMounted && response?.data?.success) {
-          // Filter teachers by student's grade/class and format the data
-          const formattedTeachers = response.data.teachers
-            .filter(teacher => {
-              // If student has a specific grade, filter by that grade
-              if (studentGrade !== "All Grades") {
-                return teacher.grades?.includes(studentGrade) || 
-                       teacher.subjects?.some(subject => 
-                         subject.grades?.includes(studentGrade)
-                       );
-              }
-              return true; // Show all teachers if no specific grade
-            })
-            .map((teacher) => ({
-              ...teacher,
-              profile_picture: teacher.profilePicture || 'https://via.placeholder.com/150',
+        const params = {
+          verification_status: "approved",
+          subject: selectedSubject || undefined,
+          search: searchTerm ? searchTerm.trim() : undefined,
+        };
+        const response = await fetchWithRetry(3, params);
+        // New API returns: { count, next, previous, results: [...] }
+        const results = response?.data?.results || [];
+
+        if (isMounted && Array.isArray(results) && results.length > 0) {
+          const formattedTeachers = results.map((teacher) => {
+            // New list schema: id, full_name, bio, hourly_rate, subjects, is_verified
+            const name = teacher.full_name || teacher.name || "Teacher";
+            const subjects = Array.isArray(teacher.subjects) ? teacher.subjects : [];
+            const hourlyRate = teacher.hourly_rate ? Number(teacher.hourly_rate) : 0;
+
+            return {
+              id: teacher.id,
+              name,
+              bio: teacher.bio || "",
+              subjects,
+              is_verified: teacher.is_verified,
+              // Map to fields used in UI
+              profile_picture: teacher.profile_picture || 'https://via.placeholder.com/150',
               registered_on: teacher.registered_on
                 ? new Date(teacher.registered_on).toLocaleDateString()
                 : 'Not Registered',
               rating: teacher.rating || 4.5,
               totalStudents: teacher.totalStudents || 0,
               experience: teacher.experience || '5+ years',
+              cost: hourlyRate,
+              grade: teacher.grade || null,
+              current_school: teacher.current_school || null,
               availability: teacher.availability || [
                 {
                   date: '2024-11-27',
@@ -104,11 +113,19 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
                   isAvailable: true,
                 },
               ],
-            }));
+            };
+          });
+
           setTeachers(formattedTeachers);
+          setError(null);
         } else {
-          setError('Failed to fetch teachers');
+          setTeachers([]);
+          setError('No teachers found.');
         }
+      } catch (err) {
+        console.error("Error fetching teachers:", err);
+        setTeachers([]);
+        setError('Failed to fetch teachers. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -116,7 +133,7 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
 
     fetchTeachers();
     return () => { isMounted = false; };
-  }, [studentGrade]);
+  }, [studentGrade, selectedSubject, searchTerm]);
 
   const handleTeacherClick = (teacher) => {
     setSelectedTeacher(teacher);
@@ -237,28 +254,33 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
   // Filter teachers based on search, subject and grade (client-only)
   const effectiveGrade = selectedGrade || (studentGrade !== "All Grades" ? String(studentGrade) : "");
   const filteredTeachers = teachers.filter(teacher => {
-    const matchesSearch = teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         teacher.subjects.some(subject => 
-                           typeof subject === 'string' ? 
-                           subject.toLowerCase().includes(searchTerm.toLowerCase()) :
-                           subject.name?.toLowerCase().includes(searchTerm.toLowerCase())
-                         );
-    const matchesSubject = !selectedSubject || 
-                          teacher.subjects.some(subject => 
-                            typeof subject === 'string' ? 
-                            subject === selectedSubject :
-                            subject.name === selectedSubject
-                          );
-    const matchesGrade = !effectiveGrade || String(teacher.grade || "").trim() === String(effectiveGrade).trim();
+    const matchesSearch =
+      teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (teacher.subjects || []).some(subject =>
+        String(subject).toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+    const matchesSubject =
+      !selectedSubject ||
+      (teacher.subjects || []).some(subject =>
+        String(subject) === selectedSubject
+      );
+
+    // New list endpoint does not provide grade information for teachers,
+    // so we don't filter by grade here to avoid hiding all teachers.
+    const matchesGrade = true;
+
     return matchesSearch && matchesSubject && matchesGrade;
   });
 
   // Get unique subjects for filter
-  const allSubjects = [...new Set(teachers.flatMap(teacher => 
-    teacher.subjects.map(subject => 
-      typeof subject === 'string' ? subject : subject.name
-    )
-  ))];
+  const allSubjects = [
+    ...new Set(
+      teachers.flatMap(teacher =>
+        (teacher.subjects || []).map(subject => String(subject))
+      )
+    ),
+  ];
 
   if (loading) {
     return (
