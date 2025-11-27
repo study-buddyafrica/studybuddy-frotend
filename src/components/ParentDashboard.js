@@ -39,7 +39,6 @@ import { FHOST } from "./constants/Functions.jsx";
 import ParentFeedback from "./parents/ParentFeedback.jsx";
 import ParentProfileUpdate from "./parents/ParentProfileUpdate";
 import DashboardHeader from "./layout/DashboardHeader.jsx";
-import Intasend from "./payments/Intasend";
 
 ChartJS.register(
   CategoryScale,
@@ -86,6 +85,10 @@ const ParentDashboard = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [studentFundAmount, setStudentFundAmount] = useState("");
   const [editingStudent, setEditingStudent] = useState(null);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [depositInfo, setDepositInfo] = useState(null);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   // Refresh parent wallet balance and transactions (used after successful funding)
   const fetchParentBalance = async () => {
     try {
@@ -346,28 +349,56 @@ const ParentDashboard = () => {
   };
 
   // Add funds to parent wallet
-  const handleAddFunds = async (e) => {
+  const handleDeposit = async (e) => {
     e.preventDefault();
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      alert('Please enter a valid deposit amount.');
+      return;
+    }
+
     try {
-      // Prefer using IntaSend modal; fallback deposit endpoint
-      await axios.post(`${FHOST}/payments/deposit`, {
-        user_id: userInfo.id,
-        amount: parseFloat(fundAmount),
-        phone_number: userInfo.phone || "254700000000",
-        email: userInfo.email,
-        narrative: "Wallet top-up",
-        mode: "LINK",
-      });
-      
-      // Update wallet balance
-      setWalletBalance(prev => prev + parseFloat(fundAmount));
-      setShowFundModal(false);
-      setFundAmount("");
-      setPaymentMethod("");
-      alert("Funds added successfully!");
+      setDepositLoading(true);
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Authentication required. Please login again.');
+        setDepositLoading(false);
+        return;
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+
+      const payload = {
+        amount: parseFloat(depositAmount),
+        payment_method: "mpesa",
+      };
+
+      const response = await axios.post(`${FHOST}/api/wallet/deposit/`, payload, { headers });
+
+      if (response.status === 200 || response.status === 201) {
+        const data = response.data;
+
+        // store deposit info
+        setDepositInfo(data);
+        setShowCheckoutModal(true);
+
+        // close amount modal
+        setShowFundModal(false);
+
+        // clear fields
+        setDepositAmount('');
+
+        fetchParentBalance();
+      }
+
     } catch (error) {
-      console.error("Failed to add funds:", error);
-      alert("Failed to add funds. Please try again.");
+      console.error('Error initiating deposit:', error);
+      const errorMsg = error.response?.data?.detail || error.response?.data?.message || 'Failed to initiate deposit. Please try again.';
+      alert(errorMsg);
+    } finally {
+      setDepositLoading(false);
     }
   };
 
@@ -1433,14 +1464,12 @@ const ParentDashboard = () => {
         <main className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-6">{renderContent()}</main>
       </div>
 
-      {/* Add Funds Modal (uses same IntaSend flow as students/teachers) */}
+      {/* Add Funds Modal */}
       {showFundModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-blue-600">
-                Add Funds to Wallet
-              </h3>
+              <h3 className="text-xl font-semibold text-blue-600">Deposit Funds</h3>
               <button
                 onClick={() => setShowFundModal(false)}
                 className="p-2 text-gray-500 hover:text-gray-700"
@@ -1448,11 +1477,105 @@ const ParentDashboard = () => {
                 <XMarkIcon className="w-6 h-6" />
               </button>
             </div>
-            <Intasend
-              fetchTransactionHistory={fetchParentBalance}
-              userInfo={userInfo}
-              onClose={() => setShowFundModal(false)}
-            />
+            <form onSubmit={handleDeposit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount (KES) *
+                </label>
+                <input
+                  type="number"
+                  min="50"
+                  step="1"
+                  required
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter amount e.g. 500"
+                />
+              </div>
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700">
+                You'll receive an STK push on your registered M-Pesa number. Confirm on your phone to complete the deposit.
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!depositLoading) {
+                      setShowFundModal(false);
+                      setDepositAmount('');
+                    }
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  disabled={depositLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={depositLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-70"
+                >
+                  {depositLoading ? 'Processing...' : 'Deposit'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Checkout Modal */}
+      {showCheckoutModal && depositInfo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-blue-600">
+                Deposit Initiated
+              </h3>
+              <button
+                onClick={() => setShowCheckoutModal(false)}
+                className="p-2 text-gray-500 hover:text-gray-700"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-green-800 font-medium">{depositInfo.message}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                <h4 className="font-semibold text-gray-800">Payment Details</h4>
+                <div className="space-y-1 text-sm">
+                  <p><strong>Amount:</strong> Ksh {depositInfo.amount_details.original_amount}</p>
+                  <p><strong>Fee:</strong> Ksh {depositInfo.amount_details.fee_amount}</p>
+                  <p><strong>Total to Pay:</strong> Ksh {depositInfo.amount_details.you_pay}</p>
+                  <p><strong>You Get:</strong> Ksh {depositInfo.amount_details.you_get}</p>
+                  <p><strong>Transaction ID:</strong> {depositInfo.transaction_id}</p>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-blue-800 text-sm">
+                  Click the button below to complete your payment. You'll receive an STK push on your M-Pesa number.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowCheckoutModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => window.open(depositInfo.checkout_url, '_blank')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Complete Payment
+              </button>
+            </div>
           </div>
         </div>
       )}

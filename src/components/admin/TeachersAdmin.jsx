@@ -74,8 +74,7 @@ const TeachersAdmin = () => {
       const verification_status = normalizeVerificationStatus(profile);
       const fullName =
         profile.full_name ||
-        `${profile.first_name || profile.user?.first_name || ""} ${profile.last_name || profile.user?.last_name || ""}`.trim() ||
-        profile.user?.username ||
+        `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
         profile.email ||
         "Unnamed Teacher";
 
@@ -88,7 +87,7 @@ const TeachersAdmin = () => {
         user_id: profile.user,
         full_name: fullName,
         username: profile.user?.username || fullName,
-        email: profile.email || profile.user?.email || "N/A",
+        email: profile.email || "N/A",
         verified: verification_status === "approved",
         verification_status,
         grade: gradeList,
@@ -96,30 +95,20 @@ const TeachersAdmin = () => {
         subjects: subjectList,
         hourly_rate: profile.hourly_rate,
         bio: profile.bio || "",
-        balance:
-          typeof profile.user?.balance === "number"
-            ? profile.user.balance
-            : typeof profile.balance === "number"
-            ? profile.balance
-            : 0,
-        phone: profile.phone || profile.user?.phone,
+        balance: typeof profile.balance === "number" ? profile.balance : 0,
+        phone: profile.phone || "",
         is_verified: profile.is_verified,
         raw_profile: {
           ...profile,
           verification_status,
           grade: gradeList,
           subjects: subjectList,
-          balance:
-            typeof profile.user?.balance === "number"
-              ? profile.user.balance
-              : typeof profile.balance === "number"
-              ? profile.balance
-              : 0,
-          email: profile.email || profile.user?.email || "N/A",
-          phone: profile.phone || profile.user?.phone || "",
-          first_name: profile.first_name || profile.user?.first_name || "",
-          last_name: profile.last_name || profile.user?.last_name || "",
-          username: profile.user?.username || fullName,
+          balance: typeof profile.balance === "number" ? profile.balance : 0,
+          email: profile.email || "N/A",
+          phone: profile.phone || "",
+          first_name: profile.first_name || "",
+          last_name: profile.last_name || "",
+          username: fullName,
         },
       };
     });
@@ -132,8 +121,17 @@ const TeachersAdmin = () => {
       const token = localStorage.getItem("access_token") || localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      const profilesRes = await axios.get(`${FHOST}/api/teachers/`, { headers }).catch(() => null);
-      const teachersWithDetails = buildTeachersFromProfiles(profilesRes?.data?.results);
+      let allResults = [];
+      let nextUrl = `${FHOST}/api/teachers/`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, { headers });
+        const data = response.data;
+        allResults = allResults.concat(data.results || []);
+        nextUrl = data.next; // API returns 'next' for pagination
+      }
+
+      const teachersWithDetails = buildTeachersFromProfiles(allResults);
       setTeachers(teachersWithDetails);
       setWithdrawals([]);
     } catch (e) {
@@ -183,9 +181,10 @@ const TeachersAdmin = () => {
     if (!data) return null;
     return {
       ...data,
-      email: data.email || data.user?.email || "",
-      first_name: data.first_name || data.user?.first_name || "",
-      last_name: data.last_name || data.user?.last_name || "",
+      email: data.email || "",
+      first_name: data.first_name || "",
+      last_name: data.last_name || "",
+      phone: data.phone || "",
       grade: coerceArray(data.grade || data.grades),
       subjects: coerceArray(data.subjects),
       verification_status: data.verification_status || (data.is_verified ? "approved" : "pending"),
@@ -239,8 +238,8 @@ const TeachersAdmin = () => {
 
   const checkRequiredFields = (teacherData) => {
     const requiredFields = [
-      'tsc_number', 'tsc_number_certificate', 'academic_certificate', 'experience',
-      'subjects', 'id_number', 'hourly_rate', 'bio', 'phone', 'profile_picture',
+      'teacher_license_number', 'teacher_license_certificate', 'academic_certificate', 'experience',
+      'subjects', 'national_identity_number', 'national_identity_card', 'hourly_rate', 'bio', 'phone', 'profile_picture',
       'birth_date', 'gender', 'grade'
     ];
     const missingFields = requiredFields.filter(field => {
@@ -324,12 +323,13 @@ const TeachersAdmin = () => {
       const response = await axios.post(
         `${FHOST}/api/teachers/${teacherProfileId}/verify_teacher/`,
         {
-          tsc_number: dataToUse.tsc_number,
-          tsc_number_certificate: dataToUse.tsc_number_certificate,
+          teacher_license_number: dataToUse.teacher_license_number,
+          teacher_license_certificate: dataToUse.teacher_license_certificate,
           academic_certificate: dataToUse.academic_certificate,
           experience: dataToUse.experience,
           subjects: dataToUse.subjects,
-          id_number: dataToUse.id_number,
+          national_identity_number: dataToUse.national_identity_number,
+          national_identity_card: dataToUse.national_identity_card,
           hourly_rate: dataToUse.hourly_rate,
           bio: dataToUse.bio,
           phone: dataToUse.phone,
@@ -426,12 +426,13 @@ const TeachersAdmin = () => {
       const response = await axios.post(
         `${FHOST}/api/teachers/${teacherProfileId}/unverify_teacher/`,
         {
-          tsc_number: dataToUse.tsc_number,
-          tsc_number_certificate: dataToUse.tsc_number_certificate,
+          teacher_license_number: dataToUse.teacher_license_number,
+          teacher_license_certificate: dataToUse.teacher_license_certificate,
           academic_certificate: dataToUse.academic_certificate,
           experience: dataToUse.experience,
           subjects: dataToUse.subjects,
-          id_number: dataToUse.id_number,
+          national_identity_number: dataToUse.national_identity_number,
+          national_identity_card: dataToUse.national_identity_card,
           hourly_rate: dataToUse.hourly_rate,
           bio: dataToUse.bio,
           phone: dataToUse.phone,
@@ -672,12 +673,12 @@ const TeachersAdmin = () => {
                     {/* Personal Information */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.email || teacherDetails.user?.email || '-'}</p>
+                      <p className="text-sm text-gray-900">{teacherDetails.email || '-'}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                       <p className="text-sm text-gray-900">
-                        {teacherDetails.first_name || teacherDetails.user?.first_name || ''} {teacherDetails.last_name || teacherDetails.user?.last_name || ''}
+                        {teacherDetails.first_name || ''} {teacherDetails.last_name || ''}
                       </p>
                     </div>
                     <div>
@@ -685,8 +686,8 @@ const TeachersAdmin = () => {
                       <p className="text-sm text-gray-900">{teacherDetails.phone || '-'}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.id_number || '-'}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">National Identity Number</label>
+                      <p className="text-sm text-gray-900">{teacherDetails.national_identity_number || '-'}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Birth Date</label>
@@ -699,8 +700,8 @@ const TeachersAdmin = () => {
 
                     {/* Professional Information */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">TSC Number</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.tsc_number || '-'}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Teacher License Number</label>
+                      <p className="text-sm text-gray-900">{teacherDetails.teacher_license_number || '-'}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Experience (years)</label>
@@ -801,16 +802,32 @@ const TeachersAdmin = () => {
                           )}
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-600 mb-1">TSC Certificate</label>
-                          {teacherDetails.tsc_number_certificate ? (
-                            <a 
-                              href={teacherDetails.tsc_number_certificate} 
-                              target="_blank" 
+                          <label className="block text-xs text-gray-600 mb-1">Teacher License Certificate</label>
+                          {teacherDetails.teacher_license_certificate ? (
+                            <a
+                              href={teacherDetails.teacher_license_certificate}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center text-blue-600 hover:text-blue-800"
                             >
                               <FileText className="h-4 w-4 mr-1" />
                               View Certificate
+                            </a>
+                          ) : (
+                            <span className="text-gray-500 text-sm">Not provided</span>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">National Identity Card</label>
+                          {teacherDetails.national_identity_card ? (
+                            <a
+                              href={teacherDetails.national_identity_card}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              View Document
                             </a>
                           ) : (
                             <span className="text-gray-500 text-sm">Not provided</span>

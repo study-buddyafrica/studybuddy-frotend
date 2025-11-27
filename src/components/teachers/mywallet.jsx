@@ -43,13 +43,13 @@ const MyWallet = ({ userInfo }) => {
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [mpesaNumber, setMpesaNumber] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
-  const [depositMpesaNumber, setDepositMpesaNumber] = useState('');
   const [depositLoading, setDepositLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [depositInfo, setDepositInfo] = useState(null);
   const [showDepositInfoModal, setShowDepositInfoModal] = useState(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
 
 
   const parseDetails = (details) => {
@@ -232,7 +232,6 @@ const MyWallet = ({ userInfo }) => {
       const payload = {
         amount: parseFloat(depositAmount),
         payment_method: "mpesa",
-        mpesa_number: depositMpesaNumber || undefined,
       };
 
       const response = await axios.post(`${FHOST}/api/wallet/deposit/`, payload, { headers });
@@ -242,14 +241,13 @@ const MyWallet = ({ userInfo }) => {
       
         // store deposit info
         setDepositInfo(data);
-        setShowDepositInfoModal(true);
-      
+        setShowCheckoutModal(true);
+
         // close amount modal
         setShowPopup(false);
       
         // clear fields
         setDepositAmount('');
-        setDepositMpesaNumber('');
       
         fetchTransactionHistory();
       }
@@ -472,21 +470,6 @@ const MyWallet = ({ userInfo }) => {
                     placeholder="Enter amount e.g. 500"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    M-Pesa Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={depositMpesaNumber}
-                    onChange={(e) => setDepositMpesaNumber(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                    placeholder="2547XXXXXXXX (optional)"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave blank to use your default wallet number if configured.
-                  </p>
-                </div>
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700">
                   You&apos;ll receive an STK push on the number linked to your wallet. Confirm on your phone to complete the deposit.
                 </div>
@@ -497,7 +480,6 @@ const MyWallet = ({ userInfo }) => {
                       if (!depositLoading) {
                         setShowPopup(false);
                         setDepositAmount('');
-                        setDepositMpesaNumber('');
                       }
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
@@ -598,57 +580,62 @@ const MyWallet = ({ userInfo }) => {
             </div>
           </div>
         )}
-        {/* Deposit Info Modal */}
-{showDepositInfoModal && depositInfo && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-semibold text-[#015575]">
-          Deposit Details
-        </h3>
-        <button
-          onClick={() => setShowDepositInfoModal(false)}
-          className="p-2 text-gray-500 hover:text-gray-700"
-        >
-          <XMarkIcon className="w-6 h-6" />
-        </button>
-      </div>
-
-      <div className="space-y-3 text-sm">
-        <p><strong>Message:</strong> {depositInfo.message}</p>
-        <p><strong>Transaction ID:</strong> {depositInfo.transaction_id}</p>
-        <p><strong>API Ref:</strong> {depositInfo.api_ref}</p>
-
-        <div className="bg-gray-50 p-3 rounded-lg">
-          <h4 className="font-semibold mb-2">Amount Details</h4>
-          <p>Original Amount: Ksh {depositInfo.amount_details.original_amount}</p>
-          <p>Fee: Ksh {depositInfo.amount_details.fee_amount}</p>
-          <p>Total Checkout: Ksh {depositInfo.amount_details.total_checkout_amount}</p>
-          <p>You Pay: Ksh {depositInfo.amount_details.you_pay}</p>
-          <p>You Get: Ksh {depositInfo.amount_details.you_get}</p>
+        {/* Checkout Modal */}
+  {showCheckoutModal && depositInfo && (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-semibold text-[#015575]">
+            Deposit Initiated
+          </h3>
+          <button
+            onClick={() => setShowCheckoutModal(false)}
+            className="p-2 text-gray-500 hover:text-gray-700"
+          >
+            <XMarkIcon className="w-6 h-6" />
+          </button>
         </div>
-
-        <div className="bg-gray-50 p-3 rounded-lg">
-          <h4 className="font-semibold mb-2">Fee Breakdown</h4>
-          {depositInfo.fee_breakdown.fee_structure.map((item, idx) => (
-            <p key={idx}>{item.range}: {item.fee}</p>
-          ))}
-          <p className="text-xs mt-2">{depositInfo.fee_breakdown.note}</p>
+  
+        <div className="space-y-4 text-sm">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-green-800 font-medium">{depositInfo.message}</p>
+          </div>
+  
+          <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+            <h4 className="font-semibold text-gray-800">Payment Details</h4>
+            <div className="space-y-1 text-sm">
+              <p><strong>Amount:</strong> Ksh {depositInfo.amount_details.original_amount}</p>
+              <p><strong>Fee:</strong> Ksh {depositInfo.amount_details.fee_amount}</p>
+              <p><strong>Total to Pay:</strong> Ksh {depositInfo.amount_details.you_pay}</p>
+              <p><strong>You Get:</strong> Ksh {depositInfo.amount_details.you_get}</p>
+              <p><strong>Transaction ID:</strong> {depositInfo.transaction_id}</p>
+            </div>
+          </div>
+  
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-blue-800 text-sm">
+              Click the button below to complete your payment. You'll receive an STK push on your M-Pesa number.
+            </p>
+          </div>
+        </div>
+  
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={() => setShowCheckoutModal(false)}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+          >
+            Close
+          </button>
+          <button
+            onClick={() => window.open(depositInfo.checkout_url, '_blank')}
+            className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4]"
+          >
+            Complete Payment
+          </button>
         </div>
       </div>
-
-      <div className="flex justify-end mt-6">
-        <button
-          onClick={() => window.open(depositInfo.checkout_url, "_blank")}
-          className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4]"
-        >
-          Proceed to Checkout
-        </button>
-      </div>
-
     </div>
-  </div>
-)}
+  )}
 
 
         {/* Success/Error Messages */}

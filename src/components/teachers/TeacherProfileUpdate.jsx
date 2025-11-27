@@ -54,9 +54,9 @@ const TeacherProfileUpdate = () => {
     experience: "",
     birth_date: "",
     academic_certificate: null,
-    tsc_number: "",
-    tsc_number_certificate: null,
-    id_number: "",
+    teacher_license_number: "",
+    teacher_license_certificate: null,
+    national_identity_number: "",
     gender: "",
   });
   const [subjectInput, setSubjectInput] = useState("");
@@ -88,9 +88,9 @@ const TeacherProfileUpdate = () => {
           experience: response.data.experience || "",
           birth_date: response.data.birth_date || "",
           academic_certificate: null,
-          tsc_number: response.data.tsc_number || "",
-          tsc_number_certificate: null,
-          id_number: response.data.id_number || "",
+          teacher_license_number: response.data.teacher_license_number || response.data.tsc_number || "",
+          teacher_license_certificate: null,
+          national_identity_number: response.data.national_identity_number || response.data.id_number || "",
           gender: response.data.gender || "",
         });
         if (response.data.profile_picture) {
@@ -137,7 +137,8 @@ const TeacherProfileUpdate = () => {
       .map((item) => item.trim())
       .filter(Boolean);
 
-  const handleSubjectInputChange = (value) => {
+  const handleSubjectInputChange = (e) => {
+    const value = e.target.value;
     setSubjectInput(value);
     setFormData((prev) => ({
       ...prev,
@@ -145,7 +146,8 @@ const TeacherProfileUpdate = () => {
     }));
   };
 
-  const handleGradeInputChange = (value) => {
+  const handleGradeInputChange = (e) => {
+    const value = e.target.value;
     setGradeInput(value);
     setFormData((prev) => ({
       ...prev,
@@ -163,7 +165,7 @@ const TeacherProfileUpdate = () => {
   const handleTscCertificateChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-      setFormData({ ...formData, tsc_number_certificate: file });
+      setFormData({ ...formData, teacher_license_certificate: file });
     }
   };
 
@@ -181,17 +183,17 @@ const TeacherProfileUpdate = () => {
       if (formData.hourly_rate) formDataToSend.append("hourly_rate", formData.hourly_rate);
       if (formData.experience) formDataToSend.append("experience", formData.experience);
       if (formData.birth_date) formDataToSend.append("birth_date", formData.birth_date);
-      if (formData.tsc_number) formDataToSend.append("tsc_number", formData.tsc_number);
-      if (formData.id_number) formDataToSend.append("id_number", formData.id_number);
+      if (formData.teacher_license_number) formDataToSend.append("teacher_license_number", formData.teacher_license_number);
+      if (formData.national_identity_number) formDataToSend.append("national_identity_number", formData.national_identity_number);
       if (formData.gender) formDataToSend.append("gender", formData.gender);
-      
-      formData.subjects.forEach(subjectValue => {
-        formDataToSend.append("subjects", subjectValue);
-      });
-      
-      formData.grade.forEach(gradeValue => {
-        formDataToSend.append("grade", gradeValue);
-      });
+
+      if (formData.subjects.length > 0) {
+        formDataToSend.append("subjects", formData.subjects.join(", "));
+      }
+
+      if (formData.grade.length > 0) {
+        formDataToSend.append("grade", formData.grade.join(", "));
+      }
       
       if (profilePhoto) {
         formDataToSend.append("profile_picture", profilePhoto);
@@ -201,8 +203,8 @@ const TeacherProfileUpdate = () => {
         formDataToSend.append("academic_certificate", formData.academic_certificate);
       }
 
-      if (formData.tsc_number_certificate) {
-        formDataToSend.append("tsc_number_certificate", formData.tsc_number_certificate);
+      if (formData.teacher_license_certificate) {
+        formDataToSend.append("teacher_license_certificate", formData.teacher_license_certificate);
       }
 
       const response = await axios.patch(
@@ -352,26 +354,26 @@ const TeacherProfileUpdate = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">TSC Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Teacher License Number</label>
                 <input
                   type="text"
-                  name="tsc_number"
-                  value={formData.tsc_number}
+                  name="teacher_license_number"
+                  value={formData.teacher_license_number}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter TSC number"
+                  placeholder="Enter teacher license number"
                   disabled={loading}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">ID Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">National Identity Number</label>
                 <input
                   type="text"
-                  name="id_number"
-                  value={formData.id_number}
+                  name="national_identity_number"
+                  value={formData.national_identity_number}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter ID number"
+                  placeholder="Enter national identity number"
                   disabled={loading}
                 />
               </div>
@@ -401,7 +403,7 @@ const TeacherProfileUpdate = () => {
             </p>
             <textarea
               value={subjectInput}
-              onChange={(e) => handleSubjectInputChange(e.target.value)}
+              onChange={handleSubjectInputChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent min-h-[100px]"
               placeholder="e.g. Mathematics, English, Biology"
               disabled={loading}
@@ -419,7 +421,7 @@ const TeacherProfileUpdate = () => {
             </p>
             <textarea
               value={gradeInput}
-              onChange={(e) => handleGradeInputChange(e.target.value)}
+              onChange={handleGradeInputChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent min-h-[100px]"
               placeholder="e.g. Grade 6, Grade 7, Grade 8"
               disabled={loading}
@@ -454,9 +456,9 @@ const TeacherProfileUpdate = () => {
             />
           </div>
 
-          {/* TSC Certificate */}
+          {/* Teacher License Certificate */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">TSC Certificate</h3>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Teacher License Certificate</h3>
             <input
               type="file"
               accept=".pdf,.doc,.docx,image/*"

@@ -187,8 +187,8 @@ const TeacherDashboard = () => {
         setShowVerificationNotice(true);
         setShowWelcomeModal(true);
       } else if (finalStatus === 'rejected') {
-        // Profile rejected - allow access but show resubmit notice
-        setIsBlocked(false); // Don't block access
+        // Profile rejected - block access and show resubmit notice
+        setIsBlocked(true);
         setShowVerificationNotice(true);
         setShowWelcomeModal(false);
       } else {
@@ -504,9 +504,10 @@ const TeacherDashboard = () => {
           <nav className="flex-1 px-4 py-8">
             <ul className="space-y-2">
               <li>
-                <button 
+                <button
                   onClick={() => handleMenuItemClick("dashboard")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "dashboard" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60" : ""}`}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "dashboard" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <FaHome className="mr-3" />
                   Dashboard
@@ -676,6 +677,8 @@ const TeacherDashboard = () => {
                 <p className="text-gray-600 font-josefin mb-6">
                   {verificationStatus === 'pending'
                     ? 'Your account verification is pending admin approval. You\'ll be able to access all features once approved.'
+                    : verificationStatus === 'rejected'
+                    ? 'Your account verification was rejected. Please update your information and resubmit for approval.'
                     : 'Please complete your account verification to access the dashboard features.'}
                 </p>
                 <button
@@ -706,6 +709,8 @@ const TeacherDashboard = () => {
                       <p className="text-gray-600 font-josefin mb-6">
                         {verificationStatus === 'pending'
                           ? 'Your account verification is pending admin approval. You\'ll receive a notification once your account is approved.'
+                          : verificationStatus === 'rejected'
+                          ? 'Your account verification was rejected. Please update your information and resubmit for approval.'
                           : 'Please complete your account verification to start using the dashboard features.'}
                       </p>
                       <button

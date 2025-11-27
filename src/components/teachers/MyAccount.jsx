@@ -11,6 +11,42 @@ const MyAccount = () => {
   const [loading, setLoading] = useState(false);
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [availableGrades, setAvailableGrades] = useState([]);
+
+  const normalizeList = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (typeof item === "number") return item.toString();
+          if (item && typeof item === "object") {
+            return (
+              item.name ||
+              item.subject ||
+              item.title ||
+              item.label ||
+              item.value ||
+              item.id ||
+              ""
+            ).toString();
+          }
+          return "";
+        })
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    if (typeof value === "number") {
+      return [value.toString()];
+    }
+    return [];
+  };
+
   const [formData, setFormData] = useState({
     phone: "",
     id_number: "",
@@ -22,6 +58,7 @@ const MyAccount = () => {
     birth_date: "",
     academic_certificate: null,
     tsc_number_certificate: null,
+    national_identity_card: null,
     subjects: [],
     grade: [],
   });
@@ -55,6 +92,7 @@ const MyAccount = () => {
           birth_date: response.data.birth_date || "",
           academic_certificate: null,
           tsc_number_certificate: null,
+          national_identity_card: null,
           subjects: response.data.subjects || [],
           grade: response.data.grade || [],
         });
@@ -95,6 +133,7 @@ const MyAccount = () => {
           birth_date: UserInfo.birth_date || "",
           academic_certificate: null,
           tsc_number_certificate: null,
+          national_identity_card: null,
           subjects: UserInfo.subjects || [],
           grade: UserInfo.grade || UserInfo.grades || [],
         });
@@ -272,6 +311,13 @@ const MyAccount = () => {
     }
   };
 
+  const handleNationalIdentityCardChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setFormData({ ...formData, national_identity_card: file });
+    }
+  };
+
   const handleMultiSelect = (name, value, checked) => {
     setFormData(prev => ({
       ...prev,
@@ -391,23 +437,18 @@ const MyAccount = () => {
         formDataToSend.append("gender", formData.gender.trim());
       }
 
-      // Add subjects and grades as arrays - only if they have values
-      // Extract IDs if they are objects
+      // Add subjects and grades as arrays of IDs
       if (formData.subjects && Array.isArray(formData.subjects) && formData.subjects.length > 0) {
         formData.subjects.forEach(subjectId => {
-          // Handle both string IDs and object IDs
-          const id = typeof subjectId === 'object' && subjectId !== null ? (subjectId.id || subjectId) : subjectId;
-          if (id != null && id !== '') {
-            formDataToSend.append("subjects", id);
+          if (subjectId) {
+            formDataToSend.append("subjects", subjectId);
           }
         });
       }
       if (formData.grade && Array.isArray(formData.grade) && formData.grade.length > 0) {
         formData.grade.forEach(gradeId => {
-          // Handle both string IDs and object IDs
-          const id = typeof gradeId === 'object' && gradeId !== null ? (gradeId.id || gradeId) : gradeId;
-          if (id != null && id !== '') {
-            formDataToSend.append("grade", id);
+          if (gradeId) {
+            formDataToSend.append("grade", gradeId);
           }
         });
       }
@@ -423,6 +464,9 @@ const MyAccount = () => {
       }
       if (formData.tsc_number_certificate && formData.tsc_number_certificate instanceof File) {
         formDataToSend.append("tsc_number_certificate", formData.tsc_number_certificate);
+      }
+      if (formData.national_identity_card && formData.national_identity_card instanceof File) {
+        formDataToSend.append("national_identity_card", formData.national_identity_card);
       }
 
       // Log what we're sending (for debugging - remove in production)
@@ -440,6 +484,7 @@ const MyAccount = () => {
         has_profile_photo: !!profilePhoto,
         has_academic_cert: !!formData.academic_certificate,
         has_tsc_cert: !!formData.tsc_number_certificate,
+        has_national_id_card: !!formData.national_identity_card,
       });
 
       // Try the request, and if we get 401/403, refresh token and retry
@@ -928,6 +973,16 @@ const MyAccount = () => {
                   type="file"
                   accept=".pdf,.doc,.docx,image/*"
                   onChange={handleTscCertificateChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">National Identity Card</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,image/*"
+                  onChange={handleNationalIdentityCardChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   disabled={loading}
                 />
