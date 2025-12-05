@@ -203,16 +203,15 @@ const StudentProfileUpdate = ({ userInfo }) => {
         throw new Error("No authentication token found. Please login again.");
       }
 
-      // Try POST first to create profile (if it doesn't exist)
-      // Then try PUT (upsert - create or update)
-      // Finally try PATCH (update only)
+      // Try PUT first (should create if not exists, update if exists)
+      // Then try PATCH (update only)
       let response;
       let lastError = null;
 
-      // Strategy 1: Try POST to create new profile
+      // Strategy 1: Try PUT (create or update)
       try {
-        response = await axios.post(
-          `${FHOST}/api/student/profile/`,
+        response = await axios.put(
+          `${FHOST}/api/student/profile/update/${userInfo.id}/`,
           formDataToSend,
           {
             headers: {
@@ -221,14 +220,14 @@ const StudentProfileUpdate = ({ userInfo }) => {
             },
           }
         );
-        console.log("Profile created successfully via POST");
-      } catch (postError) {
-        console.log("POST failed, trying PUT:", postError.response?.status, postError.response?.data);
-        lastError = postError;
-        
-        // Strategy 2: Try PUT (should create if not exists, update if exists)
+        console.log("Profile updated/created successfully via PUT");
+      } catch (putError) {
+        console.log("PUT failed, trying PATCH:", putError.response?.status, putError.response?.data);
+        lastError = putError;
+
+        // Strategy 2: Try PATCH (update only - if profile exists)
         try {
-          response = await axios.put(
+          response = await axios.patch(
             `${FHOST}/api/student/profile/update/${userInfo.id}/`,
             formDataToSend,
             {
@@ -238,46 +237,27 @@ const StudentProfileUpdate = ({ userInfo }) => {
               },
             }
           );
-          console.log("Profile updated/created successfully via PUT");
-        } catch (putError) {
-          console.log("PUT failed, trying PATCH:", putError.response?.status, putError.response?.data);
-          lastError = putError;
-          
-          // Strategy 3: Try PATCH (update only - if profile exists)
-          try {
-            response = await axios.patch(
-              `${FHOST}/api/student/profile/update/${userInfo.id}/`,
-              formDataToSend,
-              {
-                headers: {
-                  "Content-Type": "multipart/form-data",
-                  Authorization: `Bearer ${token}`,
-                },
-              }
+          console.log("Profile updated successfully via PATCH");
+        } catch (patchError) {
+          console.error("Both methods failed:", {
+            PUT: { status: putError.response?.status, data: putError.response?.data },
+            PATCH: { status: patchError.response?.status, data: patchError.response?.data }
+          });
+
+          // Both methods failed - provide helpful error message
+          const errorData = patchError.response?.data || putError.response?.data;
+          const errorDetail = errorData?.detail || errorData?.message || errorData?.error;
+
+          if (patchError.response?.status === 404 && putError.response?.status === 404) {
+            throw new Error(
+              errorDetail ||
+              "Profile endpoint not found. Please ensure the profile API endpoint is configured correctly."
             );
-            console.log("Profile updated successfully via PATCH");
-          } catch (patchError) {
-            console.error("All methods failed:", {
-              POST: { status: postError.response?.status, data: postError.response?.data },
-              PUT: { status: putError.response?.status, data: putError.response?.data },
-              PATCH: { status: patchError.response?.status, data: patchError.response?.data }
-            });
-            
-            // All methods failed - provide helpful error message
-            const errorData = patchError.response?.data || putError.response?.data || postError.response?.data;
-            const errorDetail = errorData?.detail || errorData?.message || errorData?.error;
-            
-            if (patchError.response?.status === 404 && putError.response?.status === 404 && postError.response?.status === 404) {
-              throw new Error(
-                errorDetail || 
-                "Profile endpoint not found. Please ensure the profile API endpoint is configured correctly."
-              );
-            } else {
-              throw new Error(
-                errorDetail || 
-                "Failed to update profile. Please check your connection and try again."
-              );
-            }
+          } else {
+            throw new Error(
+              errorDetail ||
+              "Failed to update profile. Please check your connection and try again."
+            );
           }
         }
       }

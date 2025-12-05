@@ -57,6 +57,8 @@ const TeacherDashboard = () => {
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [profileData, setProfileData] = useState(null);
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [availableGrades, setAvailableGrades] = useState([]);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -66,6 +68,71 @@ const TeacherDashboard = () => {
     if (record.is_verified === true) return "approved";
     if (record.is_rejected === true || record.status === "rejected") return "rejected";
     return fallbackStatus || "pending";
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      let allSubjects = [];
+      let nextUrl = `${FHOST}/api/subjects/`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.data && response.data.results) {
+          allSubjects = allSubjects.concat(response.data.results);
+        }
+        nextUrl = response.data.next;
+      }
+
+      setAvailableSubjects(allSubjects);
+    } catch (error) {
+      console.error("Error fetching subjects:", error);
+    }
+  };
+
+  const fetchGrades = async () => {
+    try {
+      let allGrades = [];
+      let nextUrl = `${FHOST}/api/grades/`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.data && response.data.results) {
+          allGrades = allGrades.concat(response.data.results);
+        }
+        nextUrl = response.data.next;
+      }
+
+      setAvailableGrades(allGrades);
+    } catch (error) {
+      console.error("Error fetching grades:", error);
+    }
+  };
+
+  // Helper functions to get names from IDs
+  const getSubjectName = (subject) => {
+    if (typeof subject === 'object' && subject?.name) return subject.name;
+    if (typeof subject === 'string' || typeof subject === 'number') {
+      const subj = availableSubjects.find(s => s.id === subject || s.name === subject);
+      return subj?.name || subj?.subject || subject || "General Class";
+    }
+    return "General Class";
+  };
+
+  const getGradeName = (grade) => {
+    if (typeof grade === 'object' && grade?.level) return grade.level;
+    if (typeof grade === 'string' || typeof grade === 'number') {
+      const grd = availableGrades.find(g => g.id === grade || g.level === grade || g.name === grade);
+      return grd?.level || grd?.name || grade || "All";
+    }
+    return "All";
   };
 
   const fetchTeacherRecord = async (token, userData) => {
@@ -225,6 +292,12 @@ const TeacherDashboard = () => {
       window.removeEventListener('profile-updated', onProfileUpdate);
     };
   }, [navigate]);
+
+  // Fetch subjects and grades on mount
+  useEffect(() => {
+    fetchSubjects();
+    fetchGrades();
+  }, []);
 
   const handleLogout = () => {
     // Clear user-scoped verification flag on logout to avoid leakage across users
@@ -825,9 +898,9 @@ const TeacherDashboard = () => {
                           <li key={index} className="py-3 md:py-4 flex justify-between items-center">
                             <div>
                               <h3 className="font-semibold text-gray-800 text-sm md:text-base">
-                                {session.subject?.name || "General Class"}
+                                {session.subject?.name || session.subject || "General Class"}
                               </h3>
-                              <p className="text-gray-600 text-xs md:text-sm">Grade {session.grade || "All"}</p>
+                              <p className="text-gray-600 text-xs md:text-sm">Grade {session.grade?.level || session.grade || "All"}</p>
                             </div>
                             <div className="text-right">
                               <p className="font-medium text-gray-800 text-sm md:text-base">{session.scheduled_date}</p>

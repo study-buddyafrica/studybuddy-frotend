@@ -83,7 +83,7 @@ const TeachersAdmin = () => {
 
       return {
         id: profile.id,
-        teacher_profile_id: profile.id,
+        teacher_profile_id: profile.teacher_profile_id || profile.id,
         user_id: profile.user,
         full_name: fullName,
         username: profile.user?.username || fullName,
@@ -121,17 +121,18 @@ const TeachersAdmin = () => {
       const token = localStorage.getItem("access_token") || localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      let allResults = [];
-      let nextUrl = `${FHOST}/api/teachers/`;
+      // Fetch all teachers from users endpoint
+      let allTeachers = [];
+      let nextUrl = `${FHOST}/api/users/users-list/?role=teacher`;
 
       while (nextUrl) {
         const response = await axios.get(nextUrl, { headers });
         const data = response.data;
-        allResults = allResults.concat(data.results || []);
-        nextUrl = data.next; // API returns 'next' for pagination
+        allTeachers = allTeachers.concat(data.results || []);
+        nextUrl = data.next;
       }
 
-      const teachersWithDetails = buildTeachersFromProfiles(allResults);
+      const teachersWithDetails = buildTeachersFromProfiles(allTeachers);
       setTeachers(teachersWithDetails);
       setWithdrawals([]);
     } catch (e) {
@@ -179,6 +180,12 @@ const TeachersAdmin = () => {
 
   const hydrateTeacherDetails = (data) => {
     if (!data) return null;
+
+    // Use the actual verification_status from the API, don't derive it
+    const verificationStatus = data.verification_status ||
+                              (data.is_verified === true ? "approved" :
+                               data.is_verified === false ? "rejected" : "pending");
+
     return {
       ...data,
       email: data.email || "",
@@ -187,23 +194,35 @@ const TeachersAdmin = () => {
       phone: data.phone || "",
       grade: coerceArray(data.grade || data.grades),
       subjects: coerceArray(data.subjects),
-      verification_status: data.verification_status || (data.is_verified ? "approved" : "pending"),
+      verification_status: verificationStatus, // Use the real status
     };
   };
 
-  const fetchTeacherDetails = async (teacherProfileId, fallbackProfile = null) => {
-    if (!teacherProfileId) {
-      alert("Teacher profile not found yet. Ask the teacher to complete their profile.");
+  const fetchTeacherDetails = async (teacherId, fallbackProfile = null) => {
+    if (!teacherId) {
+      alert("Teacher not found.");
       return;
     }
     setLoadingDetails(true);
-    setSelectedTeacher(teacherProfileId);
-    const localTeacher =
-      fallbackProfile ||
-      teachers.find((t) => (t.teacher_profile_id || t.id) === teacherProfileId)?.raw_profile;
-    if (localTeacher) {
-      setTeacherDetails(hydrateTeacherDetails(localTeacher));
+    setSelectedTeacher(teacherId);
+
+    // Find the teacher data from our list
+    const teacherData = fallbackProfile ||
+      teachers.find((t) => (t.teacher_profile_id || t.id) === teacherId)?.raw_profile;
+
+    if (teacherId === 'no_profile') {
+      // No teacher profile, just show the fallback data
+      if (teacherData) {
+        setTeacherDetails(hydrateTeacherDetails(teacherData));
+      }
+      setLoadingDetails(false);
+      return;
     }
+
+    if (teacherData) {
+      setTeacherDetails(hydrateTeacherDetails(teacherData));
+    }
+
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
       if (!token) {
@@ -212,25 +231,28 @@ const TeachersAdmin = () => {
         return;
       }
 
-      const teacherResponse = await axios.get(`${FHOST}/api/teachers/${teacherProfileId}/`, {
+      // Get teacher details using teacher profile ID
+      const teacherResponse = await axios.get(`${FHOST}/api/teachers/${teacherId}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (teacherResponse.data) {
-        // Merge teacher profile data if it exists in a nested structure
-        const mergedData = {
+        // Use the actual verification status from the API
+        const processedData = {
           ...teacherResponse.data,
-          ...(teacherResponse.data.teacher_profile || {}),
+          verification_status: teacherResponse.data.verification_status, // Keep the real status
         };
-        setTeacherDetails(hydrateTeacherDetails(mergedData));
+        setTeacherDetails(hydrateTeacherDetails(processedData));
       }
     } catch (error) {
       console.error("Error fetching teacher details:", error);
-      const errorMsg = error.response?.data?.detail || 
-                      error.response?.data?.message || 
-                      error.message || 
-                      "Failed to load teacher details. Please try again.";
+      const errorMsg = error.response?.data?.detail ||
+                        error.response?.data?.message ||
+                        error.message ||
+                        "Failed to load teacher details.";
       alert(errorMsg);
       setSelectedTeacher(null);
+      setTeacherDetails(null);
     } finally {
       setLoadingDetails(false);
     }
@@ -271,7 +293,7 @@ const TeachersAdmin = () => {
   };
 
   const approveTeacherVerification = async (teacherProfileId, teacherData = null) => {
-    if (!teacherProfileId) {
+    if (!teacherProfileId || teacherProfileId === 'no_profile') {
       alert("Teacher profile missing. Cannot approve until profile is created.");
       return;
     }
@@ -371,7 +393,7 @@ const TeachersAdmin = () => {
   };
 
   const rejectTeacherVerification = async (teacherProfileId, teacherData = null) => {
-    if (!teacherProfileId) {
+    if (!teacherProfileId || teacherProfileId === 'no_profile') {
       alert("Teacher profile missing. Cannot reject until profile is created.");
       return;
     }
@@ -527,13 +549,17 @@ const TeachersAdmin = () => {
                   <td className="px-6 py-4 text-sm text-gray-900">Ksh {(t.balance || 0).toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm">
                     <span className={`px-2 inline-flex text-xs font-semibold rounded-full ${
-                      t.verification_status === 'approved' 
-                        ? 'bg-green-100 text-green-800' 
+                      t.verification_status === 'approved'
+                        ? 'bg-green-100 text-green-800'
                         : t.verification_status === 'rejected'
                         ? 'bg-red-100 text-red-800'
+                        : t.verification_status === 'not_started'
+                        ? 'bg-gray-100 text-gray-800'
                         : 'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {t.verification_status === 'approved' ? 'Approved' : t.verification_status === 'rejected' ? 'Rejected' : 'Pending'}
+                      {t.verification_status === 'approved' ? 'Approved' :
+                       t.verification_status === 'rejected' ? 'Rejected' :
+                       t.verification_status === 'not_started' ? 'Not Started' : 'Pending'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm">
@@ -629,213 +655,266 @@ const TeachersAdmin = () => {
                 <div className="text-center py-8">Loading teacher details...</div>
               ) : teacherDetails ? (
                 <>
-                  {/* Check Required Fields */}
-                  {(() => {
-                    const { missingFields, allFieldsPresent } = checkRequiredFields(teacherDetails);
-                    return (
-                      <div className={`mb-6 p-4 rounded-lg ${
-                        allFieldsPresent 
-                          ? 'bg-green-50 border border-green-200' 
-                          : 'bg-yellow-50 border border-yellow-200'
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          {allFieldsPresent ? (
-                            <>
-                              <Check className="h-5 w-5 text-green-600" />
-                              <span className="font-semibold text-green-800">All required fields are present. Ready for approval.</span>
-                            </>
-                          ) : (
-                            <>
-                              <X className="h-5 w-5 text-yellow-600" />
-                              <span className="font-semibold text-yellow-800">
-                                Missing required fields: {missingFields.join(', ')}
-                              </span>
-                            </>
-                          )}
+                  {/* Check teacher status */}
+                  {teacherDetails.verification_status === 'not_started' ? (
+                    <div className="mb-6 p-4 rounded-lg bg-blue-50 border border-blue-200">
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
+                          <span className="text-white text-xs">!</span>
                         </div>
+                        <span className="font-semibold text-blue-800">
+                          This teacher has registered but has not yet created their teaching profile.
+                        </span>
                       </div>
-                    );
-                  })()}
+                      <p className="text-sm text-blue-700 mt-2">
+                        They need to complete their profile information before they can be approved for teaching.
+                      </p>
+                    </div>
+                  ) : (
+                    /* Check Required Fields */
+                    (() => {
+                      const { missingFields, allFieldsPresent } = checkRequiredFields(teacherDetails);
+                      return (
+                        <div className={`mb-6 p-4 rounded-lg ${
+                          allFieldsPresent
+                            ? 'bg-green-50 border border-green-200'
+                            : 'bg-yellow-50 border border-yellow-200'
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            {allFieldsPresent ? (
+                              <>
+                                <Check className="h-5 w-5 text-green-600" />
+                                <span className="font-semibold text-green-800">All required fields are present. Ready for approval.</span>
+                              </>
+                            ) : (
+                              <>
+                                <X className="h-5 w-5 text-yellow-600" />
+                                <span className="font-semibold text-yellow-800">
+                                  Missing required fields: {missingFields.join(', ')}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()
+                  )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Profile Picture */}
-                    {teacherDetails.profile_picture && (
+                  {teacherDetails.verification_status === 'not_started' ? (
+                    /* Show basic info for teachers who haven't started */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.email || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <p className="text-sm text-gray-900">
+                          {teacherDetails.first_name || ''} {teacherDetails.last_name || ''}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.phone || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
+                        <span className="px-2 inline-flex text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                          Not Started
+                        </span>
+                      </div>
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
-                        <img 
-                          src={teacherDetails.profile_picture} 
-                          alt="Profile" 
-                          className="w-32 h-32 rounded-full object-cover border-2 border-gray-200"
-                        />
-                      </div>
-                    )}
-
-                    {/* Personal Information */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.email || '-'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                      <p className="text-sm text-gray-900">
-                        {teacherDetails.first_name || ''} {teacherDetails.last_name || ''}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.phone || '-'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">National Identity Number</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.national_identity_number || '-'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Birth Date</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.birth_date || '-'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.gender || '-'}</p>
-                    </div>
-
-                    {/* Professional Information */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Teacher License Number</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.teacher_license_number || '-'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Experience (years)</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.experience || '-'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate</label>
-                      <p className="text-sm text-gray-900">{teacherDetails.hourly_rate ? `Ksh ${teacherDetails.hourly_rate}` : '-'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
-                      {(() => {
-                        const status = (teacherDetails.verification_status || (teacherDetails.is_verified ? 'approved' : 'pending')).toLowerCase();
-                        const statusLabel =
-                          status === 'approved'
-                            ? 'Approved'
-                            : status === 'rejected'
-                            ? 'Rejected'
-                            : 'Pending';
-                        const colorClass =
-                          status === 'approved'
-                            ? 'bg-green-100 text-green-800'
-                            : status === 'rejected'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800';
-                        return (
-                          <span className={`px-2 inline-flex text-xs font-semibold rounded-full ${colorClass}`}>
-                            {statusLabel}
-                          </span>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Subjects */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Subjects</label>
-                      <div className="flex flex-wrap gap-2">
-                        {teacherDetails.subjects && teacherDetails.subjects.length > 0 ? (
-                          teacherDetails.subjects.map((subjectId) => {
-                            const subject = availableSubjects.find(s => s.id === subjectId);
-                            return (
-                              <span key={subjectId} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                                {subject?.subject || subject?.name || subjectId}
-                              </span>
-                            );
-                          })
-                        ) : (
-                          <span className="text-gray-500">No subjects selected</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Grades */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Grades</label>
-                      <div className="flex flex-wrap gap-2">
-                        {teacherDetails.grade && teacherDetails.grade.length > 0 ? (
-                          teacherDetails.grade.map((gradeId) => {
-                            const grade = availableGrades.find(g => g.id === gradeId);
-                            return (
-                              <span key={gradeId} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
-                                {grade?.name || gradeId}
-                              </span>
-                            );
-                          })
-                        ) : (
-                          <span className="text-gray-500">No grades selected</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Bio */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-                      <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
-                        {teacherDetails.bio || 'No bio provided'}
-                      </p>
-                    </div>
-
-                    {/* Certificates */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Certificates</label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">Academic Certificate</label>
-                          {teacherDetails.academic_certificate ? (
-                            <a 
-                              href={teacherDetails.academic_certificate} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center text-blue-600 hover:text-blue-800"
-                            >
-                              <FileText className="h-4 w-4 mr-1" />
-                              View Certificate
-                            </a>
-                          ) : (
-                            <span className="text-gray-500 text-sm">Not provided</span>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">Teacher License Certificate</label>
-                          {teacherDetails.teacher_license_certificate ? (
-                            <a
-                              href={teacherDetails.teacher_license_certificate}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center text-blue-600 hover:text-blue-800"
-                            >
-                              <FileText className="h-4 w-4 mr-1" />
-                              View Certificate
-                            </a>
-                          ) : (
-                            <span className="text-gray-500 text-sm">Not provided</span>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">National Identity Card</label>
-                          {teacherDetails.national_identity_card ? (
-                            <a
-                              href={teacherDetails.national_identity_card}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center text-blue-600 hover:text-blue-800"
-                            >
-                              <FileText className="h-4 w-4 mr-1" />
-                              View Document
-                            </a>
-                          ) : (
-                            <span className="text-gray-500 text-sm">Not provided</span>
-                          )}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900 mb-2">Profile Status</h4>
+                          <p className="text-sm text-gray-600">
+                            This teacher has registered as a teacher but has not yet completed their teaching profile.
+                            They need to fill out their professional information, upload required certificates, and provide details about their teaching experience before they can be approved.
+                          </p>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    /* Show full profile for teachers who have started */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Profile Picture */}
+                      {teacherDetails.profile_picture && (
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+                          <img
+                            src={teacherDetails.profile_picture}
+                            alt="Profile"
+                            className="w-32 h-32 rounded-full object-cover border-2 border-gray-200"
+                          />
+                        </div>
+                      )}
+
+                      {/* Personal Information */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.email || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <p className="text-sm text-gray-900">
+                          {teacherDetails.first_name || ''} {teacherDetails.last_name || ''}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.phone || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">National Identity Number</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.national_identity_number || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Birth Date</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.birth_date || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.gender || '-'}</p>
+                      </div>
+
+                      {/* Professional Information */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Teacher License Number</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.teacher_license_number || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Experience (years)</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.experience || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate</label>
+                        <p className="text-sm text-gray-900">{teacherDetails.hourly_rate ? `Ksh ${teacherDetails.hourly_rate}` : '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
+                        {(() => {
+                          const status = (teacherDetails.verification_status || (teacherDetails.is_verified ? 'approved' : 'pending')).toLowerCase();
+                          const statusLabel =
+                            status === 'approved'
+                              ? 'Approved'
+                              : status === 'rejected'
+                              ? 'Rejected'
+                              : 'Pending';
+                          const colorClass =
+                            status === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : status === 'rejected'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800';
+                          return (
+                            <span className={`px-2 inline-flex text-xs font-semibold rounded-full ${colorClass}`}>
+                              {statusLabel}
+                            </span>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Subjects */}
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Subjects</label>
+                        <div className="flex flex-wrap gap-2">
+                          {teacherDetails.subjects && teacherDetails.subjects.length > 0 ? (
+                            teacherDetails.subjects.map((subjectId) => {
+                              const subject = availableSubjects.find(s => s.id === subjectId);
+                              return (
+                                <span key={subjectId} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                                  {subject?.subject || subject?.name || subjectId}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-gray-500">No subjects selected</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Grades */}
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Grades</label>
+                        <div className="flex flex-wrap gap-2">
+                          {teacherDetails.grade && teacherDetails.grade.length > 0 ? (
+                            teacherDetails.grade.map((gradeId) => {
+                              const grade = availableGrades.find(g => g.id === gradeId);
+                              return (
+                                <span key={gradeId} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                                  {grade?.name || gradeId}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-gray-500">No grades selected</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bio */}
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+                        <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
+                          {teacherDetails.bio || 'No bio provided'}
+                        </p>
+                      </div>
+
+                      {/* Certificates */}
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Certificates</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Academic Certificate</label>
+                            {teacherDetails.academic_certificate ? (
+                              <a
+                                href={teacherDetails.academic_certificate}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                              >
+                                <FileText className="h-4 w-4 mr-1" />
+                                View Certificate
+                              </a>
+                            ) : (
+                              <span className="text-gray-500 text-sm">Not provided</span>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Teacher License Certificate</label>
+                            {teacherDetails.teacher_license_certificate ? (
+                              <a
+                                href={teacherDetails.teacher_license_certificate}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                              >
+                                <FileText className="h-4 w-4 mr-1" />
+                                View Certificate
+                              </a>
+                            ) : (
+                              <span className="text-gray-500 text-sm">Not provided</span>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">National Identity Card</label>
+                            {teacherDetails.national_identity_card ? (
+                              <a
+                                href={teacherDetails.national_identity_card}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                              >
+                                <FileText className="h-4 w-4 mr-1" />
+                                View Document
+                              </a>
+                            ) : (
+                              <span className="text-gray-500 text-sm">Not provided</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Action Buttons */}
                   <div className="mt-6 flex items-center justify-end gap-3 pt-6 border-t">
@@ -848,7 +927,11 @@ const TeachersAdmin = () => {
                     >
                       Close
                     </button>
-                    {teacherDetails.is_verified !== true && (
+                    {teacherDetails.verification_status === 'not_started' ? (
+                      <div className="text-sm text-gray-600">
+                        Teacher must complete their profile before verification actions can be taken.
+                      </div>
+                    ) : teacherDetails.is_verified !== true && (
                       <>
                         <button
                           onClick={() => {

@@ -10,6 +10,10 @@ const TeacherProfileUpdate = () => {
   const [userInfo, setUserInfo] = useState({});
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState(null);
+  const [subjectInput, setSubjectInput] = useState("");
+  const [gradeInput, setGradeInput] = useState("");
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [availableGrades, setAvailableGrades] = useState([]);
   const normalizeList = (value) => {
     if (!value) return [];
     if (Array.isArray(value)) {
@@ -45,12 +49,173 @@ const TeacherProfileUpdate = () => {
     return [];
   };
 
+  const parseListInput = (value) =>
+    value
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  // Helper function to get name from ID using available lists
+  const getSubjectNameById = (id) => {
+    if (!id) return "";
+    const subject = availableSubjects.find(s => s.id === id || s.name === id);
+    return subject?.name || subject?.subject || id;
+  };
+
+  const getGradeNameById = (id) => {
+    if (!id) return "";
+    const grade = availableGrades.find(g => g.id === id || g.level === id || g.name === id);
+    return grade?.level || grade?.name || id;
+  };
+
+  // Helper to resolve IDs to names for display
+  const resolveSubjectNames = (subjects) => {
+    if (!subjects || !Array.isArray(subjects)) return [];
+    return subjects.map(s => {
+      if (typeof s === 'object') return s.name || s.subject || s.id;
+      return getSubjectNameById(s);
+    });
+  };
+
+  const resolveGradeNames = (grades) => {
+    if (!grades || !Array.isArray(grades)) return [];
+    return grades.map(g => {
+      if (typeof g === 'object') return g.level || g.name || g.id;
+      return getGradeNameById(g);
+    });
+  };
+
+  const createSubject = async (name) => {
+    try {
+      const response = await axios.post(`${FHOST}/api/subjects/`, {
+        name: name.trim(),
+        description: ""
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+      return response.data.id;
+    } catch (error) {
+      console.error("Error creating subject:", error);
+      // If creation fails (maybe already exists), try to find existing
+      try {
+        let allSubjects = [];
+        let nextUrl = `${FHOST}/api/subjects/`;
+
+        while (nextUrl) {
+          const getResponse = await axios.get(nextUrl, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          });
+          if (getResponse.data && getResponse.data.results) {
+            allSubjects = allSubjects.concat(getResponse.data.results);
+          }
+          nextUrl = getResponse.data.next;
+        }
+
+        const existing = allSubjects.find(s => s.name.toLowerCase() === name.trim().toLowerCase());
+        if (existing) return existing.id;
+      } catch (getError) {
+        console.error("Error finding existing subject:", getError);
+      }
+      return null;
+    }
+  };
+
+  const createGrade = async (level) => {
+    try {
+      const response = await axios.post(`${FHOST}/api/grades/`, {
+        level: level.trim()
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+      return response.data.id;
+    } catch (error) {
+      console.error("Error creating grade:", error);
+      // If creation fails (maybe already exists), try to find existing
+      try {
+        let allGrades = [];
+        let nextUrl = `${FHOST}/api/grades/`;
+
+        while (nextUrl) {
+          const getResponse = await axios.get(nextUrl, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          });
+          if (getResponse.data && getResponse.data.results) {
+            allGrades = allGrades.concat(getResponse.data.results);
+          }
+          nextUrl = getResponse.data.next;
+        }
+
+        const existing = allGrades.find(g => g.level.toLowerCase() === level.trim().toLowerCase());
+        if (existing) return existing.id;
+      } catch (getError) {
+        console.error("Error finding existing grade:", getError);
+      }
+      return null;
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      let allSubjects = [];
+      let nextUrl = `${FHOST}/api/subjects/`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.data && response.data.results) {
+          allSubjects = allSubjects.concat(response.data.results);
+        }
+        nextUrl = response.data.next;
+      }
+
+      setAvailableSubjects(allSubjects);
+    } catch (error) {
+      console.error("Error fetching subjects:", error);
+    }
+  };
+
+  const fetchGrades = async () => {
+    try {
+      let allGrades = [];
+      let nextUrl = `${FHOST}/api/grades/`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.data && response.data.results) {
+          allGrades = allGrades.concat(response.data.results);
+        }
+        nextUrl = response.data.next;
+      }
+
+      setAvailableGrades(allGrades);
+    } catch (error) {
+      console.error("Error fetching grades:", error);
+    }
+  };
+
   const [formData, setFormData] = useState({
     bio: "",
     phone: "",
     hourly_rate: "",
-    subjects: [],
-    grade: [],
+    subject: "",
+    grade: "",
     experience: "",
     birth_date: "",
     academic_certificate: null,
@@ -58,17 +223,23 @@ const TeacherProfileUpdate = () => {
     teacher_license_certificate: null,
     national_identity_number: "",
     gender: "",
+    cv: null,
   });
-  const [subjectInput, setSubjectInput] = useState("");
-  const [gradeInput, setGradeInput] = useState("");
 
   useEffect(() => {
     const UserInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (UserInfo) {
       setUserInfo(UserInfo);
-      fetchProfile();
+      // Fetch subjects and grades first, then fetch profile
+      const initializeData = async () => {
+        await Promise.all([fetchSubjects(), fetchGrades()]);
+        // Now fetch profile after subjects and grades are loaded
+        fetchProfile();
+      };
+      initializeData();
     }
   }, []);
+
 
   const fetchProfile = async () => {
     try {
@@ -79,12 +250,20 @@ const TeacherProfileUpdate = () => {
       });
       if (response.data) {
         setProfileData(response.data);
+        // Get raw subjects and grades (could be IDs or objects)
+        const rawSubjects = response.data.subjects || [];
+        const rawGrades = response.data.grade || [];
+
+        // Resolve to names for display
+        const resolvedSubjects = resolveSubjectNames(rawSubjects);
+        const resolvedGrades = resolveGradeNames(rawGrades);
+
         setFormData({
           bio: response.data.bio || "",
           phone: response.data.phone || "",
           hourly_rate: response.data.hourly_rate || "",
-          subjects: normalizeList(response.data.subjects),
-          grade: normalizeList(response.data.grade),
+          subject: resolvedSubjects[0] || "",
+          grade: resolvedGrades[0] || "",
           experience: response.data.experience || "",
           birth_date: response.data.birth_date || "",
           academic_certificate: null,
@@ -92,12 +271,14 @@ const TeacherProfileUpdate = () => {
           teacher_license_certificate: null,
           national_identity_number: response.data.national_identity_number || response.data.id_number || "",
           gender: response.data.gender || "",
+          cv: null,
         });
         if (response.data.profile_picture) {
           setProfilePhotoPreview(response.data.profile_picture);
         }
-        setSubjectInput(normalizeList(response.data.subjects).join(", "));
-        setGradeInput(normalizeList(response.data.grade).join(", "));
+        // Set subject and grade inputs based on resolved names
+        setSubjectInput(resolvedSubjects[0] || "");
+        setGradeInput(resolvedGrades[0] || "");
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -131,29 +312,31 @@ const TeacherProfileUpdate = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const parseListInput = (value) =>
-    value
-      .split(/[\n,]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-  const handleSubjectInputChange = (e) => {
+  const handleSubjectChange = (e) => {
     const value = e.target.value;
     setSubjectInput(value);
     setFormData((prev) => ({
       ...prev,
-      subjects: parseListInput(value),
+      subject: value,
     }));
   };
 
-  const handleGradeInputChange = (e) => {
+  const handleGradeChange = (e) => {
     const value = e.target.value;
     setGradeInput(value);
     setFormData((prev) => ({
       ...prev,
-      grade: parseListInput(value),
+      grade: value,
     }));
   };
+
+  const handleCvChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setFormData({ ...formData, cv: file });
+    }
+  };
+
 
   const handleCertificateChange = (event) => {
     const file = event.target.files[0];
@@ -176,8 +359,47 @@ const TeacherProfileUpdate = () => {
     setSuccessMessage("");
 
     try {
+      // Validate that subject and grade are provided
+      if (!formData.subject.trim()) {
+        setErrorMessage("Please specify a subject.");
+        setTimeout(() => setErrorMessage(""), 5000);
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.grade.trim()) {
+        setErrorMessage("Please specify a grade.");
+        setTimeout(() => setErrorMessage(""), 5000);
+        setLoading(false);
+        return;
+      }
+
+      // Create subject and get ID
+      let subjectId = null;
+      if (formData.subject.trim()) {
+        subjectId = await createSubject(formData.subject.trim());
+        if (!subjectId) {
+          setErrorMessage("Failed to create or find the specified subject.");
+          setTimeout(() => setErrorMessage(""), 5000);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Create grade and get ID
+      let gradeId = null;
+      if (formData.grade.trim()) {
+        gradeId = await createGrade(formData.grade.trim());
+        if (!gradeId) {
+          setErrorMessage("Failed to create or find the specified grade.");
+          setTimeout(() => setErrorMessage(""), 5000);
+          setLoading(false);
+          return;
+        }
+      }
+
       const formDataToSend = new FormData();
-      
+
       if (formData.bio) formDataToSend.append("bio", formData.bio);
       if (formData.phone) formDataToSend.append("phone", formData.phone);
       if (formData.hourly_rate) formDataToSend.append("hourly_rate", formData.hourly_rate);
@@ -187,12 +409,13 @@ const TeacherProfileUpdate = () => {
       if (formData.national_identity_number) formDataToSend.append("national_identity_number", formData.national_identity_number);
       if (formData.gender) formDataToSend.append("gender", formData.gender);
 
-      if (formData.subjects.length > 0) {
-        formDataToSend.append("subjects", formData.subjects.join(", "));
+      // Send subject and grade IDs
+      if (subjectId) {
+        formDataToSend.append("subjects", subjectId);
       }
 
-      if (formData.grade.length > 0) {
-        formDataToSend.append("grade", formData.grade.join(", "));
+      if (gradeId) {
+        formDataToSend.append("grade", gradeId);
       }
       
       if (profilePhoto) {
@@ -205,6 +428,10 @@ const TeacherProfileUpdate = () => {
 
       if (formData.teacher_license_certificate) {
         formDataToSend.append("teacher_license_certificate", formData.teacher_license_certificate);
+      }
+
+      if (formData.cv) {
+        formDataToSend.append("cv", formData.cv);
       }
 
       const response = await axios.patch(
@@ -224,7 +451,12 @@ const TeacherProfileUpdate = () => {
         // Update userInfo in localStorage
         const updatedProfile = response.data;
         const currentUserInfo = JSON.parse(localStorage.getItem('userInfo'));
-        const updatedUserInfo = { ...currentUserInfo, ...updatedProfile };
+        const updatedUserInfo = {
+          ...currentUserInfo,
+          ...updatedProfile,
+          subject: formData.subject,
+          grade: formData.grade
+        };
         localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
         setUserInfo(updatedUserInfo);
         
@@ -397,37 +629,39 @@ const TeacherProfileUpdate = () => {
 
           {/* Subjects */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subjects</h3>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subject</h3>
             <p className="text-sm text-gray-600 mb-3">
-              Enter the subject IDs or names separated by commas or new lines.
+              Enter the subject you teach.
             </p>
-            <textarea
+            <input
+              type="text"
               value={subjectInput}
-              onChange={handleSubjectInputChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent min-h-[100px]"
-              placeholder="e.g. Mathematics, English, Biology"
+              onChange={handleSubjectChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+              placeholder="e.g. Mathematics"
               disabled={loading}
             />
             <p className="text-xs text-gray-500 mt-2">
-              The backend will store these values exactly as entered.
+              The system will create the subject if it doesn't exist.
             </p>
           </div>
 
           {/* Grades */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Grades</h3>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Grade</h3>
             <p className="text-sm text-gray-600 mb-3">
-              Enter the grade IDs or labels separated by commas or new lines.
+              Enter the grade you teach.
             </p>
-            <textarea
+            <input
+              type="text"
               value={gradeInput}
-              onChange={handleGradeInputChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent min-h-[100px]"
-              placeholder="e.g. Grade 6, Grade 7, Grade 8"
+              onChange={handleGradeChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+              placeholder="e.g. Grade 6"
               disabled={loading}
             />
             <p className="text-xs text-gray-500 mt-2">
-              These values are sent to the server as arrays, matching the required payload.
+              The system will create the grade if it doesn't exist.
             </p>
           </div>
 
@@ -466,6 +700,24 @@ const TeacherProfileUpdate = () => {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
               disabled={loading}
             />
+          </div>
+
+          {/* CV Upload */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-6">
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">CV/Resume</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Upload your CV or resume document.
+            </p>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={handleCvChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Accepted formats: PDF, DOC, DOCX (Max size: 5MB)
+            </p>
           </div>
 
           {/* Submit Button */}

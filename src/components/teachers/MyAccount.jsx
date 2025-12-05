@@ -20,11 +20,13 @@ const MyAccount = () => {
           if (typeof item === "string") return item;
           if (typeof item === "number") return item.toString();
           if (item && typeof item === "object") {
+            // Prioritize name/subject/title/label over id
             return (
               item.name ||
               item.subject ||
               item.title ||
               item.label ||
+              item.level ||
               item.value ||
               item.id ||
               ""
@@ -47,54 +49,220 @@ const MyAccount = () => {
     return [];
   };
 
+  // Helper function to get name from ID using available lists
+  const getSubjectNameById = (id) => {
+    if (!id) return "";
+    const subject = availableSubjects.find(s => s.id === id || s.name === id);
+    return subject?.name || subject?.subject || id;
+  };
+
+  const getGradeNameById = (id) => {
+    if (!id) return "";
+    const grade = availableGrades.find(g => g.id === id || g.level === id || g.name === id);
+    return grade?.level || grade?.name || id;
+  };
+
+  // Helper to resolve IDs to names for display
+  const resolveSubjectNames = (subjects) => {
+    if (!subjects || !Array.isArray(subjects)) return [];
+    return subjects.map(s => {
+      if (typeof s === 'object') return s.name || s.subject || s.id;
+      return getSubjectNameById(s);
+    });
+  };
+
+  const resolveGradeNames = (grades) => {
+    if (!grades || !Array.isArray(grades)) return [];
+    return grades.map(g => {
+      if (typeof g === 'object') return g.level || g.name || g.id;
+      return getGradeNameById(g);
+    });
+  };
+
+  const parseListInput = (value) =>
+    value
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const createSubject = async (name) => {
+    try {
+      const response = await axios.post(`${FHOST}/api/subjects/`, {
+        name: name.trim(),
+        description: ""
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+      return response.data.id;
+    } catch (error) {
+      console.error("Error creating subject:", error);
+      // If creation fails (maybe already exists), try to find existing
+      try {
+        let allSubjects = [];
+        let nextUrl = `${FHOST}/api/subjects/`;
+
+        while (nextUrl) {
+          const getResponse = await axios.get(nextUrl, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          });
+          if (getResponse.data && getResponse.data.results) {
+            allSubjects = allSubjects.concat(getResponse.data.results);
+          }
+          nextUrl = getResponse.data.next;
+        }
+
+        const existing = allSubjects.find(s => s.name.toLowerCase() === name.trim().toLowerCase());
+        if (existing) return existing.id;
+      } catch (getError) {
+        console.error("Error finding existing subject:", getError);
+      }
+      return null;
+    }
+  };
+
+  const createGrade = async (level) => {
+    try {
+      const response = await axios.post(`${FHOST}/api/grades/`, {
+        level: level.trim()
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+      return response.data.id;
+    } catch (error) {
+      console.error("Error creating grade:", error);
+      // If creation fails (maybe already exists), try to find existing
+      try {
+        let allGrades = [];
+        let nextUrl = `${FHOST}/api/grades/`;
+
+        while (nextUrl) {
+          const getResponse = await axios.get(nextUrl, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          });
+          if (getResponse.data && getResponse.data.results) {
+            allGrades = allGrades.concat(getResponse.data.results);
+          }
+          nextUrl = getResponse.data.next;
+        }
+
+        const existing = allGrades.find(g => g.level.toLowerCase() === level.trim().toLowerCase());
+        if (existing) return existing.id;
+      } catch (getError) {
+        console.error("Error finding existing grade:", getError);
+      }
+      return null;
+    }
+  };
+
   const [formData, setFormData] = useState({
     phone: "",
-    id_number: "",
-    tsc_number: "",
+    national_identity_number: "",
+    teacher_license_number: "",
     gender: "",
     bio: "",
     hourly_rate: "",
     experience: "",
     birth_date: "",
     academic_certificate: null,
-    tsc_number_certificate: null,
+    teacher_license_certificate: null,
     national_identity_card: null,
-    subjects: [],
-    grade: [],
+    cv: null,
+    subjectInput: "",
+    gradeInput: "",
   });
 
   useEffect(() => {
     const UserInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (UserInfo) {
       setUserInfo(UserInfo);
-      fetchProfile();
-      fetchSubjects();
-      fetchGrades();
+      // Fetch subjects and grades first, then fetch profile
+      const initializeData = async () => {
+        await Promise.all([fetchSubjects(), fetchGrades()]);
+        // Now fetch profile after subjects and grades are loaded
+        fetchProfile();
+      };
+      initializeData();
     }
   }, []);
 
+  // Re-fetch profile when subjects or grades are loaded to resolve names
+  useEffect(() => {
+    if (availableSubjects.length > 0 || availableGrades.length > 0) {
+      // Re-resolve names if we have form data with IDs
+      const currentUserInfo = JSON.parse(localStorage.getItem("userInfo"));
+      if (currentUserInfo) {
+        const rawSubjects = currentUserInfo.subjects || [];
+        const rawGrades = currentUserInfo.grade || currentUserInfo.grades || [];
+        
+        const resolvedSubjects = resolveSubjectNames(rawSubjects);
+        const resolvedGrades = resolveGradeNames(rawGrades);
+        
+        setFormData(prev => ({
+          ...prev,
+          subjectInput: resolvedSubjects[0] || prev.subjectInput,
+          gradeInput: resolvedGrades[0] || prev.gradeInput,
+        }));
+      }
+    }
+  }, [availableSubjects, availableGrades]);
+
   const fetchProfile = async () => {
     try {
-      const response = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
+      // Try to get teacher profile using teacher detail endpoint
+      const currentUserInfo = JSON.parse(localStorage.getItem('userInfo')) || {};
+      const profileId = currentUserInfo.teacher_profile_id;
+
+      let response;
+      if (profileId) {
+        // Use teacher detail endpoint which should return subjects and grades
+        response = await axios.get(`${FHOST}/api/teachers/${profileId}/`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+      } else {
+        // Fallback to profile update endpoint
+        response = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+      }
+
       if (response.data) {
+        // Get raw subjects and grades (could be IDs or objects)
+        const rawSubjects = response.data.subjects || [];
+        const rawGrades = response.data.grade || [];
+        
+        // Resolve to names for display
+        const resolvedSubjects = resolveSubjectNames(rawSubjects);
+        const resolvedGrades = resolveGradeNames(rawGrades);
+        
         setFormData({
           phone: response.data.phone || "",
-          id_number: response.data.id_number || "",
-          tsc_number: response.data.tsc_number || "",
+          national_identity_number: response.data.national_identity_number || response.data.id_number || "",
+          teacher_license_number: response.data.teacher_license_number || response.data.tsc_number || "",
           gender: response.data.gender || "",
           bio: response.data.bio || "",
           hourly_rate: response.data.hourly_rate || "",
           experience: response.data.experience || "",
           birth_date: response.data.birth_date || "",
           academic_certificate: null,
-          tsc_number_certificate: null,
+          teacher_license_certificate: null,
           national_identity_card: null,
-          subjects: response.data.subjects || [],
-          grade: response.data.grade || [],
+          cv: null,
+          subjectInput: resolvedSubjects[0] || "",
+          gradeInput: resolvedGrades[0] || "",
         });
         if (response.data.profile_picture) {
           setProfilePhotoPreview(response.data.profile_picture);
@@ -122,20 +290,28 @@ const MyAccount = () => {
       // Fallback to localStorage data if API call fails
       const UserInfo = JSON.parse(localStorage.getItem("userInfo"));
       if (UserInfo) {
+        const rawSubjects = UserInfo.subjects || [];
+        const rawGrades = UserInfo.grade || UserInfo.grades || [];
+        
+        // Resolve to names for display
+        const resolvedSubjects = resolveSubjectNames(rawSubjects);
+        const resolvedGrades = resolveGradeNames(rawGrades);
+        
         setFormData({
           phone: UserInfo.phone || "",
-          id_number: UserInfo.id_number || "",
-          tsc_number: UserInfo.tsc_number || "",
+          national_identity_number: UserInfo.national_identity_number || UserInfo.id_number || "",
+          teacher_license_number: UserInfo.teacher_license_number || UserInfo.tsc_number || "",
           gender: UserInfo.gender || "",
           bio: UserInfo.bio || UserInfo.about_me || "",
           hourly_rate: UserInfo.hourly_rate || "",
           experience: UserInfo.experience || "",
           birth_date: UserInfo.birth_date || "",
           academic_certificate: null,
-          tsc_number_certificate: null,
+          teacher_license_certificate: null,
           national_identity_card: null,
-          subjects: UserInfo.subjects || [],
-          grade: UserInfo.grade || UserInfo.grades || [],
+          cv: null,
+          subjectInput: resolvedSubjects[0] || "",
+          gradeInput: resolvedGrades[0] || "",
         });
         if (UserInfo.profile_picture) {
           setProfilePhotoPreview(UserInfo.profile_picture);
@@ -146,61 +322,22 @@ const MyAccount = () => {
 
   const fetchSubjects = async () => {
     try {
-      let token = localStorage.getItem("access_token");
-      if (!token) {
-        // Try to refresh token
-        const refreshToken = localStorage.getItem("refresh_token");
-        if (refreshToken) {
-          try {
-            const { authService } = await import("../../services/authService");
-            token = await authService.refreshToken();
-          } catch (refreshError) {
-            console.error("Could not refresh token for fetching subjects:", refreshError);
-            return;
-          }
-        } else {
-          console.error("No access token available for fetching subjects");
-          return;
-        }
-      }
+      let allSubjects = [];
+      let nextUrl = `${FHOST}/api/subjects/`;
 
-      let response;
-      try {
-        response = await axios.get(`${FHOST}/admin/get-subjects/`, {
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
           },
         });
-      } catch (initialError) {
-        // If 401 or 403, try to refresh token and retry
-        if (initialError.response?.status === 401 || initialError.response?.status === 403) {
-          try {
-            const { authService } = await import("../../services/authService");
-            const newToken = await authService.refreshToken();
-            response = await axios.get(`${FHOST}/admin/get-subjects/`, {
-              headers: {
-                Authorization: `Bearer ${newToken}`,
-              },
-            });
-          } catch (refreshError) {
-            console.error("Error fetching subjects after token refresh:", refreshError);
-            return;
-          }
-        } else {
-          throw initialError;
+        if (response.data && response.data.results) {
+          allSubjects = allSubjects.concat(response.data.results);
         }
+        nextUrl = response.data.next;
       }
-      
-      // Handle different possible response structures
-      if (response.data?.classes) {
-        setAvailableSubjects(response.data.classes);
-      } else if (response.data?.subjects) {
-        setAvailableSubjects(response.data.subjects);
-      } else if (Array.isArray(response.data)) {
-        setAvailableSubjects(response.data);
-      } else {
-        console.warn("Unexpected subjects response structure:", response.data);
-      }
+
+      setAvailableSubjects(allSubjects);
     } catch (error) {
       console.error("Error fetching subjects:", error);
     }
@@ -208,61 +345,22 @@ const MyAccount = () => {
 
   const fetchGrades = async () => {
     try {
-      let token = localStorage.getItem("access_token");
-      if (!token) {
-        // Try to refresh token
-        const refreshToken = localStorage.getItem("refresh_token");
-        if (refreshToken) {
-          try {
-            const { authService } = await import("../../services/authService");
-            token = await authService.refreshToken();
-          } catch (refreshError) {
-            console.error("Could not refresh token for fetching grades:", refreshError);
-            return;
-          }
-        } else {
-          console.error("No access token available for fetching grades");
-          return;
-        }
-      }
+      let allGrades = [];
+      let nextUrl = `${FHOST}/api/grades/`;
 
-      let response;
-      try {
-        response = await axios.get(`${FHOST}/admin/get-classes`, {
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
           },
         });
-      } catch (initialError) {
-        // If 401 or 403, try to refresh token and retry
-        if (initialError.response?.status === 401 || initialError.response?.status === 403) {
-          try {
-            const { authService } = await import("../../services/authService");
-            const newToken = await authService.refreshToken();
-            response = await axios.get(`${FHOST}/admin/get-classes`, {
-              headers: {
-                Authorization: `Bearer ${newToken}`,
-              },
-            });
-          } catch (refreshError) {
-            console.error("Error fetching grades after token refresh:", refreshError);
-            return;
-          }
-        } else {
-          throw initialError;
+        if (response.data && response.data.results) {
+          allGrades = allGrades.concat(response.data.results);
         }
+        nextUrl = response.data.next;
       }
-      
-      // Handle different possible response structures
-      if (response.data?.classes) {
-        setAvailableGrades(response.data.classes);
-      } else if (response.data?.grades) {
-        setAvailableGrades(response.data.grades);
-      } else if (Array.isArray(response.data)) {
-        setAvailableGrades(response.data);
-      } else {
-        console.warn("Unexpected grades response structure:", response.data);
-      }
+
+      setAvailableGrades(allGrades);
     } catch (error) {
       console.error("Error fetching grades:", error);
     }
@@ -297,6 +395,22 @@ const MyAccount = () => {
     setFormData({ ...formData, [name]: value });
   };
 
+  const handleSubjectChange = (e) => {
+    const value = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      subjectInput: value,
+    }));
+  };
+
+  const handleGradeChange = (e) => {
+    const value = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      gradeInput: value,
+    }));
+  };
+
   const handleCertificateChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -307,7 +421,7 @@ const MyAccount = () => {
   const handleTscCertificateChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-      setFormData({ ...formData, tsc_number_certificate: file });
+      setFormData({ ...formData, teacher_license_certificate: file });
     }
   };
 
@@ -318,13 +432,11 @@ const MyAccount = () => {
     }
   };
 
-  const handleMultiSelect = (name, value, checked) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: checked
-        ? [...prev[name], value]
-        : prev[name].filter(id => id !== value)
-    }));
+  const handleCvChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setFormData({ ...formData, cv: file });
+    }
   };
 
   // Helper function to extract error message from HTML error responses
@@ -358,11 +470,11 @@ const MyAccount = () => {
           const cleanException = exception
             .replace(/\[Errno \d+\]\s*/, '') // Remove errno
             .replace(/&#x27;/g, "'") // Decode HTML entities
-            .replace(/&#39;/g, "'")
-            .replace(/&quot;/g, '"')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
+            .replace(/'/g, "'")
+            .replace(/"/g, '"')
+            .replace(/&/g, '&')
+            .replace(/</g, '<')
+            .replace(/>/g, '>')
             .replace(/\s+/g, ' ')
             .trim();
           
@@ -409,6 +521,45 @@ const MyAccount = () => {
     }
 
     try {
+      // Validate subject and grade
+      if (!formData.subjectInput.trim()) {
+        setErrorMessage("Please specify a subject.");
+        setTimeout(() => setErrorMessage(""), 5000);
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.gradeInput.trim()) {
+        setErrorMessage("Please specify a grade.");
+        setTimeout(() => setErrorMessage(""), 5000);
+        setLoading(false);
+        return;
+      }
+
+      // Create subject and get ID
+      let subjectId = null;
+      if (formData.subjectInput.trim()) {
+        subjectId = await createSubject(formData.subjectInput.trim());
+        if (!subjectId) {
+          setErrorMessage("Failed to create or find the specified subject.");
+          setTimeout(() => setErrorMessage(""), 5000);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Create grade and get ID
+      let gradeId = null;
+      if (formData.gradeInput.trim()) {
+        gradeId = await createGrade(formData.gradeInput.trim());
+        if (!gradeId) {
+          setErrorMessage("Failed to create or find the specified grade.");
+          setTimeout(() => setErrorMessage(""), 5000);
+          setLoading(false);
+          return;
+        }
+      }
+
       const formDataToSend = new FormData();
       
       // Add all form fields according to API endpoint - only send non-empty values
@@ -427,30 +578,22 @@ const MyAccount = () => {
       if (formData.birth_date && formData.birth_date.trim()) {
         formDataToSend.append("birth_date", formData.birth_date.trim());
       }
-      if (formData.tsc_number && formData.tsc_number.trim()) {
-        formDataToSend.append("tsc_number", formData.tsc_number.trim());
+      if (formData.teacher_license_number && formData.teacher_license_number.trim()) {
+        formDataToSend.append("teacher_license_number", formData.teacher_license_number.trim());
       }
-      if (formData.id_number && formData.id_number.trim()) {
-        formDataToSend.append("id_number", formData.id_number.trim());
+      if (formData.national_identity_number && formData.national_identity_number.trim()) {
+        formDataToSend.append("national_identity_number", formData.national_identity_number.trim());
       }
       if (formData.gender && formData.gender.trim()) {
         formDataToSend.append("gender", formData.gender.trim());
       }
 
-      // Add subjects and grades as arrays of IDs
-      if (formData.subjects && Array.isArray(formData.subjects) && formData.subjects.length > 0) {
-        formData.subjects.forEach(subjectId => {
-          if (subjectId) {
-            formDataToSend.append("subjects", subjectId);
-          }
-        });
+      // Send subject and grade IDs
+      if (subjectId) {
+        formDataToSend.append("subjects", subjectId);
       }
-      if (formData.grade && Array.isArray(formData.grade) && formData.grade.length > 0) {
-        formData.grade.forEach(gradeId => {
-          if (gradeId) {
-            formDataToSend.append("grade", gradeId);
-          }
-        });
+      if (gradeId) {
+        formDataToSend.append("grade", gradeId);
       }
       
       // Add profile photo if selected
@@ -462,30 +605,15 @@ const MyAccount = () => {
       if (formData.academic_certificate && formData.academic_certificate instanceof File) {
         formDataToSend.append("academic_certificate", formData.academic_certificate);
       }
-      if (formData.tsc_number_certificate && formData.tsc_number_certificate instanceof File) {
-        formDataToSend.append("tsc_number_certificate", formData.tsc_number_certificate);
+      if (formData.teacher_license_certificate && formData.teacher_license_certificate instanceof File) {
+        formDataToSend.append("teacher_license_certificate", formData.teacher_license_certificate);
       }
       if (formData.national_identity_card && formData.national_identity_card instanceof File) {
         formDataToSend.append("national_identity_card", formData.national_identity_card);
       }
-
-      // Log what we're sending (for debugging - remove in production)
-      console.log("Sending profile update with fields:", {
-        bio: formData.bio ? "present" : "missing",
-        phone: formData.phone ? "present" : "missing",
-        hourly_rate: formData.hourly_rate ? "present" : "missing",
-        experience: formData.experience ? "present" : "missing",
-        birth_date: formData.birth_date ? "present" : "missing",
-        tsc_number: formData.tsc_number ? "present" : "missing",
-        id_number: formData.id_number ? "present" : "missing",
-        gender: formData.gender ? "present" : "missing",
-        subjects_count: formData.subjects?.length || 0,
-        grades_count: formData.grade?.length || 0,
-        has_profile_photo: !!profilePhoto,
-        has_academic_cert: !!formData.academic_certificate,
-        has_tsc_cert: !!formData.tsc_number_certificate,
-        has_national_id_card: !!formData.national_identity_card,
-      });
+      if (formData.cv && formData.cv instanceof File) {
+        formDataToSend.append("cv", formData.cv);
+      }
 
       // Try the request, and if we get 401/403, refresh token and retry
       let response;
@@ -819,15 +947,15 @@ const MyAccount = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ID Number
+                  National Identity Number
                 </label>
                 <input
                   type="text"
-                  name="id_number"
-                  value={formData.id_number}
+                  name="national_identity_number"
+                  value={formData.national_identity_number}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter your ID number"
+                  placeholder="Enter your national identity number"
                   disabled={loading}
                 />
               </div>
@@ -883,15 +1011,15 @@ const MyAccount = () => {
             <div className="grid gap-6 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  TSC Number
+                  Teacher License Number
                 </label>
                 <input
                   type="text"
-                  name="tsc_number"
-                  value={formData.tsc_number}
+                  name="teacher_license_number"
+                  value={formData.teacher_license_number}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  placeholder="Enter your TSC number"
+                  placeholder="Enter your teacher license number"
                   disabled={loading}
                 />
               </div>
@@ -917,40 +1045,40 @@ const MyAccount = () => {
 
           {/* Subjects */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subjects</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {availableSubjects.map((subject) => (
-                <label key={subject.id} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.subjects.includes(subject.id)}
-                    onChange={(e) => handleMultiSelect("subjects", subject.id, e.target.checked)}
-                    className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
-                    disabled={loading}
-                  />
-                  <span className="text-gray-700">{subject.subject || subject.name}</span>
-                </label>
-              ))}
-            </div>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subject</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Enter the subject you teach.
+            </p>
+            <input
+              type="text"
+              value={formData.subjectInput}
+              onChange={handleSubjectChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+              placeholder="e.g. Mathematics"
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              The system will create the subject if it doesn't exist.
+            </p>
           </div>
 
           {/* Grades */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Grades</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {availableGrades.map((grade) => (
-                <label key={grade.id} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.grade.includes(grade.id)}
-                    onChange={(e) => handleMultiSelect("grade", grade.id, e.target.checked)}
-                    className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
-                    disabled={loading}
-                  />
-                  <span className="text-gray-700">{grade.name}</span>
-                </label>
-              ))}
-            </div>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">Grade</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Enter the grade you teach.
+            </p>
+            <input
+              type="text"
+              value={formData.gradeInput}
+              onChange={handleGradeChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+              placeholder="e.g. Grade 6"
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              The system will create the grade if it doesn't exist.
+            </p>
           </div>
 
           {/* Certificates */}
@@ -968,11 +1096,21 @@ const MyAccount = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">TSC Certificate</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Teacher License Certificate</label>
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,image/*"
                   onChange={handleTscCertificateChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">CV/Resume</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={handleCvChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   disabled={loading}
                 />
