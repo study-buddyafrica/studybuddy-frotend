@@ -28,22 +28,26 @@ const Scheduler = ({ userInfo }) => {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [availableGrades, setAvailableGrades] = useState([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [loadingGrades, setLoadingGrades] = useState(true);
 
   // Form state for adding new lesson
   const [newLesson, setNewLesson] = useState({
     title: '',
+    description: '',
     subject: '',
     grade: '',
-    date: '',
-    start_time: '',
-    end_time: '',
-    max_students: 10,
-    description: '',
-    lesson_type: 'online'
+    price: '',
+    code: '',
+    cover_image: '',
+    topics: '',
+    is_active: true,
+    country: 'Kenya',
+    is_universal: false
   });
 
-  const subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Geography', 'Computer Science'];
-  const grades = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
   const lessonTypes = ['online', 'in-person', 'hybrid'];
 
   // Days of the week
@@ -119,6 +123,12 @@ const Scheduler = ({ userInfo }) => {
     }
   };
 
+  // Fetch subjects and grades on mount
+  useEffect(() => {
+    fetchSubjects();
+    fetchGrades();
+  }, []);
+
   // Call fetchData when the component mounts
   useEffect(() => {
     fetchData();
@@ -177,33 +187,117 @@ const Scheduler = ({ userInfo }) => {
     }
   };
 
+  const fetchSubjects = async () => {
+    setLoadingSubjects(true);
+    try {
+      let allSubjects = [];
+      let nextUrl = `${FHOST}/api/subjects/`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.data && response.data.results) {
+          allSubjects = allSubjects.concat(response.data.results);
+        }
+        nextUrl = response.data.next;
+      }
+
+      console.log("Fetched subjects:", allSubjects);
+      setAvailableSubjects(allSubjects);
+    } catch (error) {
+      console.error("Error fetching subjects:", error);
+    } finally {
+      setLoadingSubjects(false);
+    }
+  };
+
+  const fetchGrades = async () => {
+    setLoadingGrades(true);
+    try {
+      let allGrades = [];
+      let nextUrl = `${FHOST}/api/grades/`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.data && response.data.results) {
+          allGrades = allGrades.concat(response.data.results);
+        }
+        nextUrl = response.data.next;
+      }
+
+      console.log("Fetched grades:", allGrades);
+      setAvailableGrades(allGrades);
+    } catch (error) {
+      console.error("Error fetching grades:", error);
+    } finally {
+      setLoadingGrades(false);
+    }
+  };
+
   const handleCreateLesson = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(`${FHOST}/lessons/api/create-lesson`, {
-        ...newLesson,
-        teacher_id: userInfo?.id || 9
+      const teacherIdentifier =
+        userInfo?.teacher_profile_id ||
+        userInfo?.teacher_profile?.id ||
+        userInfo?.id;
+
+      const payload = {
+        title: newLesson.title.trim(),
+        description: newLesson.description.trim(),
+        subject: newLesson.subject,
+        grade: newLesson.grade,
+        price: newLesson.price || "0",
+        is_active: newLesson.is_active,
+        code: newLesson.code || undefined,
+        cover_image: newLesson.cover_image || undefined,
+        topics: newLesson.topics,
+        teacher: teacherIdentifier,
+        country: newLesson.country,
+        is_universal: newLesson.is_universal,
+      };
+
+      const response = await axios.post(`${FHOST}/api/courses/`, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
       });
-      
-      if (response.data.success) {
-        setSuccessMessage('Lesson created successfully!');
+
+      if (response.status === 200 || response.status === 201) {
+        setSuccessMessage("Course created successfully!");
         setShowLessonModal(false);
         setNewLesson({
           title: '',
+          description: '',
           subject: '',
           grade: '',
-          date: '',
-          start_time: '',
-          end_time: '',
-          max_students: 10,
-          description: '',
-          lesson_type: 'online'
+          price: '',
+          code: '',
+          cover_image: '',
+          topics: '',
+          is_active: true,
+          country: 'Kenya',
+          is_universal: false
         });
         fetchData();
+        setTimeout(() => setSuccessMessage(""), 4000);
       }
     } catch (error) {
-      console.error('Error creating lesson:', error);
-      setErrorMessage('Failed to create lesson. Please try again.');
+      const errorMsg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        "Failed to create course. Please try again.";
+      console.error('Error creating course:', error);
+      setErrorMessage(errorMsg);
     }
   };
 
@@ -235,7 +329,7 @@ const Scheduler = ({ userInfo }) => {
 
   const tabs = [
     { id: 'availability', name: 'Manage Availability', icon: <FaClock /> },
-    { id: 'lessons', name: 'Planned Lessons', icon: <FaBookOpen /> }
+    { id: 'lessons', name: 'My Courses', icon: <FaBookOpen /> }
   ];
 
   return (
@@ -252,7 +346,7 @@ const Scheduler = ({ userInfo }) => {
             className="bg-[#01B0F1] hover:bg-[#0199d4] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
             <FaPlus />
-            Schedule Lesson
+            Create Course
           </button>
         )}
       </div>
@@ -403,13 +497,13 @@ const Scheduler = ({ userInfo }) => {
           {plannedLessons.length === 0 ? (
             <div className="text-center py-12">
               <FaBookOpen className="text-4xl text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-700">No planned lessons</h3>
-              <p className="text-gray-500 mt-2">Schedule your first lesson to get started</p>
+              <h3 className="text-lg font-semibold text-gray-700">No courses created yet</h3>
+              <p className="text-gray-500 mt-2">Create your first course to get started</p>
               <button
                 onClick={() => setShowLessonModal(true)}
                 className="mt-4 bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors"
               >
-                Schedule Lesson
+                Create Course
               </button>
             </div>
           ) : (
@@ -519,7 +613,7 @@ const Scheduler = ({ userInfo }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-semibold text-gray-800">Schedule New Lesson</h2>
+              <h2 className="text-xl font-semibold text-gray-800">Create New Course</h2>
               <button
                 onClick={() => setShowLessonModal(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -531,14 +625,14 @@ const Scheduler = ({ userInfo }) => {
             <form onSubmit={handleCreateLesson} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lesson Title *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
                   <input
                     type="text"
                     required
                     value={newLesson.title}
                     onChange={(e) => setNewLesson({...newLesson, title: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                    placeholder="Enter lesson title"
+                    placeholder="Course title"
                   />
                 </div>
                 <div>
@@ -548,10 +642,13 @@ const Scheduler = ({ userInfo }) => {
                     value={newLesson.subject}
                     onChange={(e) => setNewLesson({...newLesson, subject: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    disabled={loadingSubjects}
                   >
-                    <option value="">Select Subject</option>
-                    {subjects.map(subject => (
-                      <option key={subject} value={subject}>{subject}</option>
+                    <option value="">Select a subject</option>
+                    {availableSubjects.map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name || subject.subject || subject.id}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -562,81 +659,104 @@ const Scheduler = ({ userInfo }) => {
                     value={newLesson.grade}
                     onChange={(e) => setNewLesson({...newLesson, grade: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    disabled={loadingGrades}
                   >
-                    <option value="">Select Grade</option>
-                    {grades.map(grade => (
-                      <option key={grade} value={grade}>Grade {grade}</option>
+                    <option value="">Select a grade</option>
+                    {availableGrades.map((grade) => (
+                      <option key={grade.id} value={grade.id}>
+                        {grade.level || grade.name || grade.id}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lesson Type *</label>
-                  <select
-                    required
-                    value={newLesson.lesson_type}
-                    onChange={(e) => setNewLesson({...newLesson, lesson_type: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                  >
-                    {lessonTypes.map(type => (
-                      <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={newLesson.date}
-                    onChange={(e) => setNewLesson({...newLesson, date: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
-                  <input
-                    type="time"
-                    required
-                    value={newLesson.start_time}
-                    onChange={(e) => setNewLesson({...newLesson, start_time: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">End Time *</label>
-                  <input
-                    type="time"
-                    required
-                    value={newLesson.end_time}
-                    onChange={(e) => setNewLesson({...newLesson, end_time: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Students *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Price (KES)</label>
                   <input
                     type="number"
-                    required
-                    min="1"
-                    max="50"
-                    value={newLesson.max_students}
-                    onChange={(e) => setNewLesson({...newLesson, max_students: e.target.value})}
+                    value={newLesson.price}
+                    onChange={(e) => setNewLesson({...newLesson, price: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    placeholder="e.g. 1500"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Course Code</label>
+                  <input
+                    type="text"
+                    value={newLesson.code}
+                    onChange={(e) => setNewLesson({...newLesson, code: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    placeholder="Optional code"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cover Image URL</label>
+                  <input
+                    type="text"
+                    value={newLesson.cover_image}
+                    onChange={(e) => setNewLesson({...newLesson, cover_image: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <input
+                    type="text"
+                    value={newLesson.country}
+                    onChange={(e) => setNewLesson({...newLesson, country: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    placeholder="e.g. Kenya"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Topics (one per line)</label>
+                  <textarea
+                    rows={3}
+                    value={newLesson.topics}
+                    onChange={(e) => setNewLesson({...newLesson, topics: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    placeholder={`Topic 1
+Topic 2
+Topic 3`}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    rows={4}
+                    value={newLesson.description}
+                    onChange={(e) => setNewLesson({...newLesson, description: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    placeholder="Describe the course content..."
+                  />
+                </div>
+                <div className="flex items-center gap-2 md:col-span-2">
+                  <input
+                    type="checkbox"
+                    id="course-active"
+                    checked={newLesson.is_active}
+                    onChange={(e) => setNewLesson({...newLesson, is_active: e.target.checked})}
+                    className="h-4 w-4 text-[#01B0F1] focus:ring-[#01B0F1]"
+                  />
+                  <label htmlFor="course-active" className="text-sm text-gray-700">
+                    Course is active and visible to students
+                  </label>
+                </div>
+                <div className="flex items-center gap-2 md:col-span-2">
+                  <input
+                    type="checkbox"
+                    id="course-universal"
+                    checked={newLesson.is_universal}
+                    onChange={(e) => setNewLesson({...newLesson, is_universal: e.target.checked})}
+                    className="h-4 w-4 text-[#01B0F1] focus:ring-[#01B0F1]"
+                  />
+                  <label htmlFor="course-universal" className="text-sm text-gray-700">
+                    Course is universal (available in all countries)
+                  </label>
+                </div>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={newLesson.description}
-                  onChange={(e) => setNewLesson({...newLesson, description: e.target.value})}
-                  rows="3"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                  placeholder="Describe what this lesson will cover"
-                />
-              </div>
-              
+
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
@@ -649,7 +769,7 @@ const Scheduler = ({ userInfo }) => {
                   type="submit"
                   className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4]"
                 >
-                  Schedule Lesson
+                  Create Course
                 </button>
               </div>
             </form>

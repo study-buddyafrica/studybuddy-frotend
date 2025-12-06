@@ -7,8 +7,10 @@ import {
   FaSearch,
   FaSync,
   FaUsers,
+  FaEye,
 } from "react-icons/fa";
 import { FHOST } from "../constants/Functions";
+import CourseDetails from "./CourseDetails";
 
 const initialCourseState = {
   title: "",
@@ -20,6 +22,8 @@ const initialCourseState = {
   cover_image: "",
   topics: "",
   is_active: true,
+  country: "Kenya", // Default to Kenya since the user is in Nairobi
+  is_universal: false,
 };
 
 const formatCurrency = (value) => {
@@ -51,10 +55,17 @@ const MyLessons = ({ userInfo }) => {
   const [showCreateCourseModal, setShowCreateCourseModal] = useState(false);
   const [savingCourse, setSavingCourse] = useState(false);
   const [newCourse, setNewCourse] = useState(initialCourseState);
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [availableGrades, setAvailableGrades] = useState([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [loadingGrades, setLoadingGrades] = useState(true);
+  const [showCourseDetails, setShowCourseDetails] = useState(false);
 
   useEffect(() => {
     fetchCourses();
     fetchEnrollments();
+    fetchSubjects();
+    fetchGrades();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInfo?.id]);
 
@@ -112,6 +123,70 @@ const MyLessons = ({ userInfo }) => {
     }
   };
 
+  const fetchSubjects = async () => {
+    setLoadingSubjects(true);
+    try {
+      let allSubjects = [];
+      let nextUrl = `${FHOST}/api/subjects/`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.data && response.data.results) {
+          allSubjects = allSubjects.concat(response.data.results);
+        }
+        nextUrl = response.data.next;
+      }
+
+      setAvailableSubjects(allSubjects);
+    } catch (error) {
+      console.error("Error fetching subjects:", error);
+      // If API fails, try to get from teacher profile
+      const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+      if (userInfo?.subjects) {
+        const subjectsFromProfile = Array.isArray(userInfo.subjects) ? userInfo.subjects : [userInfo.subjects];
+        setAvailableSubjects(subjectsFromProfile.map(s => typeof s === 'object' ? s : { id: s, name: s }));
+      }
+    } finally {
+      setLoadingSubjects(false);
+    }
+  };
+
+  const fetchGrades = async () => {
+    setLoadingGrades(true);
+    try {
+      let allGrades = [];
+      let nextUrl = `${FHOST}/api/grades/`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.data && response.data.results) {
+          allGrades = allGrades.concat(response.data.results);
+        }
+        nextUrl = response.data.next;
+      }
+
+      setAvailableGrades(allGrades);
+    } catch (error) {
+      console.error("Error fetching grades:", error);
+      // If API fails, try to get from teacher profile
+      const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+      if (userInfo?.grade || userInfo?.grades) {
+        const gradesFromProfile = Array.isArray(userInfo.grade || userInfo.grades) ? (userInfo.grade || userInfo.grades) : [userInfo.grade || userInfo.grades];
+        setAvailableGrades(gradesFromProfile.map(g => typeof g === 'object' ? g : { id: g, level: g }));
+      }
+    } finally {
+      setLoadingGrades(false);
+    }
+  };
+
   const handleRefresh = () => {
     fetchCourses();
     fetchEnrollments();
@@ -121,11 +196,13 @@ const MyLessons = ({ userInfo }) => {
     const query = courseSearch.trim().toLowerCase();
     if (!query) return courses;
     return courses.filter((course) => {
+      const subjectText = course.subject_name || (typeof course.subject === 'object' ? course.subject?.name : course.subject) || "";
+      const gradeText = typeof course.grade === 'object' ? course.grade?.level : course.grade || "";
       return (
         course.title?.toLowerCase().includes(query) ||
         course.description?.toLowerCase().includes(query) ||
-        course.subject?.toLowerCase().includes(query) ||
-        course.grade?.toLowerCase().includes(query) ||
+        subjectText.toLowerCase().includes(query) ||
+        gradeText.toLowerCase().includes(query) ||
         course.code?.toLowerCase().includes(query)
       );
     });
@@ -165,6 +242,8 @@ const MyLessons = ({ userInfo }) => {
         cover_image: newCourse.cover_image || undefined,
         topics: newCourse.topics,
         teacher: teacherIdentifier,
+        country: newCourse.country,
+        is_universal: newCourse.is_universal,
       };
 
       const response = await axios.post(`${FHOST}/api/courses/`, payload, {
@@ -241,7 +320,7 @@ const MyLessons = ({ userInfo }) => {
         </nav>
       </div>
 
-      {activeTab === "courses" && (
+      {activeTab === "courses" && !showCourseDetails && (
         <div className="space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -284,8 +363,7 @@ const MyLessons = ({ userInfo }) => {
               {filteredCourses.map((course) => (
                 <div
                   key={course.id}
-                  onClick={() => setSelectedCourse(course)}
-                  className={`p-5 bg-white rounded-xl border shadow-sm cursor-pointer transition transform hover:-translate-y-1 ${
+                  className={`p-5 bg-white rounded-xl border shadow-sm transition transform hover:-translate-y-1 ${
                     selectedCourse?.id === course.id ? "border-[#01B0F1]" : "border-gray-100"
                   }`}
                 >
@@ -293,78 +371,50 @@ const MyLessons = ({ userInfo }) => {
                     <h3 className="text-lg font-semibold text-gray-800">{course.title || "Untitled course"}</h3>
                     <span
                       className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        course.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                        course.is_active !== false ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
                       }`}
                     >
-                      {course.is_active ? "Active" : "Inactive"}
+                      {course.is_active !== false ? "Active" : "Inactive"}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">{course.description || "No description provided."}</p>
                   <div className="mt-4 flex flex-wrap gap-3 text-sm text-gray-600">
                     <span className="flex items-center gap-1">
-                      <FaBook className="text-[#01B0F1]" /> {course.subject || "Subject N/A"}
+                      <FaBook className="text-[#01B0F1]" /> {course.subject_name || (typeof course.subject === 'object' ? course.subject?.name : course.subject) || "Subject N/A"}
                     </span>
                     <span className="flex items-center gap-1">
-                      <FaUsers className="text-[#01B0F1]" /> {course.grade || "Grade N/A"}
+                      <FaUsers className="text-[#01B0F1]" /> {typeof course.grade === 'object' ? course.grade?.level : course.grade || "Grade N/A"}
                     </span>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <div className="text-lg font-bold text-[#01B0F1]">
                       {formatCurrency(course.price)}
                     </div>
-                    {course.code && (
-                      <span className="text-xs font-medium text-gray-500 bg-gray-100 rounded-full px-2 py-1">
-                        Code: {course.code}
-                      </span>
-                    )}
+                    <div className="flex gap-2">
+                      {course.code && (
+                        <span className="text-xs font-medium text-gray-500 bg-gray-100 rounded-full px-2 py-1">
+                          Code: {course.code}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => {
+                          setSelectedCourse(course);
+                          setShowCourseDetails(true);
+                        }}
+                        className="text-xs bg-[#01B0F1] text-white px-3 py-1 rounded-full hover:bg-[#0199d4] transition-colors flex items-center gap-1"
+                      >
+                        <FaEye className="text-xs" />
+                        Details
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-
-          {selectedCourse && (
-            <div className="bg-white rounded-xl shadow border border-gray-100 p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl font-semibold text-gray-800">{selectedCourse.title}</h2>
-                  <p className="text-sm text-gray-500">
-                    {selectedCourse.subject || "Subject N/A"} • {selectedCourse.grade || "Grade N/A"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm uppercase tracking-wide text-gray-400">Price</p>
-                  <p className="text-2xl font-bold text-[#01B0F1]">{formatCurrency(selectedCourse.price)}</p>
-                </div>
-              </div>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-xs uppercase font-semibold text-gray-500">Topics</p>
-                  <p className="text-gray-800 mt-1 whitespace-pre-line">
-                    {selectedCourse.topics || "Not provided"}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-xs uppercase font-semibold text-gray-500">Course Code</p>
-                  <p className="text-gray-800 mt-1">{selectedCourse.code || "Not assigned"}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-xs uppercase font-semibold text-gray-500">Status</p>
-                  <p className="text-gray-800 mt-1">
-                    {selectedCourse.is_active ? "Active / Visible to students" : "Hidden from students"}
-                  </p>
-                </div>
-              </div>
-              {selectedCourse.description && (
-                <div className="mt-6">
-                  <p className="text-sm uppercase font-semibold text-gray-500">Description</p>
-                  <p className="text-gray-700 mt-2 whitespace-pre-line">{selectedCourse.description}</p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
+
 
       {activeTab === "enrollments" && (
         <div className="space-y-4">
@@ -421,6 +471,14 @@ const MyLessons = ({ userInfo }) => {
         </div>
       )}
 
+      {activeTab === "courses" && showCourseDetails && selectedCourse && (
+        <CourseDetails
+          course={selectedCourse}
+          onBack={() => setShowCourseDetails(false)}
+          userInfo={userInfo}
+        />
+      )}
+
       {showCreateCourseModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto">
@@ -448,26 +506,38 @@ const MyLessons = ({ userInfo }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject (ID or name) *</label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
+                  <select
                     required
                     value={newCourse.subject}
                     onChange={(e) => handleCourseFieldChange("subject", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                    placeholder="e.g. subject UUID"
-                  />
+                    disabled={loadingSubjects}
+                  >
+                    <option value="">Select a subject</option>
+                    {availableSubjects.map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name || subject.subject || subject.id}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Grade (ID or label) *</label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Grade *</label>
+                  <select
                     required
                     value={newCourse.grade}
                     onChange={(e) => handleCourseFieldChange("grade", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                    placeholder="e.g. grade UUID"
-                  />
+                    disabled={loadingGrades}
+                  >
+                    <option value="">Select a grade</option>
+                    {availableGrades.map((grade) => (
+                      <option key={grade.id} value={grade.id}>
+                        {grade.level || grade.name || grade.id}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Price (KES)</label>
@@ -497,6 +567,16 @@ const MyLessons = ({ userInfo }) => {
                     onChange={(e) => handleCourseFieldChange("cover_image", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                     placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <input
+                    type="text"
+                    value={newCourse.country}
+                    onChange={(e) => handleCourseFieldChange("country", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                    placeholder="e.g. Kenya"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -531,6 +611,18 @@ Topic 3`}
                   />
                   <label htmlFor="course-active" className="text-sm text-gray-700">
                     Course is active and visible to students
+                  </label>
+                </div>
+                <div className="flex items-center gap-2 md:col-span-2">
+                  <input
+                    type="checkbox"
+                    id="course-universal"
+                    checked={newCourse.is_universal}
+                    onChange={(e) => handleCourseFieldChange("is_universal", e.target.checked)}
+                    className="h-4 w-4 text-[#01B0F1] focus:ring-[#01B0F1]"
+                  />
+                  <label htmlFor="course-universal" className="text-sm text-gray-700">
+                    Course is universal (available in all countries)
                   </label>
                 </div>
               </div>

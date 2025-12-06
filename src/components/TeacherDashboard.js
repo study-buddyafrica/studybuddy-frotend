@@ -452,6 +452,7 @@ const TeacherDashboard = () => {
     const base = "/teacher-dashboard";
     let section = path.startsWith(base) ? path.slice(base.length) : "";
     if (section.startsWith("/")) section = section.slice(1);
+
     switch (section) {
       case "":
         setActiveComponent("dashboard");

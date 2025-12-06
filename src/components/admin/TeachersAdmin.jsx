@@ -65,53 +65,62 @@ const TeachersAdmin = () => {
     return "pending";
   };
 
-  const buildTeachersFromProfiles = (profilesResults) => {
-    if (!profilesResults || !Array.isArray(profilesResults)) {
-      return [];
+  const buildTeacherFromUser = async (user, headers) => {
+    let profile = null;
+    let verification_status = "pending";
+
+    if (user.profile_id) {
+      try {
+        const profileResponse = await axios.get(`${FHOST}/api/teachers/${user.profile_id}/`, { headers });
+        profile = profileResponse.data;
+        verification_status = normalizeVerificationStatus(profile);
+      } catch (e) {
+        console.error("Failed to fetch profile for", user.profile_id, e);
+        verification_status = "not_started"; // or pending
+      }
+    } else {
+      verification_status = "not_started";
     }
 
-    return profilesResults.map((profile) => {
-      const verification_status = normalizeVerificationStatus(profile);
-      const fullName =
-        profile.full_name ||
-        `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
-        profile.email ||
-        "Unnamed Teacher";
+    const fullName =
+      user.first_name && user.last_name
+        ? `${user.first_name} ${user.last_name}`
+        : user.username || user.email || "Unnamed Teacher";
 
-      const gradeList = coerceArray(profile.grade);
-      const subjectList = coerceArray(profile.subjects);
+    const gradeList = profile ? coerceArray(profile.grade) : [];
+    const subjectList = profile ? coerceArray(profile.subjects) : [];
 
-      return {
-        id: profile.id,
-        teacher_profile_id: profile.teacher_profile_id || profile.id,
-        user_id: profile.user,
-        full_name: fullName,
-        username: profile.user?.username || fullName,
-        email: profile.email || "N/A",
-        verified: verification_status === "approved",
+    return {
+      id: user.id,
+      teacher_profile_id: user.profile_id || 'no_profile',
+      user_id: user.id,
+      full_name: fullName,
+      username: user.username || fullName,
+      email: user.email || "N/A",
+      verified: verification_status === "approved",
+      verification_status,
+      grade: gradeList,
+      grades: gradeList,
+      subjects: subjectList,
+      hourly_rate: profile?.hourly_rate || 0,
+      bio: profile?.bio || "",
+      balance: typeof profile?.balance === "number" ? profile.balance : 0,
+      phone: profile?.phone || user.phone || "",
+      is_verified: profile?.is_verified,
+      raw_profile: {
+        ...user,
+        ...profile,
         verification_status,
         grade: gradeList,
-        grades: gradeList,
         subjects: subjectList,
-        hourly_rate: profile.hourly_rate,
-        bio: profile.bio || "",
-        balance: typeof profile.balance === "number" ? profile.balance : 0,
-        phone: profile.phone || "",
-        is_verified: profile.is_verified,
-        raw_profile: {
-          ...profile,
-          verification_status,
-          grade: gradeList,
-          subjects: subjectList,
-          balance: typeof profile.balance === "number" ? profile.balance : 0,
-          email: profile.email || "N/A",
-          phone: profile.phone || "",
-          first_name: profile.first_name || "",
-          last_name: profile.last_name || "",
-          username: fullName,
-        },
-      };
-    });
+        balance: typeof profile?.balance === "number" ? profile.balance : 0,
+        email: user.email || "N/A",
+        phone: profile?.phone || user.phone || "",
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        username: fullName,
+      },
+    };
   };
 
   const fetchAll = useCallback(async () => {
@@ -132,7 +141,7 @@ const TeachersAdmin = () => {
         nextUrl = data.next;
       }
 
-      const teachersWithDetails = buildTeachersFromProfiles(allTeachers);
+      const teachersWithDetails = await Promise.all(allTeachers.map(user => buildTeacherFromUser(user, headers)));
       setTeachers(teachersWithDetails);
       setWithdrawals([]);
     } catch (e) {
