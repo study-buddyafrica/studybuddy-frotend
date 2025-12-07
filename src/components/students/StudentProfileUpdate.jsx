@@ -3,6 +3,24 @@ import axios from "axios";
 import { FHOST } from "../constants/Functions";
 
 const StudentProfileUpdate = ({ userInfo }) => {
+  // Helper function to get profile_id from JWT token if not in userInfo
+  const getProfileId = () => {
+    if (userInfo?.profile_id) return userInfo.profile_id;
+    if (userInfo?.id) return userInfo.id; // fallback to user id
+
+    // Try to extract from JWT token
+    try {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.profile_id || payload.user_id || userInfo?.id;
+      }
+    } catch (error) {
+      console.error("Error extracting profile_id from token:", error);
+    }
+
+    return userInfo?.id;
+  };
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
@@ -15,24 +33,24 @@ const StudentProfileUpdate = ({ userInfo }) => {
     guardian_contact: "",
     grade: "",
     school: "",
-    subjects: [],
   });
   const [availableGrades, setAvailableGrades] = useState([]);
   const [availableSchools, setAvailableSchools] = useState([]);
-  const [availableSubjects, setAvailableSubjects] = useState([]);
 
   useEffect(() => {
     if (userInfo?.id) {
       fetchProfile();
       fetchGrades();
       fetchSchools();
-      fetchSubjects();
     }
   }, [userInfo]);
 
   const fetchProfile = async () => {
     try {
-      const response = await axios.get(`${FHOST}/api/student/profile/update/${userInfo.id}/`, {
+      const profileId = getProfileId();
+      console.log("Fetching profile for ID:", profileId);
+
+      const response = await axios.get(`${FHOST}/api/student/profile/update/${profileId}/`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
@@ -45,7 +63,6 @@ const StudentProfileUpdate = ({ userInfo }) => {
           guardian_contact: response.data.guardian_contact || "",
           grade: response.data.grade || "",
           school: response.data.school || "",
-          subjects: response.data.subjects || [],
         });
         if (response.data.profile_picture) {
           setProfilePhotoPreview(response.data.profile_picture);
@@ -64,6 +81,22 @@ const StudentProfileUpdate = ({ userInfo }) => {
 
   const fetchGrades = async () => {
     try {
+      // Try public grades endpoint
+      const response = await axios.get(`${FHOST}/api/grades/`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+      if (response.data?.results) {
+        setAvailableGrades(response.data.results);
+        return;
+      }
+    } catch (publicError) {
+      console.log("Public grades endpoint failed, trying admin endpoint");
+    }
+
+    try {
+      // Try admin endpoint as fallback
       const response = await axios.get(`${FHOST}/admin/get-classes`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
@@ -71,10 +104,27 @@ const StudentProfileUpdate = ({ userInfo }) => {
       });
       if (response.data?.classes) {
         setAvailableGrades(response.data.classes);
+        return;
       }
-    } catch (error) {
-      console.error("Error fetching grades:", error);
+    } catch (adminError) {
+      console.log("Admin grades endpoint failed, using fallback");
     }
+
+    // Fallback: Provide default grades
+    setAvailableGrades([
+      { id: 'grade_1', name: 'Grade 1', level: 'Grade 1' },
+      { id: 'grade_2', name: 'Grade 2', level: 'Grade 2' },
+      { id: 'grade_3', name: 'Grade 3', level: 'Grade 3' },
+      { id: 'grade_4', name: 'Grade 4', level: 'Grade 4' },
+      { id: 'grade_5', name: 'Grade 5', level: 'Grade 5' },
+      { id: 'grade_6', name: 'Grade 6', level: 'Grade 6' },
+      { id: 'grade_7', name: 'Grade 7', level: 'Grade 7' },
+      { id: 'grade_8', name: 'Grade 8', level: 'Grade 8' },
+      { id: 'grade_9', name: 'Grade 9', level: 'Grade 9' },
+      { id: 'grade_10', name: 'Grade 10', level: 'Grade 10' },
+      { id: 'grade_11', name: 'Grade 11', level: 'Grade 11' },
+      { id: 'grade_12', name: 'Grade 12', level: 'Grade 12' },
+    ]);
   };
 
   const fetchSchools = async () => {
@@ -94,20 +144,7 @@ const StudentProfileUpdate = ({ userInfo }) => {
     }
   };
 
-  const fetchSubjects = async () => {
-    try {
-      const response = await axios.get(`${FHOST}/admin/get-subjects/`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data?.classes) {
-        setAvailableSubjects(response.data.classes);
-      }
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
-    }
-  };
+
 
   const handlePhotoChange = (event) => {
     const file = event.target.files[0];
@@ -136,14 +173,6 @@ const StudentProfileUpdate = ({ userInfo }) => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubjectToggle = (subjectId, checked) => {
-    setFormData(prev => ({
-      ...prev,
-      subjects: checked
-        ? [...prev.subjects, subjectId]
-        : prev.subjects.filter(id => id !== subjectId)
-    }));
-  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -152,8 +181,16 @@ const StudentProfileUpdate = ({ userInfo }) => {
     setSuccessMessage("");
 
     try {
+      // Validate that grade is provided
+      if (!formData.grade.trim()) {
+        setErrorMessage("Please specify a grade.");
+        setTimeout(() => setErrorMessage(""), 5000);
+        setLoading(false);
+        return;
+      }
+
       const formDataToSend = new FormData();
-      
+
       // Append all required fields according to API spec
       if (formData.birth_date) {
         formDataToSend.append("birth_date", formData.birth_date);
@@ -164,23 +201,15 @@ const StudentProfileUpdate = ({ userInfo }) => {
       if (formData.guardian_contact) {
         formDataToSend.append("guardian_contact", formData.guardian_contact);
       }
-      if (formData.grade) {
-        // Ensure grade is sent as UUID string if it's an object
-        const gradeValue = typeof formData.grade === 'object' ? formData.grade.id : formData.grade;
-        formDataToSend.append("grade", gradeValue);
-      }
       if (formData.school) {
         // Ensure school is sent as UUID string if it's an object
         const schoolValue = typeof formData.school === 'object' ? formData.school.id : formData.school;
         formDataToSend.append("school", schoolValue);
       }
-      
-      // Append subjects array
-      if (formData.subjects && Array.isArray(formData.subjects)) {
-        formData.subjects.forEach(subjectId => {
-          const subjectValue = typeof subjectId === 'object' ? subjectId.id : subjectId;
-          formDataToSend.append("subjects", subjectValue);
-        });
+
+      // Send selected grade ID directly
+      if (formData.grade) {
+        formDataToSend.append("grade", formData.grade);
       }
       
       // Append profile picture if provided
@@ -194,7 +223,6 @@ const StudentProfileUpdate = ({ userInfo }) => {
         guardian_contact: formData.guardian_contact,
         grade: formData.grade,
         school: formData.school,
-        subjects: formData.subjects,
         hasPhoto: !!profilePhoto
       });
 
@@ -210,8 +238,11 @@ const StudentProfileUpdate = ({ userInfo }) => {
 
       // Strategy 1: Try PUT (create or update)
       try {
+        const profileId = getProfileId();
+        console.log("Updating profile with PUT for ID:", profileId);
+
         response = await axios.put(
-          `${FHOST}/api/student/profile/update/${userInfo.id}/`,
+          `${FHOST}/api/student/profile/update/${profileId}/`,
           formDataToSend,
           {
             headers: {
@@ -227,8 +258,11 @@ const StudentProfileUpdate = ({ userInfo }) => {
 
         // Strategy 2: Try PATCH (update only - if profile exists)
         try {
+          const profileId = getProfileId();
+          console.log("Updating profile with PATCH for ID:", profileId);
+
           response = await axios.patch(
-            `${FHOST}/api/student/profile/update/${userInfo.id}/`,
+            `${FHOST}/api/student/profile/update/${profileId}/`,
             formDataToSend,
             {
               headers: {
@@ -394,7 +428,7 @@ const StudentProfileUpdate = ({ userInfo }) => {
                   <option value="">Select grade</option>
                   {availableGrades.map((grade) => (
                     <option key={grade.id} value={grade.id}>
-                      {grade.name}
+                      {grade.level || grade.name}
                     </option>
                   ))}
                 </select>
@@ -431,24 +465,6 @@ const StudentProfileUpdate = ({ userInfo }) => {
             </div>
           </div>
 
-          {/* Subjects */}
-          <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subjects</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {availableSubjects.map((subject) => (
-                <label key={subject.id} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.subjects.includes(subject.id)}
-                    onChange={(e) => handleSubjectToggle(subject.id, e.target.checked)}
-                    className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
-                    disabled={loading}
-                  />
-                  <span className="text-gray-700">{subject.subject || subject.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
 
           {/* Submit Button */}
           <button

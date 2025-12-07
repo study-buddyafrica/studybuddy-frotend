@@ -11,11 +11,13 @@ const MyLessons = ({userInfo, darkMode}) => {
   const [activeTab, setActiveComponent] = useState("liveClasses");
   const [scheduledLessons, setScheduledLessons] = useState([]);
   const [pendingPayments, setPendingPayments] = useState([]);
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchScheduledLessons();
     fetchPendingPayments();
+    fetchEnrolledCourses();
   }, []);
 
   const fetchScheduledLessons = async () => {
@@ -116,6 +118,29 @@ const MyLessons = ({userInfo, darkMode}) => {
       console.error('Error fetching payments:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEnrolledCourses = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        return;
+      }
+
+      const response = await axios.get(`${FHOST}/api/student/enrolled/courses/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const coursesList = response.data?.results || response.data || [];
+      if (Array.isArray(coursesList)) {
+        setEnrolledCourses(coursesList);
+      }
+    } catch (error) {
+      console.error('Error fetching enrolled courses:', error);
+      setEnrolledCourses([]);
     }
   };
 
@@ -223,10 +248,46 @@ const MyLessons = ({userInfo, darkMode}) => {
       }
     } catch (error) {
       console.error('Error marking booking as attended:', error);
-      const errorMsg = error.response?.data?.message || 
-                      error.response?.data?.error || 
-                      error.response?.data?.detail ||
-                      'Failed to mark as attended. Please try again.';
+      const errorMsg = error.response?.data?.message ||
+                       error.response?.data?.error ||
+                       error.response?.data?.detail ||
+                       'Failed to mark as attended. Please try again.';
+      alert(errorMsg);
+    }
+  };
+
+  const handleJoinLiveSession = async (bookingId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Authentication required. Please login again.');
+        return;
+      }
+
+      const response = await axios.get(
+        `${FHOST}/api/student/live-session/${bookingId}/join/`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        // Assuming the response contains a join_url or similar
+        const joinUrl = response.data?.join_url || response.data?.url;
+        if (joinUrl) {
+          window.open(joinUrl, '_blank');
+        } else {
+          alert('Session join URL not available.');
+        }
+      }
+    } catch (error) {
+      console.error('Error joining live session:', error);
+      const errorMsg = error.response?.data?.message ||
+                       error.response?.data?.error ||
+                       error.response?.data?.detail ||
+                       'Failed to join live session. Please try again.';
       alert(errorMsg);
     }
   };
@@ -249,14 +310,14 @@ const MyLessons = ({userInfo, darkMode}) => {
           </button>
           <button
             className={`px-6 py-2 rounded-lg transition-all text-white ${
-              activeTab === "videoLessons"
+              activeTab === "enrolledCourses"
                 ? "bg-blue-800 shadow-lg"
                 : "bg-blue-500 hover:bg-blue-700"
             }`}
-            onClick={() => setActiveComponent("videoLessons")}
+            onClick={() => setActiveComponent("enrolledCourses")}
           >
             <FaBookOpen className="inline mr-2" />
-            Video Lessons
+            My Courses
           </button>
           <button
             className={`px-6 py-2 rounded-lg transition-all text-white ${
@@ -306,13 +367,61 @@ const MyLessons = ({userInfo, darkMode}) => {
           </div>
         )}
         
-        {activeTab === "videoLessons" && (
+        {activeTab === "enrolledCourses" && (
           <div>
-            <h2 className="text-2xl font-bold mb-4">Video Lessons</h2>
+            <h2 className="text-2xl font-bold mb-4">My Enrolled Courses</h2>
             <p className="text-lg mb-6 text-gray-600">
-              Browse through recorded video lessons to learn at your own pace.
+              View and access your enrolled courses.
             </p>
-            <VideoLesson darkMode={darkMode} />
+
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
+            ) : enrolledCourses.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <p className="text-xl mb-2">No enrolled courses yet</p>
+                <p>Enroll in courses to start learning!</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {enrolledCourses.map((enrollment) => (
+                  <div
+                    key={enrollment.id}
+                    className="p-4 rounded-lg border-l-4 border-green-500 bg-gray-50"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold text-lg">{enrollment.course_title}</h3>
+                        <p className="text-gray-600">
+                          Teacher: {enrollment.course?.teacher || 'N/A'}
+                        </p>
+                        <p className="text-gray-600">
+                          Subject: {enrollment.course?.subject || 'N/A'}
+                        </p>
+                        <p className="text-gray-600">
+                          Grade: {enrollment.course?.grade || 'N/A'}
+                        </p>
+                        <p className="text-gray-600">
+                          Purchased: {new Date(enrollment.purchased_at).toLocaleDateString()}
+                        </p>
+                        <p className="text-gray-600">
+                          Amount Paid: {enrollment.amount_paid}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-green-600">
+                          {enrollment.is_active ? 'Active' : 'Inactive'}
+                        </div>
+                        <button className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                          Access Course
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         
@@ -389,11 +498,19 @@ const MyLessons = ({userInfo, darkMode}) => {
                           </button>
                         )}
                         {lesson.status === 'pending' && !lesson.attended && (
-                          <button 
+                          <button
                             onClick={() => handleMarkAttended(lesson.id, lesson)}
                             className="mt-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
                           >
                             Mark Attended
+                          </button>
+                        )}
+                        {lesson.status === 'confirmed' && (
+                          <button
+                            onClick={() => handleJoinLiveSession(lesson.id)}
+                            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                          >
+                            Join Live Session
                           </button>
                         )}
                       </div>

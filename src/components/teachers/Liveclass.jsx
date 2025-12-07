@@ -4,6 +4,7 @@ import { FHOST } from '../constants/Functions';
 import { CalendarIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 const LiveClass = ({ userInfo }) => {
+  const [activeTab, setActiveTab] = useState('create');
   const [useBooking, setUseBooking] = useState(true);
   const [meetingDetails, setMeetingDetails] = useState({
     session_booking_id: '',
@@ -12,57 +13,35 @@ const LiveClass = ({ userInfo }) => {
     start_time: '',
     duration: 45,
     timezone: 'UTC',
-    class_id: '',
-    subject_id: '',
-    grade: '',
   });
-
-  const [classes, setClasses] = useState([]);
-  const [subjects, setSubjects] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [liveSessions, setLiveSessions] = useState([]);
   const [meetingData, setMeetingData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
-
-  useEffect(() => {
-    const fetchClasses = async () => {
-      try {
-        const response = await axios.get(`${FHOST}/admin/get-classes`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-          },
-        });
-        const list = Array.isArray(response.data?.classes) ? response.data.classes : [];
-        setClasses(list);
-      } catch (err) {
-        console.error('Error fetching classes:', err);
-        // Show error if it's an auth error
-        if (err.response?.status === 401) {
-          setError('Authentication required. Please login again.');
-        }
-        setClasses([]);
-      }
-    };
-    fetchClasses();
-  }, []);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleCode, setGoogleCode] = useState('');
 
   useEffect(() => {
     const fetchBookings = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        if (!token || !userInfo?.id) return;
+        if (!token) return;
 
-        const response = await axios.get(`${FHOST}/api/booked-sessions/${userInfo.id}`, {
+        const response = await axios.get(`${FHOST}/api/booked-sessions/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        
-        // Filter for accepted/confirmed bookings that can be used for live sessions
-        const allBookings = Array.isArray(response.data) ? response.data : [];
+
+        // Handle paginated response
+        const data = response.data;
+        const allBookings = Array.isArray(data?.results) ? data.results : [];
+
+        // Filter for bookings that are allowed and not attended yet
         const availableBookings = allBookings.filter(
-          booking => ['accepted', 'confirmed'].includes((booking.status || '').toLowerCase())
+          booking => booking.is_allowed && !booking.attended
         );
         setBookings(availableBookings);
       } catch (err) {
@@ -71,39 +50,126 @@ const LiveClass = ({ userInfo }) => {
       }
     };
     fetchBookings();
-  }, [userInfo?.id]);
+  }, []);
 
   useEffect(() => {
-    if (meetingDetails.class_id) {
-      const fetchSubjects = async () => {
-        try {
-          const response = await axios.get(`${FHOST}/admin/get-subjects/${meetingDetails.class_id}`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-            },
-          });
-          const list = Array.isArray(response.data?.classes) ? response.data.classes : [];
-          // normalize to {id, name}
-          setSubjects(list.map(s => ({ id: s.id, name: s.subject })));
-          // clear previous selection if not in new list
-          if (!list.find(s => String(s.id) === String(meetingDetails.subject_id))) {
-            setMeetingDetails(prev => ({ ...prev, subject_id: '' }));
-          }
-        } catch (err) {
-          console.error('Error fetching subjects:', err);
-          if (err.response?.status === 401) {
-            setError('Authentication required. Please login again.');
-          }
-          setSubjects([]);
-          setMeetingDetails(prev => ({ ...prev, subject_id: '' }));
+    const fetchLiveSessions = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+
+        const response = await axios.get(`${FHOST}/api/live-sessions/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // Handle paginated response
+        const data = response.data;
+        const sessions = Array.isArray(data?.results) ? data.results : [];
+        setLiveSessions(sessions);
+      } catch (err) {
+        console.error('Error fetching live sessions:', err);
+        setLiveSessions([]);
+      }
+    };
+    fetchLiveSessions();
+  }, []);
+
+  const handleGoogleConnect = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
+      if (!googleCode.trim()) {
+        throw new Error('Please enter the authorization code.');
+      }
+
+      const response = await axios.post(
+        `${FHOST}/api/teacher/google/connect/`,
+        { code: googleCode },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
         }
-      };
-      fetchSubjects();
-    } else {
-      setSubjects([]);
-      setMeetingDetails(prev => ({ ...prev, subject_id: '' }));
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setGoogleConnected(true);
+        setGoogleCode('');
+        alert('Google account connected successfully!');
+      } else {
+        setError('Unexpected response from server.');
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const details = typeof data === 'string'
+        ? data
+        : (data?.error || data?.message || data?.details);
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
+        || 'Error connecting Google account.';
+      setError(String(msg));
+    } finally {
+      setLoading(false);
     }
-  }, [meetingDetails.class_id]);
+  };
+
+  const handleUpdateLiveSession = async (sessionId, updateData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
+      const response = await axios.patch(
+        `${FHOST}/api/teacher/live-session/update/${sessionId}/`,
+        updateData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        // Refresh live sessions
+        const refreshResponse = await axios.get(`${FHOST}/api/live-sessions/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = refreshResponse.data;
+        const sessions = Array.isArray(data?.results) ? data.results : [];
+        setLiveSessions(sessions);
+        alert('Session updated successfully!');
+      } else {
+        setError('Unexpected response from server.');
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const details = typeof data === 'string'
+        ? data
+        : (data?.error || data?.message || data?.details);
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
+        || 'Error updating session.';
+      setError(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCreateMeeting = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -151,7 +217,7 @@ const LiveClass = ({ userInfo }) => {
           endedAt: data?.ended_at || null,
         });
         setShowPopup(true);
-        
+
         // Reset form after successful creation
         setMeetingDetails({
           session_booking_id: '',
@@ -160,21 +226,28 @@ const LiveClass = ({ userInfo }) => {
           start_time: '',
           duration: 45,
           timezone: 'UTC',
-          class_id: '',
-          subject_id: '',
-          grade: '',
         });
+
+        // Refresh live sessions
+        const refreshResponse = await axios.get(`${FHOST}/api/live-sessions/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const refreshData = refreshResponse.data;
+        const sessions = Array.isArray(refreshData?.results) ? refreshData.results : [];
+        setLiveSessions(sessions);
       } else {
         setError('Unexpected response from server while creating meeting.');
       }
     } catch (err) {
       const status = err?.response?.status;
       const data = err?.response?.data;
-      const details = typeof data === 'string' 
-        ? data 
+      const details = typeof data === 'string'
+        ? data
         : (data?.error || data?.message || data?.details);
-      const msg = details 
-        || (status ? `Request failed with status ${status}` : err?.message) 
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
         || 'Error creating meeting. Please check your inputs.';
       setError(String(msg));
     } finally {
@@ -184,10 +257,51 @@ const LiveClass = ({ userInfo }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-josefin p-6">
-      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm p-6">
+      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm p-6">
         <h1 className="text-3xl font-lilita text-[#015575] mb-8 text-center">
-          Schedule New Class
+          Live Classes Management
         </h1>
+
+        {/* Tab Navigation */}
+        <div className="flex border-b border-gray-200 mb-6">
+          <button
+            onClick={() => setActiveTab('create')}
+            className={`px-4 py-2 font-medium text-sm ${
+              activeTab === 'create'
+                ? 'border-b-2 border-[#015575] text-[#015575]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Create Live Session
+          </button>
+          <button
+            onClick={() => setActiveTab('sessions')}
+            className={`px-4 py-2 font-medium text-sm ${
+              activeTab === 'sessions'
+                ? 'border-b-2 border-[#015575] text-[#015575]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            My Live Sessions
+          </button>
+          <button
+            onClick={() => setActiveTab('google')}
+            className={`px-4 py-2 font-medium text-sm ${
+              activeTab === 'google'
+                ? 'border-b-2 border-[#015575] text-[#015575]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Google Connect
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'create' && (
+          <div>
+            <h2 className="text-2xl font-lilita text-[#015575] mb-6 text-center">
+              Schedule New Class
+            </h2>
 
         <form className="space-y-6">
           {/* Booking Selection */}
@@ -204,7 +318,7 @@ const LiveClass = ({ userInfo }) => {
               <option value="">Choose a booking session</option>
               {bookings.map((booking) => (
                 <option key={booking.id} value={booking.id}>
-                  {booking.student_name || 'Student'} - {booking.subject || 'Lesson'} - {booking.session_datetime ? new Date(booking.session_datetime).toLocaleString() : 'Date TBD'} ({booking.status})
+                  Course {booking.course} - {new Date(booking.scheduled_start).toLocaleString()} - {booking.status}
                 </option>
               ))}
             </select>
@@ -244,67 +358,6 @@ const LiveClass = ({ userInfo }) => {
             />
           </div>
 
-          {/* Class Selection (Optional) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Class (Optional)
-              </label>
-              <select
-                value={meetingDetails.class_id}
-                onChange={(e) => setMeetingDetails({ ...meetingDetails, class_id: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-              >
-                <option value="">Choose a class (optional)</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>{cls.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Subject Selection */}
-            {subjects.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Subject
-                </label>
-                <div className="space-y-2">
-                  {subjects.map((sub) => (
-                    <label 
-                      key={sub.id}
-                      className="flex items-center space-x-3 bg-gray-50 p-3 rounded-lg hover:bg-[#f0f8ff] cursor-pointer"
-                    >
-                      <input
-                        type="radio"
-                        name="subject"
-                        value={sub.id}
-                        checked={String(meetingDetails.subject_id) === String(sub.id)}
-                        onChange={(e) => setMeetingDetails({ ...meetingDetails, subject_id: e.target.value })}
-                        className="h-5 w-5 text-[#015575] focus:ring-[#015575]"
-                      />
-                      <span className="text-gray-700">{sub.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* Grade Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Grade
-              </label>
-              <select
-                value={meetingDetails.grade}
-                onChange={(e) => setMeetingDetails({ ...meetingDetails, grade: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-              >
-                <option value="">Choose grade (optional)</option>
-                {['1','2','3','4','5','6','7','8','9','10','11','12'].map((g) => (
-                  <option key={g} value={g}>Grade {g}</option>
-                ))}
-              </select>
-            </div>
-          </div>
 
           {/* Note: Time and duration are now determined by the booking session */}
           {meetingDetails.session_booking_id && (
@@ -344,6 +397,107 @@ const LiveClass = ({ userInfo }) => {
             </div>
           )}
         </form>
+          </div>
+        )}
+
+        {activeTab === 'sessions' && (
+          <div>
+            <h2 className="text-2xl font-lilita text-[#015575] mb-6 text-center">
+              My Live Sessions
+            </h2>
+            {liveSessions.length === 0 ? (
+              <p className="text-center text-gray-500">No live sessions found.</p>
+            ) : (
+              <div className="space-y-4">
+                {liveSessions.map((session) => (
+                  <div key={session.id} className="border border-gray-200 rounded-xl p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-lg font-semibold text-[#015575]">{session.title}</h3>
+                      <button
+                        onClick={() => handleUpdateLiveSession(session.id, { session_booking_id: session.id, title: session.title, description: session.description })}
+                        className="px-3 py-1 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm"
+                        disabled={loading}
+                      >
+                        Mark as Attended
+                      </button>
+                    </div>
+                    <p className="text-gray-600 mb-2">{session.description}</p>
+                    <div className="text-sm text-gray-500 space-y-1">
+                      <p>Started: {session.started_at ? new Date(session.started_at).toLocaleString() : 'Not started'}</p>
+                      <p>Ended: {session.ended_at ? new Date(session.ended_at).toLocaleString() : 'Not ended'}</p>
+                    </div>
+                    {session.meeting_link && (
+                      <div className="mt-3">
+                        <a
+                          href={session.meeting_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+                        >
+                          Join Meeting
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'google' && (
+          <div>
+            <h2 className="text-2xl font-lilita text-[#015575] mb-6 text-center">
+              Connect Google Account
+            </h2>
+            <div className="max-w-md mx-auto">
+              <p className="text-gray-600 mb-4 text-center">
+                Connect your Google account to enable automatic Google Meet link generation for live sessions.
+              </p>
+              {googleConnected ? (
+                <div className="text-center">
+                  <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                  <p className="text-green-600 font-medium">Google account connected successfully!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Authorization Code
+                    </label>
+                    <input
+                      type="text"
+                      value={googleCode}
+                      onChange={(e) => setGoogleCode(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                      placeholder="Enter the authorization code from Google"
+                    />
+                  </div>
+                  <button
+                    onClick={handleGoogleConnect}
+                    disabled={loading || !googleCode.trim()}
+                    className="w-full bg-[#015575] text-white py-3 rounded-xl hover:bg-[#01415e] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircleIcon className="h-5 w-5" />
+                        Connect Google Account
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Success Modal */}

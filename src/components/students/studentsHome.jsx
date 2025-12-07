@@ -25,7 +25,7 @@ const StudentsHome = ({setActiveComponent}) => {
     const fetchTeachers = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const response = await axios.get(`${FHOST}/api/teachers/list/`, {
+        const response = await axios.get(`${FHOST}/api/teachers/list`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 

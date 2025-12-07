@@ -31,7 +31,7 @@ import DashboardHeader from "./layout/DashboardHeader";
 
 const DashboardHome = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
- const [activeComponent, setActiveComponent] = useState("dashboard");
+  const [activeComponent, setActiveComponent] = useState("dashboard");
   const [profilePhoto, setProfilePhoto] = useState(
     "https://via.placeholder.com/150"
   );
@@ -42,6 +42,25 @@ const DashboardHome = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [profileComplete, setProfileComplete] = useState(true);
   const [showProfileUpdateModal, setShowProfileUpdateModal] = useState(false);
+
+  // Helper function to get profile_id from JWT token if not in userInfo
+  const getProfileId = (user) => {
+    if (user?.profile_id) return user.profile_id;
+    if (user?.id) return user.id; // fallback to user id
+
+    // Try to extract from JWT token
+    try {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.profile_id || payload.user_id || user?.id;
+      }
+    } catch (error) {
+      console.error("Error extracting profile_id from token:", error);
+    }
+
+    return user?.id;
+  };
 
   useEffect(() => {
     const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
@@ -106,7 +125,10 @@ const DashboardHome = () => {
       // Check profile completion
       const checkProfileCompletion = async () => {
         try {
-          const profileResponse = await axios.get(`${FHOST}/api/student/profile/update/${storedUserInfo.id}/`, {
+          const profileId = getProfileId(storedUserInfo);
+          console.log("Checking profile completion for ID:", profileId);
+
+          const profileResponse = await axios.get(`${FHOST}/api/student/profile/update/${profileId}/`, {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("access_token")}`,
             },
@@ -122,6 +144,7 @@ const DashboardHome = () => {
             }
           }
         } catch (error) {
+          console.error("Profile completion check failed:", error);
           // Profile doesn't exist or error - profile is incomplete
           setProfileComplete(false);
           setShowProfileUpdateModal(true);
@@ -144,6 +167,9 @@ const DashboardHome = () => {
       const updatedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
       if (updatedUserInfo) {
         setUserInfo(updatedUserInfo);
+        // Mark profile as complete after successful update
+        setProfileComplete(true);
+        setShowProfileUpdateModal(false);
       }
     };
     window.addEventListener('profile-updated', onProfileUpdate);

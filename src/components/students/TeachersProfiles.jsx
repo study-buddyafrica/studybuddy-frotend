@@ -19,6 +19,7 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
     student_id: userInfo?.id,
   });
   const [videos, setVideos] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [selectedGrade, setSelectedGrade] = useState("");
 
   // Simple grade-to-subjects map. Adjust as needed.
@@ -44,14 +45,18 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
     let isMounted = true;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const fetchWithRetry = async (attempts = 3, params = {}) => {
+      const token = localStorage.getItem('access_token');
       const headers = {
         "Content-Type": "application/json",
       };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
       
       for (let i = 0; i < attempts; i++) {
         try {
           // New teachers list endpoint (paginated)
-          return await axios.get(`${FHOST}/api/teachers/list/`, { headers, params });
+          return await axios.get(`${FHOST}/api/teachers/list`, { headers, params });
         } catch (err) {
           const status = err?.response?.status;
           const retryAfter = Number(err?.response?.headers?.['retry-after']);
@@ -144,13 +149,7 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
   };
 
   const handleDateChange = (e) => {
-    const selectedDate = e.target.value;
-    const availableTimesForDate = selectedTeacher.availability
-      .filter((slot) => slot.date === selectedDate && slot.isAvailable)
-      .map((slot) => slot.time);
-
-    setAvailableTimes(availableTimesForDate);
-    setFormData({ ...formData, date: selectedDate, time: "" });
+    setFormData({ ...formData, date: e.target.value });
   };
 
   const handleTimeChange = (e) => {
@@ -171,7 +170,25 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
         setVideos([]);
       }
     };
+    const fetchCourses = async () => {
+      if (!selectedTeacher) return;
+      try {
+        const res = await axios.get(`${FHOST}/api/courses/?teacher=${selectedTeacher.id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          },
+        });
+        if (res.status === 200 && Array.isArray(res.data?.results)) {
+          setCourses(res.data.results);
+        } else {
+          setCourses([]);
+        }
+      } catch (e) {
+        setCourses([]);
+      }
+    };
     fetchVideos();
+    fetchCourses();
   }, [selectedTeacher]);
 
   const handleScheduleSubmit = async (e) => {
@@ -179,15 +196,6 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
 
     if (!formData.date || !formData.time) {
       alert("Please select both date and time.");
-      return;
-    }
-
-    const selectedSlot = selectedTeacher.availability.find(
-      (slot) => slot.date === formData.date && slot.time === formData.time
-    );
-
-    if (!selectedSlot || !selectedSlot.isAvailable) {
-      alert("The selected time slot is not available.");
       return;
     }
 
@@ -385,14 +393,11 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
                 onClick={() => handleTeacherClick(teacher)}
               >
                 <div className="relative">
-                  <img 
-                    src={teacher.profile_picture} 
-                    alt={teacher.name} 
+                  <img
+                    src={teacher.profile_picture}
+                    alt={teacher.name}
                     className="w-full h-48 object-cover rounded-t-xl"
                   />
-                  <div className="absolute top-3 right-3 bg-blue-500 text-white px-2 py-1 rounded-full text-sm font-semibold">
-                    {teacher.rating} ★
-                  </div>
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-bold mb-1">{teacher.name}</h3>
@@ -412,12 +417,12 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
                       {teacher.experience}
                     </span>
                     <span className="text-sm text-gray-600">
-                      {teacher.totalStudents} students
+                      Grade: {teacher.grade || 'Not set'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-bold text-blue-600">
-                      KES {teacher.cost?.toLocaleString() || 0}
+                      {teacher.cost?.toLocaleString() || 0}
                     </span>
                     <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
                       View Profile
@@ -486,58 +491,31 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
                       <p>{selectedTeacher.experience}</p>
                     </div>
                     <div className="p-4 rounded-lg bg-gray-50">
-                      <h4 className="font-semibold mb-2">Rating</h4>
-                      <p className="text-blue-600 font-semibold">{selectedTeacher.rating} ★</p>
+                      <h4 className="font-semibold mb-2">School</h4>
+                      <p>{selectedTeacher.current_school || 'Not set'}</p>
                     </div>
                     <div className="p-4 rounded-lg bg-gray-50">
-                      <h4 className="font-semibold mb-2">Students</h4>
-                      <p>{selectedTeacher.totalStudents} students</p>
+                      <h4 className="font-semibold mb-2">Hourly Rate</h4>
+                      <p>{selectedTeacher.cost?.toLocaleString() || 0}</p>
                     </div>
                   </div>
 
-                  <div className="mb-6">
-                    <h3 className="text-xl font-semibold mb-3">Availability</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {selectedTeacher.availability.map((slot, index) => (
-                        <div 
-                          key={index} 
-                          className={`p-3 rounded-lg border ${
-                            slot.isAvailable 
-                              ? 'border-green-200 bg-green-50 dark:bg-green-900/20' 
-                              : 'border-red-200 bg-red-50 dark:bg-red-900/20'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{slot.date}</span>
-                            <span className={`text-sm ${
-                              slot.isAvailable ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {slot.isAvailable ? 'Available' : 'Not Available'}
-                            </span>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {slot.time}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
             <div className="px-6 pb-6">
-              <h3 className="text-xl font-semibold mb-3">Videos</h3>
-              {videos.length === 0 ? (
-                <p className="text-sm text-gray-500">No videos uploaded by this teacher yet.</p>
+              <h3 className="text-xl font-semibold mb-3">Courses</h3>
+              {courses.length === 0 ? (
+                <p className="text-sm text-gray-500">No courses available from this teacher yet.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {videos.map((v) => (
-                    <div key={v.id} className="rounded-lg border bg-gray-50 p-3">
-                      <h4 className="font-semibold mb-1">{v.title}</h4>
-                      <p className="text-sm text-gray-600 mb-2">{v.description}</p>
-                      <video controls className="w-full rounded">
-                        <source src={v.video_url} type="video/mp4" />
-                      </video>
+                  {courses.map((course) => (
+                    <div key={course.id} className="rounded-lg border bg-gray-50 p-3">
+                      <h4 className="font-semibold mb-1">{course.title}</h4>
+                      <p className="text-sm text-gray-600 mb-2">{course.description}</p>
+                      <p className="text-sm text-gray-500">Grade: {course.grade}</p>
+                      <p className="text-sm text-gray-500">Subject: {course.subject}</p>
+                      <p className="text-sm font-bold text-blue-600">Price: {course.price}</p>
                     </div>
                   ))}
                 </div>
@@ -566,32 +544,24 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
                 <label className="block font-semibold mb-2 text-gray-700">
                   Select Date:
                 </label>
-                <select
+                <input
+                  type="date"
                   value={formData.date}
                   onChange={handleDateChange}
                   className="w-full p-3 rounded-lg border bg-gray-50 border-gray-300 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select Date</option>
-                  {[...new Set(selectedTeacher?.availability.map(slot => slot.date))].map((date) => (
-                    <option key={date} value={date}>{date}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div className="mb-6">
                 <label className="block font-semibold mb-2 text-gray-700">
                   Select Time:
                 </label>
-                <select
+                <input
+                  type="time"
                   value={formData.time}
                   onChange={handleTimeChange}
                   className="w-full p-3 rounded-lg border bg-gray-50 border-gray-300 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select Time</option>
-                  {availableTimes.map((time) => (
-                    <option key={time} value={time}>{time}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               <button 
