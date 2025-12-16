@@ -143,16 +143,9 @@ const LiveClass = ({ userInfo }) => {
       );
 
       if (response.status === 200) {
-        // Refresh live sessions
-        const refreshResponse = await axios.get(`${FHOST}/api/live-sessions/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = refreshResponse.data;
-        const sessions = Array.isArray(data?.results) ? data.results : [];
-        setLiveSessions(sessions);
-        alert('Session updated successfully!');
+        // Update the specific session in the list
+        setLiveSessions(prevSessions => prevSessions.map(s => s.id === sessionId ? response.data : s));
+        alert('Session marked as attended successfully!');
       } else {
         setError('Unexpected response from server.');
       }
@@ -164,7 +157,7 @@ const LiveClass = ({ userInfo }) => {
         : (data?.error || data?.message || data?.details);
       const msg = details
         || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error updating session.';
+        || 'Error marking session as attended.';
       setError(String(msg));
     } finally {
       setLoading(false);
@@ -208,6 +201,7 @@ const LiveClass = ({ userInfo }) => {
         const data = response.data;
         setMeetingData({
           id: data?.id || null,
+          session_booking_id: meetingDetails.session_booking_id,
           meetLink: data?.meeting_link || data?.teacher_meeting_link || null,
           studentLink: data?.student_meeting_link || null,
           whiteboardLink: data?.whiteboard_link || null,
@@ -237,6 +231,19 @@ const LiveClass = ({ userInfo }) => {
         const refreshData = refreshResponse.data;
         const sessions = Array.isArray(refreshData?.results) ? refreshData.results : [];
         setLiveSessions(sessions);
+
+        // Refresh bookings to remove the used one
+        const refreshBookingsResponse = await axios.get(`${FHOST}/api/booked-sessions/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const refreshBookingsData = refreshBookingsResponse.data;
+        const allBookings = Array.isArray(refreshBookingsData?.results) ? refreshBookingsData.results : [];
+        const availableBookings = allBookings.filter(
+          booking => booking.is_allowed && !booking.attended
+        );
+        setBookings(availableBookings);
       } else {
         setError('Unexpected response from server while creating meeting.');
       }
@@ -422,22 +429,32 @@ const LiveClass = ({ userInfo }) => {
                       </button>
                     </div>
                     <p className="text-gray-600 mb-2">{session.description}</p>
+                    <div className="flex gap-2 mb-2">
+                      {session.teacher_meeting_link && (
+                        <a
+                          href={session.teacher_meeting_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm"
+                        >
+                          Join Meeting
+                        </a>
+                      )}
+                      {session.whiteboard_link && (
+                        <a
+                          href={session.whiteboard_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
+                        >
+                          Open Whiteboard
+                        </a>
+                      )}
+                    </div>
                     <div className="text-sm text-gray-500 space-y-1">
                       <p>Started: {session.started_at ? new Date(session.started_at).toLocaleString() : 'Not started'}</p>
                       <p>Ended: {session.ended_at ? new Date(session.ended_at).toLocaleString() : 'Not ended'}</p>
                     </div>
-                    {session.meeting_link && (
-                      <div className="mt-3">
-                        <a
-                          href={session.meeting_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-block px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
-                        >
-                          Join Meeting
-                        </a>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>

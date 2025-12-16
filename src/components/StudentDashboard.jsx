@@ -266,11 +266,6 @@ const DashboardHome = () => {
       icon: <FaBookOpen className="text-lg" />,
     },
     {
-      name: "Video Feed",
-      key: "videofeed",
-      icon: <FaVideo className="text-lg" />,
-    },
-    {
       name: "Performance",
       key: "performance",
       icon: <FaChartLine className="text-lg" />,

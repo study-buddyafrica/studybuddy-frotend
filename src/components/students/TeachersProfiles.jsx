@@ -76,6 +76,7 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
         const params = {
           subject: selectedSubject || undefined,
           search: searchTerm ? searchTerm.trim() : undefined,
+          limit: 100, // Fetch all teachers
         };
         const response = await fetchWithRetry(3, params);
         // New API returns: { count, next, previous, results: [...] }

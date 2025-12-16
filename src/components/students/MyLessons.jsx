@@ -38,7 +38,7 @@ const MyLessons = ({userInfo, darkMode}) => {
         });
       } catch (newError) {
         // Fallback to old endpoint
-        response = await axios.get(`${FHOST}/lessons/api/bookings/student/${userInfo?.id}`, {
+        response = await axios.get(`${FHOST}/api/student/session-bookings/${userInfo?.id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -91,7 +91,7 @@ const MyLessons = ({userInfo, darkMode}) => {
         });
       } catch (newError) {
         // Fallback to old endpoint
-        response = await axios.get(`${FHOST}/lessons/api/bookings/student/${userInfo?.id}`, {
+        response = await axios.get(`${FHOST}/api/student/session-bookings/${userInfo?.id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -321,28 +321,6 @@ const MyLessons = ({userInfo, darkMode}) => {
           </button>
           <button
             className={`px-6 py-2 rounded-lg transition-all text-white ${
-              activeTab === "UpcomingClasses"
-                ? "bg-blue-800 shadow-lg"
-                : "bg-blue-500 hover:bg-blue-700"
-            }`}
-            onClick={() => setActiveComponent("UpcomingClasses")}
-          >
-            <FaClock className="inline mr-2" />
-            Upcoming Classes
-          </button>
-          <button
-            className={`px-6 py-2 rounded-lg transition-all text-white ${
-              activeTab === "scheduledLessons"
-                ? "bg-blue-800 shadow-lg"
-                : "bg-blue-500 hover:bg-blue-700"
-            }`}
-            onClick={() => setActiveComponent("scheduledLessons")}
-          >
-            <FaCalendarAlt className="inline mr-2" />
-            Scheduled Lessons
-          </button>
-          <button
-            className={`px-6 py-2 rounded-lg transition-all text-white ${
               activeTab === "pendingPayments"
                 ? "bg-blue-800 shadow-lg"
                 : "bg-blue-500 hover:bg-blue-700"
@@ -394,19 +372,19 @@ const MyLessons = ({userInfo, darkMode}) => {
                       <div>
                         <h3 className="font-semibold text-lg">{enrollment.course_title}</h3>
                         <p className="text-gray-600">
-                          Teacher: {enrollment.course?.teacher || 'N/A'}
+                          Teacher: {enrollment.course?.teacher ? `${enrollment.course.teacher.first_name} ${enrollment.course.teacher.last_name}` : 'N/A'}
                         </p>
                         <p className="text-gray-600">
-                          Subject: {enrollment.course?.subject || 'N/A'}
+                          Subject: {enrollment.course?.subject?.name || 'N/A'}
                         </p>
                         <p className="text-gray-600">
-                          Grade: {enrollment.course?.grade || 'N/A'}
+                          Grade: {enrollment.course?.grade?.level || 'N/A'}
                         </p>
                         <p className="text-gray-600">
                           Purchased: {new Date(enrollment.purchased_at).toLocaleDateString()}
                         </p>
                         <p className="text-gray-600">
-                          Amount Paid: {enrollment.amount_paid}
+                          Price: KES {enrollment.course?.price || 'N/A'}
                         </p>
                       </div>
                       <div className="text-right">
@@ -425,102 +403,6 @@ const MyLessons = ({userInfo, darkMode}) => {
           </div>
         )}
         
-        {activeTab === "UpcomingClasses" && (
-          <div>
-            <h2 className="text-2xl font-bold mb-4">Upcoming Classes</h2>
-            <UpcomingLessons userInfo={userInfo} darkMode={darkMode} />
-          </div>
-        )}
-
-        {activeTab === "scheduledLessons" && (
-          <div>
-            <h2 className="text-2xl font-bold mb-4">Scheduled Lessons</h2>
-            <p className="text-lg mb-6 text-gray-600">
-              View and manage your scheduled lessons with teachers.
-            </p>
-            
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              </div>
-            ) : scheduledLessons.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <p className="text-xl mb-2">No scheduled lessons yet</p>
-                <p>Schedule a lesson with a teacher to get started!</p>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {scheduledLessons.map((lesson) => (
-                  <div
-                    key={lesson.id}
-                    className="p-4 rounded-lg border-l-4 border-blue-500 bg-gray-50"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold text-lg">{lesson.teacher_name}</h3>
-                        <p className="text-gray-600">
-                          Subject: {lesson.subject}
-                        </p>
-                        <p className="text-gray-600">
-                          Date: {new Date(lesson.date).toLocaleDateString()}
-                        </p>
-                        <p className="text-gray-600">
-                          Time: {lesson.time}
-                        </p>
-                        <p className="text-gray-600">
-                          Status: <span className={`font-semibold ${
-                            lesson.status === 'confirmed' ? 'text-green-600' :
-                            lesson.status === 'pending' ? 'text-yellow-600' : 'text-red-600'
-                          }`}>
-                            {lesson.status}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-blue-600">
-                          KES {lesson.cost?.toLocaleString() || 0}
-                        </div>
-                        {lesson.status === 'confirmed' && lesson.payment_status === 'pending' && (
-                          <button 
-                            onClick={() => handlePayment(lesson.id, lesson.cost)}
-                            className="mt-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                          >
-                            <FaCreditCard className="inline mr-2" />
-                            Pay Now
-                          </button>
-                        )}
-                        {lesson.status === 'pending' && lesson.is_allowed && (
-                          <button 
-                            onClick={() => handleRescheduleBooking(lesson.id, lesson)}
-                            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
-                          >
-                            Reschedule
-                          </button>
-                        )}
-                        {lesson.status === 'pending' && !lesson.attended && (
-                          <button
-                            onClick={() => handleMarkAttended(lesson.id, lesson)}
-                            className="mt-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
-                          >
-                            Mark Attended
-                          </button>
-                        )}
-                        {lesson.status === 'confirmed' && (
-                          <button
-                            onClick={() => handleJoinLiveSession(lesson.id)}
-                            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
-                          >
-                            Join Live Session
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {activeTab === "pendingPayments" && (
           <div>
