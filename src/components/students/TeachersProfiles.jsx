@@ -74,7 +74,6 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
     const fetchTeachers = async () => {
       try {
         const params = {
-          verification_status: "approved",
           subject: selectedSubject || undefined,
           search: searchTerm ? searchTerm.trim() : undefined,
         };
@@ -173,17 +172,25 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
     const fetchCourses = async () => {
       if (!selectedTeacher) return;
       try {
-        const res = await axios.get(`${FHOST}/api/courses/?teacher=${selectedTeacher.id}`, {
+        console.log('Fetching courses for teacher:', selectedTeacher.id);
+        console.log('User info country:', userInfo?.country);
+        const params = new URLSearchParams({ teacher: selectedTeacher.id });
+        if (userInfo?.country) {
+          params.append('country', userInfo.country);
+        }
+        const res = await axios.get(`${FHOST}/api/courses/?${params.toString()}`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('access_token')}`,
           },
         });
+        console.log('Courses response:', res.data);
         if (res.status === 200 && Array.isArray(res.data?.results)) {
           setCourses(res.data.results);
         } else {
           setCourses([]);
         }
       } catch (e) {
+        console.error('Error fetching courses:', e.response?.data || e.message);
         setCourses([]);
       }
     };
@@ -212,8 +219,11 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
       // Calculate duration_hours (default to 1 hour if not specified)
       const durationHours = 1; // You can make this configurable if needed
 
-      // Get course ID if available (you may need to adjust this based on your data structure)
-      const courseId = selectedTeacher.course_id || selectedTeacher.id || null;
+      // Get course ID: prefer first available course, fallback to null (don't use teacher ID)
+      const courseId = courses.length > 0 ? courses[0].id : null;
+      console.log('Selected teacher:', selectedTeacher);
+      console.log('Available courses:', courses);
+      console.log('Using courseId:', courseId);
 
       const bookingData = {
         teacher_id: selectedTeacher.id,
@@ -221,6 +231,7 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
         duration_hours: durationHours,
         course: courseId,
       };
+      console.log('Booking data:', bookingData);
 
       const response = await axios.post(
         `${FHOST}/api/student/session-bookings/`,
