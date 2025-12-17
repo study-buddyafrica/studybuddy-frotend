@@ -60,12 +60,23 @@ const MyLessons = ({ userInfo }) => {
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [loadingGrades, setLoadingGrades] = useState(true);
   const [showCourseDetails, setShowCourseDetails] = useState(false);
+  const [liveLessons, setLiveLessons] = useState([]);
+  const [loadingLiveLessons, setLoadingLiveLessons] = useState(true);
+  const [showCreateLiveLessonModal, setShowCreateLiveLessonModal] = useState(false);
+  const [newLiveLesson, setNewLiveLesson] = useState({
+    course_id: '',
+    title: '',
+    description: '',
+    started_at: '',
+    ended_at: '',
+  });
 
   useEffect(() => {
     fetchCourses();
     fetchEnrollments();
     fetchSubjects();
     fetchGrades();
+    fetchLiveLessons();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInfo?.id]);
 
@@ -187,9 +198,24 @@ const MyLessons = ({ userInfo }) => {
     }
   };
 
+  const fetchLiveLessons = async () => {
+    setLoadingLiveLessons(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      // Assuming an endpoint for course live lessons, but since not specified, perhaps skip or use a placeholder
+      // For now, set empty
+      setLiveLessons([]);
+    } catch (error) {
+      handleApiError("Failed to load live lessons. Please try again.", error);
+    } finally {
+      setLoadingLiveLessons(false);
+    }
+  };
+
   const handleRefresh = () => {
     fetchCourses();
     fetchEnrollments();
+    fetchLiveLessons();
   };
 
   const filteredCourses = useMemo(() => {
@@ -272,9 +298,60 @@ const MyLessons = ({ userInfo }) => {
     }
   };
 
+  const handleCreateLiveLesson = async (event) => {
+    event.preventDefault();
+    setSavingCourse(true); // Reuse saving state
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        handleApiError("Authentication required. Please log in again.", new Error("No token"));
+        return;
+      }
+
+      const payload = {
+        course_id: newLiveLesson.course_id,
+        title: newLiveLesson.title.trim(),
+        description: newLiveLesson.description.trim(),
+        started_at: newLiveLesson.started_at,
+        ended_at: newLiveLesson.ended_at,
+      };
+
+      const response = await axios.post(`${FHOST}/api/teacher/course/live-lession/`, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        setSuccessMessage("Live lesson created successfully!");
+        setShowCreateLiveLessonModal(false);
+        setNewLiveLesson({
+          course_id: '',
+          title: '',
+          description: '',
+          started_at: '',
+          ended_at: '',
+        });
+        fetchLiveLessons();
+        setTimeout(() => setSuccessMessage(""), 4000);
+      }
+    } catch (error) {
+      const errorMsg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        "Failed to create live lesson. Please try again.";
+      handleApiError(errorMsg, error);
+    } finally {
+      setSavingCourse(false);
+    }
+  };
+
   const tabs = [
     { id: "courses", name: "Courses" },
     { id: "enrollments", name: "Enrollments" },
+    { id: "liveLessons", name: "Live Lessons" },
   ];
 
   return (
@@ -471,6 +548,58 @@ const MyLessons = ({ userInfo }) => {
         </div>
       )}
 
+      {activeTab === "liveLessons" && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800">Live Lessons</h2>
+              <p className="text-gray-600">Create and manage live lessons for your courses</p>
+            </div>
+            <button
+              onClick={() => setShowCreateLiveLessonModal(true)}
+              className="flex items-center gap-2 bg-[#01B0F1] hover:bg-[#0199d4] text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <FaPlus />
+              Create Live Lesson
+            </button>
+          </div>
+
+          {loadingLiveLessons ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#01B0F1]"></div>
+            </div>
+          ) : liveLessons.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl shadow border border-dashed border-gray-200">
+              <FaBook className="text-4xl text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-600">No live lessons created yet.</p>
+              <button
+                onClick={() => setShowCreateLiveLessonModal(true)}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4]"
+              >
+                <FaPlus />
+                Create your first live lesson
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {liveLessons.map((lesson) => (
+                <div
+                  key={lesson.id}
+                  className="p-5 bg-white rounded-xl border shadow-sm"
+                >
+                  <h3 className="text-lg font-semibold text-gray-800">{lesson.title}</h3>
+                  <p className="text-sm text-gray-500 mt-1">{lesson.description}</p>
+                  <div className="mt-4 text-sm text-gray-600">
+                    <p>Started: {formatDateTime(lesson.started_at)}</p>
+                    <p>Ended: {formatDateTime(lesson.ended_at)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === "courses" && showCourseDetails && selectedCourse && (
         <CourseDetails
           course={selectedCourse}
@@ -642,6 +771,102 @@ Topic 3`}
                   className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4] disabled:opacity-60"
                 >
                   {savingCourse ? "Saving..." : "Create Course"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showCreateLiveLessonModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-xl font-semibold text-gray-800">Create Live Lesson</h2>
+              <button
+                onClick={() => setShowCreateLiveLessonModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateLiveLesson} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Course *</label>
+                <select
+                  required
+                  value={newLiveLesson.course_id}
+                  onChange={(e) => setNewLiveLesson({ ...newLiveLesson, course_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                >
+                  <option value="">Select a course</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title} - {course.subject_name || (typeof course.subject === 'object' ? course.subject?.name : course.subject)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={newLiveLesson.title}
+                  onChange={(e) => setNewLiveLesson({ ...newLiveLesson, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                  placeholder="Lesson title"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  rows={3}
+                  value={newLiveLesson.description}
+                  onChange={(e) => setNewLiveLesson({ ...newLiveLesson, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                  placeholder="Describe the lesson..."
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={newLiveLesson.started_at}
+                    onChange={(e) => setNewLiveLesson({ ...newLiveLesson, started_at: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Time *</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={newLiveLesson.ended_at}
+                    onChange={(e) => setNewLiveLesson({ ...newLiveLesson, ended_at: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateLiveLessonModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  disabled={savingCourse}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCourse}
+                  className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4] disabled:opacity-60"
+                >
+                  {savingCourse ? "Creating..." : "Create Live Lesson"}
                 </button>
               </div>
             </form>

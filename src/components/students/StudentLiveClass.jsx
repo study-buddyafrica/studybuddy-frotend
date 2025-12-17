@@ -72,12 +72,12 @@ const StudentLiveClass = ({userInfo}) => {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {sessions?.length > 0 ? (
           sessions.map((session) => (
-            <div key={session.id} className="bg-white rounded-lg shadow-md p-6">
+            <div key={session.id} className="bg-white rounded-lg shadow-md p-6 flex flex-col min-h-[300px]">
 
-              <div className="mb-4">
+              <div className="flex-1 mb-4">
                 <h3 className="text-lg font-semibold">{session.title}</h3>
                 <p className="text-gray-600 text-sm mt-1">
                   Started: <strong>{session.started_at ? new Date(session.started_at).toLocaleString() : 'Not started'}</strong>
@@ -105,7 +105,7 @@ const StudentLiveClass = ({userInfo}) => {
                 </div>
               </div>
 
-              <div className="mt-4 space-y-2">
+              <div className="mt-auto space-y-2">
                 {session.student_meeting_link && (
                   <a
                     href={session.student_meeting_link}

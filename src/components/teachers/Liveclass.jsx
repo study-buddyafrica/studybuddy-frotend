@@ -20,8 +20,26 @@ const LiveClass = ({ userInfo }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
-  const [googleConnected, setGoogleConnected] = useState(false);
-  const [googleCode, setGoogleCode] = useState('');
+  const [peerToPeerSessions, setPeerToPeerSessions] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [courseLessonDetails, setCourseLessonDetails] = useState({
+    course_id: '',
+    title: '',
+    description: '',
+    started_at: '',
+    ended_at: '',
+  });
+  const [peerToPeerSubTab, setPeerToPeerSubTab] = useState('list');
+  const [editingSession, setEditingSession] = useState(null);
+  const [showCreatePeerModal, setShowCreatePeerModal] = useState(false);
+  const [newPeerSession, setNewPeerSession] = useState({
+    course: '',
+    teacher: '',
+    title: '',
+    description: '',
+    started_at: '',
+    duration_hours: 1,
+  });
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -52,6 +70,48 @@ const LiveClass = ({ userInfo }) => {
     fetchBookings();
   }, []);
 
+  const fetchCourses = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      const response = await axios.get(`${FHOST}/api/courses/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const coursesList = response.data?.results || response.data || [];
+      if (Array.isArray(coursesList)) {
+        setCourses(coursesList);
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setCourses([]);
+    }
+  };
+
+  const fetchPeerToPeerSessions = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      const response = await axios.get(`${FHOST}/api/peer-to-peer-sessions/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const sessionsList = response.data?.results || response.data || [];
+      if (Array.isArray(sessionsList)) {
+        setPeerToPeerSessions(sessionsList);
+      }
+    } catch (error) {
+      console.error('Error fetching peer-to-peer sessions:', error);
+      setPeerToPeerSessions([]);
+    }
+  };
+
   useEffect(() => {
     const fetchLiveSessions = async () => {
       try {
@@ -73,54 +133,33 @@ const LiveClass = ({ userInfo }) => {
         setLiveSessions([]);
       }
     };
-    fetchLiveSessions();
-  }, []);
 
-  const handleGoogleConnect = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
-      }
+    const fetchPeerToPeerSessions = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
 
-      if (!googleCode.trim()) {
-        throw new Error('Please enter the authorization code.');
-      }
-
-      const response = await axios.post(
-        `${FHOST}/api/teacher/google/connect/`,
-        { code: googleCode },
-        {
+        const response = await axios.get(`${FHOST}/api/peer-to-peer-sessions/`, {
           headers: {
-            'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-        }
-      );
+        });
 
-      if (response.status === 200 || response.status === 201) {
-        setGoogleConnected(true);
-        setGoogleCode('');
-        alert('Google account connected successfully!');
-      } else {
-        setError('Unexpected response from server.');
+        const sessionsList = response.data?.results || response.data || [];
+        if (Array.isArray(sessionsList)) {
+          setPeerToPeerSessions(sessionsList);
+        }
+      } catch (error) {
+        console.error('Error fetching peer-to-peer sessions:', error);
+        setPeerToPeerSessions([]);
       }
-    } catch (err) {
-      const status = err?.response?.status;
-      const data = err?.response?.data;
-      const details = typeof data === 'string'
-        ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error connecting Google account.';
-      setError(String(msg));
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchLiveSessions();
+    fetchPeerToPeerSessions();
+    fetchCourses();
+  }, []);
+
 
   const handleUpdateLiveSession = async (sessionId, updateData) => {
     setLoading(true);
@@ -262,6 +301,220 @@ const LiveClass = ({ userInfo }) => {
     }
   };
 
+  const handleCreateCourseLesson = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
+      if (!courseLessonDetails.course_id) throw new Error('Please select a course.');
+      if (!courseLessonDetails.title.trim()) throw new Error('Please enter a title.');
+      if (!courseLessonDetails.description.trim()) throw new Error('Please enter a description.');
+      if (!courseLessonDetails.started_at) throw new Error('Please enter a start time.');
+      if (!courseLessonDetails.ended_at) throw new Error('Please enter an end time.');
+
+      const payload = {
+        course_id: courseLessonDetails.course_id,
+        title: courseLessonDetails.title,
+        description: courseLessonDetails.description,
+        started_at: courseLessonDetails.started_at,
+        ended_at: courseLessonDetails.ended_at,
+      };
+
+      const response = await axios.post(
+        `${FHOST}/api/teacher/course/live-lession/`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 201 || response.status === 200) {
+        alert('Course live lesson created successfully!');
+        setCourseLessonDetails({
+          course_id: '',
+          title: '',
+          description: '',
+          started_at: '',
+          ended_at: '',
+        });
+      } else {
+        setError('Unexpected response from server.');
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const details = typeof data === 'string'
+        ? data
+        : (data?.error || data?.message || data?.details);
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
+        || 'Error creating course live lesson. Please check your inputs.';
+      setError(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreatePeerSession = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
+      const teacherIdentifier =
+        userInfo?.teacher_profile_id ||
+        userInfo?.teacher_profile?.id ||
+        userInfo?.id;
+
+      const payload = {
+        course: newPeerSession.course,
+        teacher: teacherIdentifier,
+        title: newPeerSession.title,
+        description: newPeerSession.description,
+        started_at: newPeerSession.started_at,
+        duration_hours: newPeerSession.duration_hours,
+      };
+
+      const response = await axios.post(
+        `${FHOST}/api/peer-to-peer-sessions/`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 201 || response.status === 200) {
+        alert('Peer-to-peer session created successfully!');
+        setShowCreatePeerModal(false);
+        const teacherIdentifier =
+          userInfo?.teacher_profile_id ||
+          userInfo?.teacher_profile?.id ||
+          userInfo?.id;
+
+        setNewPeerSession({
+          course: '',
+          teacher: teacherIdentifier,
+          title: '',
+          description: '',
+          started_at: '',
+          duration_hours: 1,
+        });
+        fetchPeerToPeerSessions();
+      } else {
+        setError('Unexpected response from server.');
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const details = typeof data === 'string'
+        ? data
+        : (data?.error || data?.message || data?.details);
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
+        || 'Error creating peer-to-peer session. Please check your inputs.';
+      setError(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePeerSession = async (sessionId, updateData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
+      const response = await axios.patch(
+        `${FHOST}/api/peer-to-peer-sessions/${sessionId}/`,
+        updateData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        setPeerToPeerSessions(prev => prev.map(s => s.id === sessionId ? response.data : s));
+        alert('Session updated successfully!');
+        setEditingSession(null);
+      } else {
+        setError('Unexpected response from server.');
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const details = typeof data === 'string'
+        ? data
+        : (data?.error || data?.message || data?.details);
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
+        || 'Error updating session.';
+      setError(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeletePeerSession = async (sessionId) => {
+    if (!window.confirm('Are you sure you want to delete this session?')) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
+      const response = await axios.delete(
+        `${FHOST}/api/peer-to-peer-sessions/${sessionId}/`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 204 || response.status === 200) {
+        setPeerToPeerSessions(prev => prev.filter(s => s.id !== sessionId));
+        alert('Session deleted successfully!');
+      } else {
+        setError('Unexpected response from server.');
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const details = typeof data === 'string'
+        ? data
+        : (data?.error || data?.message || data?.details);
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
+        || 'Error deleting session.';
+      setError(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 font-josefin p-6">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm p-6">
@@ -292,14 +545,24 @@ const LiveClass = ({ userInfo }) => {
             My Live Sessions
           </button>
           <button
-            onClick={() => setActiveTab('google')}
+            onClick={() => setActiveTab('peerToPeer')}
             className={`px-4 py-2 font-medium text-sm ${
-              activeTab === 'google'
+              activeTab === 'peerToPeer'
                 ? 'border-b-2 border-[#015575] text-[#015575]'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Google Connect
+            Peer-to-Peer
+          </button>
+          <button
+            onClick={() => setActiveTab('courseLessons')}
+            className={`px-4 py-2 font-medium text-sm ${
+              activeTab === 'courseLessons'
+                ? 'border-b-2 border-[#015575] text-[#015575]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Course Live Lessons
           </button>
         </div>
 
@@ -462,56 +725,390 @@ const LiveClass = ({ userInfo }) => {
           </div>
         )}
 
-        {activeTab === 'google' && (
+        {activeTab === 'peerToPeer' && (
           <div>
             <h2 className="text-2xl font-lilita text-[#015575] mb-6 text-center">
-              Connect Google Account
+              Peer-to-Peer Sessions
             </h2>
-            <div className="max-w-md mx-auto">
-              <p className="text-gray-600 mb-4 text-center">
-                Connect your Google account to enable automatic Google Meet link generation for live sessions.
-              </p>
-              {googleConnected ? (
-                <div className="text-center">
-                  <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                  <p className="text-green-600 font-medium">Google account connected successfully!</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Authorization Code
-                    </label>
-                    <input
-                      type="text"
-                      value={googleCode}
-                      onChange={(e) => setGoogleCode(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                      placeholder="Enter the authorization code from Google"
-                    />
+
+            {/* Sub-tabs */}
+            <div className="flex border-b border-gray-200 mb-6">
+              <button
+                onClick={() => setPeerToPeerSubTab('list')}
+                className={`px-4 py-2 font-medium text-sm ${
+                  peerToPeerSubTab === 'list'
+                    ? 'border-b-2 border-[#015575] text-[#015575]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                My Sessions
+              </button>
+              <button
+                onClick={() => setPeerToPeerSubTab('create')}
+                className={`px-4 py-2 font-medium text-sm ${
+                  peerToPeerSubTab === 'create'
+                    ? 'border-b-2 border-[#015575] text-[#015575]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Create Session
+              </button>
+            </div>
+
+            {peerToPeerSubTab === 'list' && (
+              <div>
+                {peerToPeerSessions.length === 0 ? (
+                  <p className="text-center text-gray-500">No peer-to-peer sessions found.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {peerToPeerSessions.map((session) => (
+                      <div key={session.id} className="border border-gray-200 rounded-xl p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="text-lg font-semibold text-[#015575]">{session.title}</h3>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setEditingSession(session)}
+                              className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeletePeerSession(session.id)}
+                              className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
+                              disabled={loading}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-gray-600 mb-2">{session.description}</p>
+                        <div className="flex gap-2 mb-2">
+                          {session.teacher_meeting_link && (
+                            <a
+                              href={session.teacher_meeting_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm"
+                            >
+                              Join Meeting
+                            </a>
+                          )}
+                          {session.whiteboard_link && (
+                            <a
+                              href={session.whiteboard_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
+                            >
+                              Open Whiteboard
+                            </a>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500 space-y-1">
+                          <p>Started: {session.started_at ? new Date(session.started_at).toLocaleString() : 'Not started'}</p>
+                          <p>Ended: {session.ended_at ? new Date(session.ended_at).toLocaleString() : 'Not ended'}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                )}
+              </div>
+            )}
+
+            {peerToPeerSubTab === 'create' && (
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-semibold text-[#015575]">Create New Peer-to-Peer Session</h3>
                   <button
-                    onClick={handleGoogleConnect}
-                    disabled={loading || !googleCode.trim()}
-                    className="w-full bg-[#015575] text-white py-3 rounded-xl hover:bg-[#01415e] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => setShowCreatePeerModal(true)}
+                    className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition"
                   >
-                    {loading ? (
-                      <>
-                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircleIcon className="h-5 w-5" />
-                        Connect Google Account
-                      </>
-                    )}
+                    New Session
                   </button>
                 </div>
+                <p className="text-gray-600 mb-4">Click "New Session" to create a peer-to-peer learning session.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'courseLessons' && (
+          <div>
+            <h2 className="text-2xl font-lilita text-[#015575] mb-6 text-center">
+              Create Course Live Lesson
+            </h2>
+
+            <form className="space-y-6">
+              {/* Course Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Course <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={courseLessonDetails.course_id}
+                  onChange={(e) => setCourseLessonDetails({ ...courseLessonDetails, course_id: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  required
+                >
+                  <option value="">Choose a course</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title} - {course.subject?.name || course.subject}
+                    </option>
+                  ))}
+                </select>
+                {courses.length === 0 && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    No courses available.
+                  </p>
+                )}
+              </div>
+
+              {/* Title */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Lesson Title
+                </label>
+                <input
+                  type="text"
+                  value={courseLessonDetails.title}
+                  onChange={(e) => setCourseLessonDetails({ ...courseLessonDetails, title: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter lesson title"
+                  required
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Lesson Description
+                </label>
+                <textarea
+                  value={courseLessonDetails.description}
+                  onChange={(e) => setCourseLessonDetails({ ...courseLessonDetails, description: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent h-32"
+                  placeholder="Describe the lesson content"
+                  required
+                />
+              </div>
+
+              {/* Start Time */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Start Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={courseLessonDetails.started_at}
+                  onChange={(e) => setCourseLessonDetails({ ...courseLessonDetails, started_at: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  required
+                />
+              </div>
+
+              {/* End Time */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  End Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={courseLessonDetails.ended_at}
+                  onChange={(e) => setCourseLessonDetails({ ...courseLessonDetails, ended_at: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  required
+                />
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="button"
+                onClick={handleCreateCourseLesson}
+                disabled={loading}
+                className="w-full bg-[#015575] text-white py-3 rounded-xl hover:bg-[#01415e] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Lesson...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircleIcon className="h-5 w-5" />
+                    Create Live Lesson
+                  </>
+                )}
+              </button>
+
+              {error && (
+                <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-xl text-center">
+                  {error}
+                </div>
               )}
+            </form>
+          </div>
+        )}
+
+        {/* Edit Peer Session Modal */}
+        {editingSession && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+              <div className="flex flex-col">
+                <h2 className="text-2xl font-semibold text-[#015575] mb-4">Edit Session</h2>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  const updateData = {
+                    title: formData.get('title'),
+                    description: formData.get('description'),
+                    started_at: formData.get('started_at'),
+                    duration_hours: parseInt(formData.get('duration_hours')),
+                  };
+                  handleUpdatePeerSession(editingSession.id, updateData);
+                }} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                    <input
+                      name="title"
+                      defaultValue={editingSession.title}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea
+                      name="description"
+                      defaultValue={editingSession.description}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent h-24"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                    <input
+                      name="started_at"
+                      type="datetime-local"
+                      defaultValue={editingSession.started_at ? new Date(editingSession.started_at).toISOString().slice(0, 16) : ''}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration (hours)</label>
+                    <input
+                      name="duration_hours"
+                      type="number"
+                      defaultValue={editingSession.duration_hours || 1}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                      min="1"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setEditingSession(null)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] disabled:opacity-50"
+                    >
+                      {loading ? 'Updating...' : 'Update'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Peer Session Modal */}
+        {showCreatePeerModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+              <div className="flex flex-col">
+                <h2 className="text-2xl font-semibold text-[#015575] mb-4">Create Peer Session</h2>
+                <form onSubmit={handleCreatePeerSession} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Course</label>
+                    <select
+                      value={newPeerSession.course}
+                      onChange={(e) => setNewPeerSession({ ...newPeerSession, course: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                    >
+                      <option value="">Select a course</option>
+                      {courses.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          {course.title} - {course.subject?.name || course.subject}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                    <input
+                      type="text"
+                      value={newPeerSession.title}
+                      onChange={(e) => setNewPeerSession({ ...newPeerSession, title: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                      placeholder="Session title"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea
+                      value={newPeerSession.description}
+                      onChange={(e) => setNewPeerSession({ ...newPeerSession, description: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent h-24"
+                      placeholder="Describe the session"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                    <input
+                      type="datetime-local"
+                      value={newPeerSession.started_at}
+                      onChange={(e) => setNewPeerSession({ ...newPeerSession, started_at: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration (hours)</label>
+                    <input
+                      type="number"
+                      value={newPeerSession.duration_hours}
+                      onChange={(e) => setNewPeerSession({ ...newPeerSession, duration_hours: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                      min="1"
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreatePeerModal(false)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] disabled:opacity-50"
+                    >
+                      {loading ? 'Creating...' : 'Create'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         )}
