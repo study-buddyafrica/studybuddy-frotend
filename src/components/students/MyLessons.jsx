@@ -526,7 +526,7 @@ const MyLessons = ({userInfo, darkMode}) => {
                               {enrollment.is_active ? 'Active' : 'Inactive'}
                             </div>
                             <button
-                              onClick={() => window.location.href = `/course/${enrollment.course.id}`}
+                              onClick={() => window.location.href = `/course/${enrollment.id}`}
                               className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                             >
                               Access Course
