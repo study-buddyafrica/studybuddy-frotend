@@ -309,7 +309,7 @@ const MyLessons = ({userInfo, darkMode}) => {
 
       const response = await axios.post(
         `${FHOST}/api/courses/enrollments/`,
-        { course: courseId },
+        { course_id: courseId },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -325,10 +325,17 @@ const MyLessons = ({userInfo, darkMode}) => {
       }
     } catch (error) {
       console.error('Error enrolling in course:', error);
-      const errorMsg = error.response?.data?.message ||
-                        error.response?.data?.error ||
-                        error.response?.data?.detail ||
-                        'Failed to enroll in course. Please try again.';
+      const errorData = error.response?.data;
+      let errorMsg = 'Failed to enroll in course. Please try again.';
+      if (errorData?.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+        errorMsg = errorData.errors[0].detail;
+      } else if (errorData?.message) {
+        errorMsg = errorData.message;
+      } else if (errorData?.error) {
+        errorMsg = errorData.error;
+      } else if (errorData?.detail) {
+        errorMsg = errorData.detail;
+      }
       alert(errorMsg);
     } finally {
       setEnrolling(false);
@@ -442,13 +449,13 @@ const MyLessons = ({userInfo, darkMode}) => {
                             <h3 className="font-semibold text-lg">{course.title}</h3>
                             <p className="text-gray-600">{course.description}</p>
                             <p className="text-gray-600">
-                              Teacher: {course.teacher || 'N/A'}
+                              Teacher: {course.teacher ? `${course.teacher.first_name} ${course.teacher.last_name}` : 'N/A'}
                             </p>
                             <p className="text-gray-600">
-                              Subject: {course.subject || 'N/A'}
+                              Subject: {course.subject?.name || 'N/A'}
                             </p>
                             <p className="text-gray-600">
-                              Grade: {course.grade || 'N/A'}
+                              Grade: {course.grade?.level || 'N/A'}
                             </p>
                             <p className="text-gray-600">
                               Country: {course.country || 'N/A'}

@@ -525,8 +525,8 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
                     <div key={course.id} className="rounded-lg border bg-gray-50 p-3">
                       <h4 className="font-semibold mb-1">{course.title}</h4>
                       <p className="text-sm text-gray-600 mb-2">{course.description}</p>
-                      <p className="text-sm text-gray-500">Grade: {course.grade}</p>
-                      <p className="text-sm text-gray-500">Subject: {course.subject}</p>
+                      <p className="text-sm text-gray-500">Grade: {course.grade?.level || 'N/A'}</p>
+                      <p className="text-sm text-gray-500">Subject: {course.subject?.name || 'N/A'}</p>
                       <p className="text-sm font-bold text-blue-600">Price: {course.price}</p>
                     </div>
                   ))}
