@@ -220,8 +220,12 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
       // Calculate duration_hours (default to 1 hour if not specified)
       const durationHours = 1; // You can make this configurable if needed
 
-      // Get course ID: prefer first available course, fallback to null (don't use teacher ID)
-      const courseId = courses.length > 0 ? courses[0].id : null;
+      // Get course ID: require at least one course
+      if (courses.length === 0) {
+        alert("No courses available for this teacher. Cannot schedule lesson.");
+        return;
+      }
+      const courseId = courses[0].id;
       console.log('Selected teacher:', selectedTeacher);
       console.log('Available courses:', courses);
       console.log('Using courseId:', courseId);

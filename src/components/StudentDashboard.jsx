@@ -138,17 +138,21 @@ const DashboardHome = () => {
             // Check if profile has required fields
             const isComplete = !!(profileData.profile_picture && profileData.birth_date && profileData.grade && profileData.school);
             setProfileComplete(isComplete);
-            if (!isComplete) {
+            if (!isComplete && !localStorage.getItem("profilePromptShown")) {
               setShowProfileUpdateModal(true);
               setActiveComponent("profileupdate");
+              localStorage.setItem("profilePromptShown", "true");
             }
           }
         } catch (error) {
           console.error("Profile completion check failed:", error);
           // Profile doesn't exist or error - profile is incomplete
           setProfileComplete(false);
-          setShowProfileUpdateModal(true);
-          setActiveComponent("profileupdate");
+          if (!localStorage.getItem("profilePromptShown")) {
+            setShowProfileUpdateModal(true);
+            setActiveComponent("profileupdate");
+            localStorage.setItem("profilePromptShown", "true");
+          }
         }
       };
       checkProfileCompletion();

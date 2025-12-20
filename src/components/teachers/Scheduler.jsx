@@ -32,6 +32,18 @@ const Scheduler = ({ userInfo }) => {
   const [availableGrades, setAvailableGrades] = useState([]);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [loadingGrades, setLoadingGrades] = useState(true);
+  const [peerToPeerSessions, setPeerToPeerSessions] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [showCreatePeerModal, setShowCreatePeerModal] = useState(false);
+  const [newPeerSession, setNewPeerSession] = useState({
+    course: '',
+    teacher: '',
+    title: '',
+    description: '',
+    started_at: '',
+    duration_hours: 1,
+  });
+  const [editingSession, setEditingSession] = useState(null);
 
   // Form state for adding new lesson
   const [newLesson, setNewLesson] = useState({
@@ -132,7 +144,51 @@ const Scheduler = ({ userInfo }) => {
   // Call fetchData when the component mounts
   useEffect(() => {
     fetchData();
+    fetchPeerToPeerSessions();
+    fetchCourses();
   }, [userInfo?.id]);
+
+  const fetchCourses = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      const response = await axios.get(`${FHOST}/api/courses/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const coursesList = response.data?.results || response.data || [];
+      if (Array.isArray(coursesList)) {
+        setCourses(coursesList);
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setCourses([]);
+    }
+  };
+
+  const fetchPeerToPeerSessions = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      const response = await axios.get(`${FHOST}/api/peer-to-peer-sessions/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const sessionsList = response.data?.results || response.data || [];
+      if (Array.isArray(sessionsList)) {
+        setPeerToPeerSessions(sessionsList);
+      }
+    } catch (error) {
+      console.error('Error fetching peer-to-peer sessions:', error);
+      setPeerToPeerSessions([]);
+    }
+  };
 
   const handleDayClick = (day) => {
     setSelectedDay(day);
@@ -306,6 +362,158 @@ const Scheduler = ({ userInfo }) => {
     setSelectedDay(null);
   };
 
+  const handleCreatePeerSession = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
+      const teacherIdentifier =
+        userInfo?.teacher_profile_id ||
+        userInfo?.teacher_profile?.id ||
+        userInfo?.id;
+
+      const payload = {
+        course: newPeerSession.course,
+        teacher: teacherIdentifier,
+        title: newPeerSession.title,
+        description: newPeerSession.description,
+        started_at: newPeerSession.started_at,
+        duration_hours: newPeerSession.duration_hours,
+      };
+
+      const response = await axios.post(
+        `${FHOST}/api/peer-to-peer-sessions/`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 201 || response.status === 200) {
+        setSuccessMessage('Peer-to-peer session created successfully!');
+        setShowCreatePeerModal(false);
+        const teacherIdentifier =
+          userInfo?.teacher_profile_id ||
+          userInfo?.teacher_profile?.id ||
+          userInfo?.id;
+
+        setNewPeerSession({
+          course: '',
+          teacher: teacherIdentifier,
+          title: '',
+          description: '',
+          started_at: '',
+          duration_hours: 1,
+        });
+        fetchPeerToPeerSessions();
+      } else {
+        setErrorMessage('Unexpected response from server.');
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const details = typeof data === 'string'
+        ? data
+        : (data?.error || data?.message || data?.details);
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
+        || 'Error creating peer-to-peer session. Please check your inputs.';
+      setErrorMessage(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePeerSession = async (sessionId, updateData) => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
+      const response = await axios.patch(
+        `${FHOST}/api/peer-to-peer-sessions/${sessionId}/`,
+        updateData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        setPeerToPeerSessions(prev => prev.map(s => s.id === sessionId ? response.data : s));
+        setSuccessMessage('Session updated successfully!');
+        setEditingSession(null);
+      } else {
+        setErrorMessage('Unexpected response from server.');
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const details = typeof data === 'string'
+        ? data
+        : (data?.error || data?.message || data?.details);
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
+        || 'Error updating session.';
+      setErrorMessage(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeletePeerSession = async (sessionId) => {
+    if (!window.confirm('Are you sure you want to delete this session?')) return;
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please login again.');
+      }
+
+      const response = await axios.delete(
+        `${FHOST}/api/peer-to-peer-sessions/${sessionId}/`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 204 || response.status === 200) {
+        setPeerToPeerSessions(prev => prev.filter(s => s.id !== sessionId));
+        setSuccessMessage('Session deleted successfully!');
+      } else {
+        setErrorMessage('Unexpected response from server.');
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const details = typeof data === 'string'
+        ? data
+        : (data?.error || data?.message || data?.details);
+      const msg = details
+        || (status ? `Request failed with status ${status}` : err?.message)
+        || 'Error deleting session.';
+      setErrorMessage(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getDayClasses = (day) => {
     const dateKey = format(day, "yyyy-MM-dd");
     const hasAvailability = availableTimes[dateKey] && availableTimes[dateKey].length > 0;
@@ -329,7 +537,7 @@ const Scheduler = ({ userInfo }) => {
 
   const tabs = [
     { id: 'availability', name: 'Manage Availability', icon: <FaClock /> },
-    { id: 'lessons', name: 'My Courses', icon: <FaBookOpen /> }
+    { id: 'peerToPeer', name: 'Peer-to-Peer', icon: <FaUsers /> }
   ];
 
   return (
@@ -338,15 +546,15 @@ const Scheduler = ({ userInfo }) => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Schedule Management</h1>
-          <p className="text-gray-600">Manage your availability and planned lessons</p>
+          <p className="text-gray-600">Manage your availability and peer-to-peer sessions</p>
         </div>
-        {activeTab === 'lessons' && (
+        {activeTab === 'peerToPeer' && (
           <button
-            onClick={() => setShowLessonModal(true)}
+            onClick={() => setShowCreatePeerModal(true)}
             className="bg-[#01B0F1] hover:bg-[#0199d4] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
             <FaPlus />
-            Create Course
+            Create Session
           </button>
         )}
       </div>
@@ -487,6 +695,78 @@ const Scheduler = ({ userInfo }) => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'peerToPeer' && (
+        <div className="space-y-4">
+          {peerToPeerSessions.length === 0 ? (
+            <div className="text-center py-12">
+              <FaUsers className="text-4xl text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700">No peer-to-peer sessions</h3>
+              <p className="text-gray-500 mt-2">Create your first peer-to-peer session</p>
+              <button
+                onClick={() => setShowCreatePeerModal(true)}
+                className="mt-4 bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors"
+              >
+                Create Session
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {peerToPeerSessions.map((session) => (
+                <div key={session.id} className="bg-white p-6 rounded-lg shadow-sm border">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">{session.title}</h3>
+                      <p className="text-gray-600 mb-2">{session.description}</p>
+                      <div className="text-sm text-gray-500 space-y-1">
+                        <p>Started: {session.started_at ? new Date(session.started_at).toLocaleString() : 'Not started'}</p>
+                        <p>Ended: {session.ended_at ? new Date(session.ended_at).toLocaleString() : 'Not ended'}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingSession(session)}
+                        className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeletePeerSession(session.id)}
+                        className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
+                        disabled={loading}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    {session.teacher_meeting_link && (
+                      <a
+                        href={session.teacher_meeting_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm"
+                      >
+                        Join Meeting
+                      </a>
+                    )}
+                    {session.whiteboard_link && (
+                      <a
+                        href={session.whiteboard_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
+                      >
+                        Open Whiteboard
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -773,6 +1053,166 @@ Topic 3`}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Peer Session Modal */}
+      {editingSession && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex flex-col">
+              <h2 className="text-2xl font-semibold text-[#015575] mb-4">Edit Session</h2>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const updateData = {
+                  title: formData.get('title'),
+                  description: formData.get('description'),
+                  started_at: formData.get('started_at'),
+                  duration_hours: parseInt(formData.get('duration_hours')),
+                };
+                handleUpdatePeerSession(editingSession.id, updateData);
+              }} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                  <input
+                    name="title"
+                    defaultValue={editingSession.title}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    name="description"
+                    defaultValue={editingSession.description}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent h-24"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                  <input
+                    name="started_at"
+                    type="datetime-local"
+                    defaultValue={editingSession.started_at ? new Date(editingSession.started_at).toISOString().slice(0, 16) : ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Duration (hours)</label>
+                  <input
+                    name="duration_hours"
+                    type="number"
+                    defaultValue={editingSession.duration_hours || 1}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                    min="1"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setEditingSession(null)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] disabled:opacity-50"
+                  >
+                    {loading ? 'Updating...' : 'Update'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Peer Session Modal */}
+      {showCreatePeerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex flex-col">
+              <h2 className="text-2xl font-semibold text-[#015575] mb-4">Create Peer Session</h2>
+              <form onSubmit={handleCreatePeerSession} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Course</label>
+                  <select
+                    value={newPeerSession.course}
+                    onChange={(e) => setNewPeerSession({ ...newPeerSession, course: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  >
+                    <option value="">Select a course</option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title} - {course.subject?.name || course.subject}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                  <input
+                    type="text"
+                    value={newPeerSession.title}
+                    onChange={(e) => setNewPeerSession({ ...newPeerSession, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                    placeholder="Session title"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    value={newPeerSession.description}
+                    onChange={(e) => setNewPeerSession({ ...newPeerSession, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent h-24"
+                    placeholder="Describe the session"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                  <input
+                    type="datetime-local"
+                    value={newPeerSession.started_at}
+                    onChange={(e) => setNewPeerSession({ ...newPeerSession, started_at: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Duration (hours)</label>
+                  <input
+                    type="number"
+                    value={newPeerSession.duration_hours}
+                    onChange={(e) => setNewPeerSession({ ...newPeerSession, duration_hours: parseInt(e.target.value) })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                    min="1"
+                    required
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatePeerModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] disabled:opacity-50"
+                  >
+                    {loading ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

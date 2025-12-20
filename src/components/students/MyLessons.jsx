@@ -3,7 +3,7 @@ import VideoLesson from "./VideoLessons";
 import StudentLiveClass from "./StudentLiveClass";
 import Forum from "./Forum";
 import UpcomingLessons from "./UpcomingLessons";
-import { FaCalendarAlt, FaCreditCard, FaClock, FaVideo, FaBookOpen, FaDollarSign, FaUsers } from "react-icons/fa";
+import { FaCalendarAlt, FaCreditCard, FaClock, FaVideo, FaBookOpen, FaDollarSign, FaUsers, FaPlus } from "react-icons/fa";
 import { FHOST } from "../constants/Functions";
 import axios from "axios";
 
@@ -12,15 +12,27 @@ const MyLessons = ({userInfo, darkMode}) => {
   const [scheduledLessons, setScheduledLessons] = useState([]);
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [availableCourses, setAvailableCourses] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
   const [courseSubTab, setCourseSubTab] = useState("enrolled");
   const [peerToPeerSessions, setPeerToPeerSessions] = useState([]);
+  const [selectedEnrolledCourse, setSelectedEnrolledCourse] = useState(null);
+  const [showCourseDetailsTab, setShowCourseDetailsTab] = useState(false);
+  const [showCreatePeerToPeerModal, setShowCreatePeerToPeerModal] = useState(false);
+  const [newPeerToPeer, setNewPeerToPeer] = useState({
+    title: '',
+    description: '',
+    course: '',
+    started_at: '',
+    duration_hours: '',
+  });
 
   useEffect(() => {
     fetchScheduledLessons();
     fetchEnrolledCourses();
     fetchAvailableCourses();
+    fetchCourses();
     fetchPeerToPeerSessions();
   }, []);
 
@@ -125,6 +137,29 @@ const MyLessons = ({userInfo, darkMode}) => {
       setAvailableCourses([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        return;
+      }
+
+      const response = await axios.get(`${FHOST}/api/courses/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const coursesList = response.data?.results || response.data || [];
+      if (Array.isArray(coursesList)) {
+        setCourses(coursesList);
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setCourses([]);
     }
   };
 
@@ -342,6 +377,70 @@ const MyLessons = ({userInfo, darkMode}) => {
     }
   };
 
+  const handleAccessCourse = async (enrollmentId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Authentication required. Please login again.');
+        return;
+      }
+
+      const response = await axios.get(`${FHOST}/api/student/enrolled/course/${enrollmentId}/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setSelectedEnrolledCourse(response.data);
+      setShowCourseDetailsTab(true);
+      setActiveComponent("courseDetails");
+    } catch (error) {
+      console.error('Error fetching enrolled course:', error);
+      alert('Failed to access course. Please try again.');
+    }
+  };
+
+  const handleCreatePeerToPeer = async (event) => {
+    event.preventDefault();
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Authentication required. Please login again.');
+        return;
+      }
+
+      let startedAt = newPeerToPeer.started_at;
+      if (startedAt && startedAt.length === 16) {
+        startedAt += ':00';
+      }
+
+      const payload = {
+        title: newPeerToPeer.title.trim(),
+        description: newPeerToPeer.description.trim(),
+        course: newPeerToPeer.course,
+        started_at: startedAt,
+        duration_hours: parseInt(newPeerToPeer.duration_hours),
+      };
+
+      const response = await axios.post(`${FHOST}/api/peer-to-peer-sessions/`, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 201 || response.status === 200) {
+        alert('Peer-to-peer session created successfully!');
+        setShowCreatePeerToPeerModal(false);
+        setNewPeerToPeer({ title: '', description: '', course: '', started_at: '', duration_hours: '' });
+        fetchPeerToPeerSessions();
+      }
+    } catch (error) {
+      console.error('Error creating peer-to-peer session:', error);
+      alert('Failed to create session. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white text-gray-800">
       {/* Navigation Buttons */}
@@ -380,6 +479,19 @@ const MyLessons = ({userInfo, darkMode}) => {
             <FaUsers className="inline mr-2" />
             Peer-to-Peer
           </button>
+          {showCourseDetailsTab && (
+            <button
+              className={`px-6 py-2 rounded-lg transition-all text-white ${
+                activeTab === "courseDetails"
+                  ? "bg-blue-800 shadow-lg"
+                  : "bg-blue-500 hover:bg-blue-700"
+              }`}
+              onClick={() => setActiveComponent("courseDetails")}
+            >
+              <FaBookOpen className="inline mr-2" />
+              Course Details
+            </button>
+          )}
         </div>
       </nav>
 
@@ -526,7 +638,7 @@ const MyLessons = ({userInfo, darkMode}) => {
                               {enrollment.is_active ? 'Active' : 'Inactive'}
                             </div>
                             <button
-                              onClick={() => window.location.href = `/course/${enrollment.id}`}
+                              onClick={() => handleAccessCourse(enrollment.id)}
                               className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                             >
                               Access Course
@@ -539,15 +651,80 @@ const MyLessons = ({userInfo, darkMode}) => {
                 )}
               </div>
             )}
+
           </div>
         )}
 
+        {activeTab === "courseDetails" && selectedEnrolledCourse && (
+           <div>
+             <div className="flex justify-between items-center mb-4">
+               <div>
+                 <h2 className="text-2xl font-bold">{selectedEnrolledCourse.course_title}</h2>
+                 <p className="text-lg text-gray-600">
+                   Course details and topics.
+                 </p>
+               </div>
+               <button
+                 onClick={() => setActiveComponent("enrolledCourses")}
+                 className="flex items-center gap-2 bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+               >
+                 Back to Courses
+               </button>
+             </div>
+             <div className="bg-white p-6 rounded-lg shadow-lg">
+               <p className="text-gray-600 mb-4">{selectedEnrolledCourse.description}</p>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                 <p><strong>Teacher:</strong> {selectedEnrolledCourse.course?.teacher ? `${selectedEnrolledCourse.course.teacher.first_name} ${selectedEnrolledCourse.course.teacher.last_name}` : 'N/A'}</p>
+                 <p><strong>Subject:</strong> {selectedEnrolledCourse.course?.subject?.name || 'N/A'}</p>
+                 <p><strong>Grade:</strong> {selectedEnrolledCourse.course?.grade?.level || 'N/A'}</p>
+                 <p><strong>Price:</strong> KES {selectedEnrolledCourse.course?.price || 'N/A'}</p>
+                 <p><strong>Purchased:</strong> {new Date(selectedEnrolledCourse.purchased_at).toLocaleDateString()}</p>
+                 <p><strong>Status:</strong> {selectedEnrolledCourse.is_active ? 'Active' : 'Inactive'}</p>
+               </div>
+               <div className="mb-4">
+                 <h4 className="text-lg font-semibold mb-2">Topics</h4>
+                 {selectedEnrolledCourse.course?.topics && selectedEnrolledCourse.course.topics.length > 0 ? (
+                   <ul className="list-disc list-inside">
+                     {selectedEnrolledCourse.course.topics.map((topic, index) => (
+                       <li key={topic.id || index} className="mb-2">
+                         <strong>{topic.title}</strong>: {topic.description}
+                         {topic.subtopics && topic.subtopics.length > 0 && (
+                           <ul className="list-disc list-inside ml-4 mt-1">
+                             {topic.subtopics.map((subtopic, subIndex) => (
+                               <li key={subtopic.id || subIndex}>
+                                 <strong>{subtopic.title}</strong>: {subtopic.content}
+                               </li>
+                             ))}
+                           </ul>
+                         )}
+                       </li>
+                     ))}
+                   </ul>
+                 ) : (
+                   <p className="text-gray-600">No topics available</p>
+                 )}
+               </div>
+             </div>
+           </div>
+         )}
+
         {activeTab === "peerToPeer" && (
-          <div>
-            <h2 className="text-2xl font-bold mb-4">Peer-to-Peer Sessions</h2>
-            <p className="text-lg mb-6 text-gray-600">
-              View and manage your peer-to-peer learning sessions.
-            </p>
+           <div>
+             <div className="flex justify-between items-center mb-4">
+               <div>
+                 <h2 className="text-2xl font-bold">Peer-to-Peer Sessions</h2>
+                 <p className="text-lg text-gray-600">
+                   View and manage your peer-to-peer learning sessions.
+                 </p>
+               </div>
+               <button
+                 onClick={() => setShowCreatePeerToPeerModal(true)}
+                 className="flex items-center gap-2 bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+               >
+                 <FaPlus />
+                 Create Session
+               </button>
+             </div>
 
             {loading ? (
               <div className="flex justify-center py-8">
@@ -606,6 +783,98 @@ const MyLessons = ({userInfo, darkMode}) => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {showCreatePeerToPeerModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+              <div className="flex justify-between items-center p-6 border-b">
+                <h2 className="text-xl font-semibold text-gray-800">Create Peer-to-Peer Session</h2>
+                <button
+                  onClick={() => setShowCreatePeerToPeerModal(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                >
+                  &times;
+                </button>
+              </div>
+              <form onSubmit={handleCreatePeerToPeer} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPeerToPeer.title}
+                    onChange={(e) => setNewPeerToPeer({ ...newPeerToPeer, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Session title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    rows={3}
+                    value={newPeerToPeer.description}
+                    onChange={(e) => setNewPeerToPeer({ ...newPeerToPeer, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Describe the session..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Course *</label>
+                  <select
+                    required
+                    value={newPeerToPeer.course}
+                    onChange={(e) => setNewPeerToPeer({ ...newPeerToPeer, course: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select a course</option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={newPeerToPeer.started_at}
+                    onChange={(e) => setNewPeerToPeer({ ...newPeerToPeer, started_at: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration Hours *</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={newPeerToPeer.duration_hours}
+                    onChange={(e) => setNewPeerToPeer({ ...newPeerToPeer, duration_hours: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g. 1"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatePeerToPeerModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  >
+                    Create Session
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </div>

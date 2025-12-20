@@ -27,6 +27,9 @@ import MyAccount from "./teachers/MyAccount";
 import TeacherProfileUpdate from "./teachers/TeacherProfileUpdate";
 import UpcomingClasses from "./teachers/UpcomingClasses";
 import Scheduler from "./teachers/Scheduler";
+import StudentLeads from "./teachers/StudentLeads";
+import RevisionMaterials from "./teachers/RevisionMaterials";
+import Assessments from "./teachers/Assessments";
 import { useLocation, useNavigate } from "react-router-dom";
 import MyWallet from "./teachers/mywallet";
 import DashboardHeader from "./layout/DashboardHeader";
@@ -478,8 +481,17 @@ const TeacherDashboard = () => {
       case "myaccount":
         setActiveComponent("myaccount");
         break;
+      case "studentleads":
+        setActiveComponent("studentleads");
+        break;
       case "upcomingclasses":
         setActiveComponent("upcomingclasses");
+        break;
+      case "revisionmaterials":
+        setActiveComponent("revisionmaterials");
+        break;
+      case "assessments":
+        setActiveComponent("assessments");
         break;
       default:
         setActiveComponent("dashboard");
@@ -525,8 +537,17 @@ const TeacherDashboard = () => {
       case "myaccount":
         navigate("/teacher-dashboard/myaccount");
         break;
+      case "studentleads":
+        navigate("/teacher-dashboard/studentleads");
+        break;
       case "upcomingclasses":
         navigate("/teacher-dashboard/upcomingclasses");
+        break;
+      case "revisionmaterials":
+        navigate("/teacher-dashboard/revisionmaterials");
+        break;
+      case "assessments":
+        navigate("/teacher-dashboard/assessments");
         break;
       default:
         navigate("/teacher-dashboard");
@@ -634,7 +655,40 @@ const TeacherDashboard = () => {
               </li>
           
               <li>
-                <button 
+                <button
+                  onClick={() => handleMenuItemClick("studentleads")}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "studentleads" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  <FaUsers className="mr-3" />
+                  Student Leads
+                  {activeComponent === "studentleads" && <FaChevronRight className="ml-auto" />}
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => handleMenuItemClick("revisionmaterials")}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "revisionmaterials" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  <FaBook className="mr-3" />
+                  Revision Materials
+                  {activeComponent === "revisionmaterials" && <FaChevronRight className="ml-auto" />}
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => handleMenuItemClick("assessments")}
+                  disabled={isBlocked}
+                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "assessments" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  <FaChartLine className="mr-3" />
+                  Assessments
+                  {activeComponent === "assessments" && <FaChevronRight className="ml-auto" />}
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => handleMenuItemClick("myaccount")}
                   className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "myaccount" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}
                 >
@@ -948,7 +1002,10 @@ const TeacherDashboard = () => {
                   {activeComponent === "liveclass" && <Liveclass userInfo={userInfo} />}
                   {activeComponent === "mywallet" && <MyWallet userInfo={userInfo} />}
                   {activeComponent === "schedule" && <Scheduler userInfo={userInfo} />}
+                  {activeComponent === "studentleads" && <StudentLeads userInfo={userInfo} />}
                   {activeComponent === "upcomingclasses" && <UpcomingClasses liveSessions={liveSessions} />}
+                  {activeComponent === "revisionmaterials" && <RevisionMaterials userInfo={userInfo} />}
+                  {activeComponent === "assessments" && <Assessments userInfo={userInfo} />}
                   {activeComponent === "profileupdate" && <TeacherProfileUpdate />}
                   {activeComponent === "myaccount" && <MyAccount />}
                 </>

@@ -19,7 +19,7 @@ const initialCourseState = {
   grade: "",
   price: "",
   code: "",
-  cover_image: "",
+  cover_image: null,
   topics: "",
   is_active: true,
   country: "Kenya", // Default to Kenya since the user is in Nairobi
@@ -187,12 +187,6 @@ const MyLessons = ({ userInfo }) => {
       setAvailableGrades(allGrades);
     } catch (error) {
       console.error("Error fetching grades:", error);
-      // If API fails, try to get from teacher profile
-      const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-      if (userInfo?.grade || userInfo?.grades) {
-        const gradesFromProfile = Array.isArray(userInfo.grade || userInfo.grades) ? (userInfo.grade || userInfo.grades) : [userInfo.grade || userInfo.grades];
-        setAvailableGrades(gradesFromProfile.map(g => typeof g === 'object' ? g : { id: g, level: g }));
-      }
     } finally {
       setLoadingGrades(false);
     }
@@ -257,24 +251,23 @@ const MyLessons = ({ userInfo }) => {
         userInfo?.teacher_profile?.id ||
         userInfo?.id;
 
-      const payload = {
-        title: newCourse.title.trim(),
-        description: newCourse.description.trim(),
-        subject: newCourse.subject,
-        grade: newCourse.grade,
-        price: newCourse.price || "0",
-        is_active: newCourse.is_active,
-        code: newCourse.code || undefined,
-        cover_image: newCourse.cover_image || undefined,
-        topics: newCourse.topics,
-        teacher: teacherIdentifier,
-        country: newCourse.country,
-        is_universal: newCourse.is_universal,
-      };
+      const formData = new FormData();
+      formData.append('title', newCourse.title.trim());
+      formData.append('description', newCourse.description.trim());
+      formData.append('subject', newCourse.subject);
+      formData.append('grade', newCourse.grade);
+      formData.append('price', newCourse.price || "0");
+      formData.append('is_active', newCourse.is_active);
+      if (newCourse.code) formData.append('code', newCourse.code);
+      if (newCourse.cover_image) formData.append('cover_image', newCourse.cover_image);
+      formData.append('topics', newCourse.topics);
+      formData.append('teacher', teacherIdentifier);
+      formData.append('country', newCourse.country);
+      formData.append('is_universal', newCourse.is_universal);
 
-      const response = await axios.post(`${FHOST}/api/courses/`, payload, {
+      const response = await axios.post(`${FHOST}/api/courses/`, formData, {
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
       });
@@ -282,7 +275,10 @@ const MyLessons = ({ userInfo }) => {
       if (response.status === 200 || response.status === 201) {
         setSuccessMessage("Course created successfully!");
         setShowCreateCourseModal(false);
-        setNewCourse(initialCourseState);
+        setNewCourse({
+          ...initialCourseState,
+          cover_image: null,
+        });
         fetchCourses();
         setTimeout(() => setSuccessMessage(""), 4000);
       }
@@ -347,6 +343,7 @@ const MyLessons = ({ userInfo }) => {
       setSavingCourse(false);
     }
   };
+
 
   const tabs = [
     { id: "courses", name: "Courses" },
@@ -552,7 +549,7 @@ const MyLessons = ({ userInfo }) => {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold text-gray-800">Live Lessons</h2>
+              <h2 className="text-xl font-semibold text-gray-800">Lessons</h2>
               <p className="text-gray-600">Create and manage live lessons for your courses</p>
             </div>
             <button
@@ -560,7 +557,7 @@ const MyLessons = ({ userInfo }) => {
               className="flex items-center gap-2 bg-[#01B0F1] hover:bg-[#0199d4] text-white px-4 py-2 rounded-lg transition-colors"
             >
               <FaPlus />
-              Create Live Lesson
+              Create a Lesson
             </button>
           </div>
 
@@ -689,13 +686,12 @@ const MyLessons = ({ userInfo }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cover Image URL</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cover Image</label>
                   <input
-                    type="text"
-                    value={newCourse.cover_image}
-                    onChange={(e) => handleCourseFieldChange("cover_image", e.target.value)}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleCourseFieldChange("cover_image", e.target.files[0])}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                    placeholder="https://..."
                   />
                 </div>
                 <div>
