@@ -188,7 +188,9 @@ const MyAccount = () => {
       // Fetch subjects and grades first, then fetch profile
       const initializeData = async () => {
         await Promise.all([fetchSubjects(), fetchGrades()]);
-        // Now fetch profile after subjects and grades are loaded
+        // Get the fetched grades to pass to fetchProfile
+        // Since setState is async, we'll fetch grades again or use the state
+        // For now, fetchProfile will use the useEffect to update when grades are loaded
         fetchProfile();
       };
       initializeData();
@@ -207,16 +209,32 @@ const MyAccount = () => {
         const resolvedSubjects = resolveSubjectNames(rawSubjects);
         const resolvedGrades = resolveGradeNames(rawGrades);
         
+        // Find matching grade from availableGrades to get the correct format for dropdown
+        let gradeValue = "";
+        if (resolvedGrades[0]) {
+          const matchingGrade = availableGrades.find(g => {
+            const gradeName = g.level || g.name || g.id;
+            return gradeName === resolvedGrades[0] || 
+                   g.id === resolvedGrades[0] ||
+                   String(g.id) === String(resolvedGrades[0]);
+          });
+          if (matchingGrade) {
+            gradeValue = matchingGrade.level || matchingGrade.name || matchingGrade.id;
+          } else {
+            gradeValue = resolvedGrades[0];
+          }
+        }
+        
         setFormData(prev => ({
           ...prev,
           subjectInput: resolvedSubjects[0] || prev.subjectInput,
-          gradeInput: resolvedGrades[0] || prev.gradeInput,
+          gradeInput: gradeValue || prev.gradeInput,
         }));
       }
     }
   }, [availableSubjects, availableGrades]);
 
-  const fetchProfile = async () => {
+  const fetchProfile = async (gradesList = null) => {
     try {
       // Try to get teacher profile using teacher detail endpoint
       const currentUserInfo = JSON.parse(localStorage.getItem('userInfo')) || {};
@@ -248,6 +266,27 @@ const MyAccount = () => {
         const resolvedSubjects = resolveSubjectNames(rawSubjects);
         const resolvedGrades = resolveGradeNames(rawGrades);
         
+        // Use provided grades list or fallback to state
+        const gradesToUse = gradesList || availableGrades;
+        
+        // Find matching grade from availableGrades to get the correct format for dropdown
+        let gradeValue = "";
+        if (resolvedGrades[0] && gradesToUse.length > 0) {
+          const matchingGrade = gradesToUse.find(g => {
+            const gradeName = g.level || g.name || g.id;
+            return gradeName === resolvedGrades[0] || 
+                   g.id === resolvedGrades[0] ||
+                   String(g.id) === String(resolvedGrades[0]);
+          });
+          if (matchingGrade) {
+            gradeValue = matchingGrade.level || matchingGrade.name || matchingGrade.id;
+          } else {
+            gradeValue = resolvedGrades[0];
+          }
+        } else if (resolvedGrades[0]) {
+          gradeValue = resolvedGrades[0];
+        }
+        
         setFormData({
           phone: response.data.phone || "",
           national_identity_number: response.data.national_identity_number || response.data.id_number || "",
@@ -262,7 +301,7 @@ const MyAccount = () => {
           national_identity_card: null,
           cv: null,
           subjectInput: resolvedSubjects[0] || "",
-          gradeInput: resolvedGrades[0] || "",
+          gradeInput: gradeValue,
         });
         if (response.data.profile_picture) {
           setProfilePhotoPreview(response.data.profile_picture);
@@ -297,6 +336,27 @@ const MyAccount = () => {
         const resolvedSubjects = resolveSubjectNames(rawSubjects);
         const resolvedGrades = resolveGradeNames(rawGrades);
         
+        // Use provided grades list or fallback to state
+        const gradesToUse = gradesList || availableGrades;
+        
+        // Find matching grade from availableGrades to get the correct format for dropdown
+        let gradeValue = "";
+        if (resolvedGrades[0] && gradesToUse.length > 0) {
+          const matchingGrade = gradesToUse.find(g => {
+            const gradeName = g.level || g.name || g.id;
+            return gradeName === resolvedGrades[0] || 
+                   g.id === resolvedGrades[0] ||
+                   String(g.id) === String(resolvedGrades[0]);
+          });
+          if (matchingGrade) {
+            gradeValue = matchingGrade.level || matchingGrade.name || matchingGrade.id;
+          } else {
+            gradeValue = resolvedGrades[0];
+          }
+        } else if (resolvedGrades[0]) {
+          gradeValue = resolvedGrades[0];
+        }
+        
         setFormData({
           phone: UserInfo.phone || "",
           national_identity_number: UserInfo.national_identity_number || UserInfo.id_number || "",
@@ -311,7 +371,7 @@ const MyAccount = () => {
           national_identity_card: null,
           cv: null,
           subjectInput: resolvedSubjects[0] || "",
-          gradeInput: resolvedGrades[0] || "",
+          gradeInput: gradeValue,
         });
         if (UserInfo.profile_picture) {
           setProfilePhotoPreview(UserInfo.profile_picture);
@@ -548,15 +608,24 @@ const MyAccount = () => {
         }
       }
 
-      // Create grade and get ID
+      // Get grade ID from selected grade
       let gradeId = null;
       if (formData.gradeInput.trim()) {
-        gradeId = await createGrade(formData.gradeInput.trim());
-        if (!gradeId) {
-          setErrorMessage("Failed to create or find the specified grade.");
-          setTimeout(() => setErrorMessage(""), 5000);
-          setLoading(false);
-          return;
+        // Find the grade from availableGrades list
+        const selectedGrade = availableGrades.find(
+          g => (g.level || g.name || g.id) === formData.gradeInput.trim()
+        );
+        if (selectedGrade) {
+          gradeId = selectedGrade.id;
+        } else {
+          // Fallback: try to create grade if not found (shouldn't happen with dropdown)
+          gradeId = await createGrade(formData.gradeInput.trim());
+          if (!gradeId) {
+            setErrorMessage("Failed to find the selected grade. Please select a grade from the list.");
+            setTimeout(() => setErrorMessage(""), 5000);
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -1066,18 +1135,23 @@ const MyAccount = () => {
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
             <h3 className="text-xl font-semibold text-[#015575] mb-6">Grade</h3>
             <p className="text-sm text-gray-600 mb-3">
-              Enter the grade you teach.
+              Select the grade you teach.
             </p>
-            <input
-              type="text"
+            <select
               value={formData.gradeInput}
               onChange={handleGradeChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-              placeholder="e.g. Grade 6"
               disabled={loading}
-            />
+            >
+              <option value="">Select a grade</option>
+              {availableGrades.map((grade) => (
+                <option key={grade.id} value={grade.level || grade.name || grade.id}>
+                  {grade.level || grade.name || grade.id}
+                </option>
+              ))}
+            </select>
             <p className="text-xs text-gray-500 mt-2">
-              The system will create the grade if it doesn't exist.
+              Select from the list of available grades.
             </p>
           </div>
 
