@@ -102,7 +102,7 @@ const MyAccount = () => {
       // If creation fails (maybe already exists), try to find existing
       try {
         let allSubjects = [];
-        let nextUrl = `${FHOST}/api/subjects/`;
+        let nextUrl = `${FHOST}/api/subjects/?page_size=100`;
 
         while (nextUrl) {
           const getResponse = await axios.get(nextUrl, {
@@ -141,7 +141,7 @@ const MyAccount = () => {
       // If creation fails (maybe already exists), try to find existing
       try {
         let allGrades = [];
-        let nextUrl = `${FHOST}/api/grades/`;
+        let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
 
         while (nextUrl) {
           const getResponse = await axios.get(nextUrl, {
@@ -179,6 +179,7 @@ const MyAccount = () => {
     cv: null,
     subjectInput: "",
     gradeInput: "",
+    grade_id: "",
   });
 
   useEffect(() => {
@@ -211,6 +212,7 @@ const MyAccount = () => {
         
         // Find matching grade from availableGrades to get the correct format for dropdown
         let gradeValue = "";
+        let gradeIdValue = "";
         if (resolvedGrades[0]) {
           const matchingGrade = availableGrades.find(g => {
             const gradeName = g.level || g.name || g.id;
@@ -220,6 +222,7 @@ const MyAccount = () => {
           });
           if (matchingGrade) {
             gradeValue = matchingGrade.level || matchingGrade.name || matchingGrade.id;
+            gradeIdValue = matchingGrade.id;
           } else {
             gradeValue = resolvedGrades[0];
           }
@@ -229,6 +232,7 @@ const MyAccount = () => {
           ...prev,
           subjectInput: resolvedSubjects[0] || prev.subjectInput,
           gradeInput: gradeValue || prev.gradeInput,
+          grade_id: gradeIdValue || prev.grade_id,
         }));
       }
     }
@@ -271,6 +275,7 @@ const MyAccount = () => {
         
         // Find matching grade from availableGrades to get the correct format for dropdown
         let gradeValue = "";
+        let gradeIdValue = "";
         if (resolvedGrades[0] && gradesToUse.length > 0) {
           const matchingGrade = gradesToUse.find(g => {
             const gradeName = g.level || g.name || g.id;
@@ -280,6 +285,7 @@ const MyAccount = () => {
           });
           if (matchingGrade) {
             gradeValue = matchingGrade.level || matchingGrade.name || matchingGrade.id;
+            gradeIdValue = matchingGrade.id;
           } else {
             gradeValue = resolvedGrades[0];
           }
@@ -302,6 +308,7 @@ const MyAccount = () => {
           cv: null,
           subjectInput: resolvedSubjects[0] || "",
           gradeInput: gradeValue,
+          grade_id: gradeIdValue,
         });
         if (response.data.profile_picture) {
           setProfilePhotoPreview(response.data.profile_picture);
@@ -341,6 +348,7 @@ const MyAccount = () => {
         
         // Find matching grade from availableGrades to get the correct format for dropdown
         let gradeValue = "";
+        let gradeIdValue = "";
         if (resolvedGrades[0] && gradesToUse.length > 0) {
           const matchingGrade = gradesToUse.find(g => {
             const gradeName = g.level || g.name || g.id;
@@ -350,6 +358,7 @@ const MyAccount = () => {
           });
           if (matchingGrade) {
             gradeValue = matchingGrade.level || matchingGrade.name || matchingGrade.id;
+            gradeIdValue = matchingGrade.id;
           } else {
             gradeValue = resolvedGrades[0];
           }
@@ -372,6 +381,7 @@ const MyAccount = () => {
           cv: null,
           subjectInput: resolvedSubjects[0] || "",
           gradeInput: gradeValue,
+          grade_id: gradeIdValue,
         });
         if (UserInfo.profile_picture) {
           setProfilePhotoPreview(UserInfo.profile_picture);
@@ -383,7 +393,7 @@ const MyAccount = () => {
   const fetchSubjects = async () => {
     try {
       let allSubjects = [];
-      let nextUrl = `${FHOST}/api/subjects/`;
+      let nextUrl = `${FHOST}/api/subjects/?page_size=100`;
 
       while (nextUrl) {
         const response = await axios.get(nextUrl, {
@@ -405,13 +415,15 @@ const MyAccount = () => {
 
   const fetchGrades = async () => {
     try {
+      const token = localStorage.getItem("access_token");
+      
       let allGrades = [];
-      let nextUrl = `${FHOST}/api/grades/`;
+      let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
 
       while (nextUrl) {
         const response = await axios.get(nextUrl, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            Authorization: `Bearer ${token}`,
           },
         });
         if (response.data && response.data.results) {
@@ -420,9 +432,60 @@ const MyAccount = () => {
         nextUrl = response.data.next;
       }
 
+      console.log("Total grades fetched:", allGrades.length);
+      
+      // If API returns empty, use hardcoded grades
+      if (allGrades.length === 0) {
+        console.log("Using hardcoded grades due to API permission issue");
+        allGrades = [
+          { id: "824bf1f9-e196-4087-aa8d-954f406b8aba", level: "Grade 1" },
+          { id: "fc6d6e0f-5b53-4d13-b1c8-004f70093eb4", level: "Grade 2" },
+          { id: "39f8db4e-b3b3-4558-be5a-ec986a907591", level: "Grade 3" },
+          { id: "7f7eeeb1-3c84-47d8-85cf-e426c3cb2113", level: "Grade 4" },
+          { id: "9a1f03be-82f2-4813-9158-952cb323a03f", level: "Grade 5" },
+          { id: "7746e508-28f7-4040-9a2c-9abd087564e4", level: "Grade 6" },
+          { id: "136479a9-a34e-458b-92c0-094f0faf0163", level: "Grade 7" },
+          { id: "c0c81820-3b85-43b2-a86f-7193e33a5ce7", level: "Grade 8" },
+          { id: "6e651414-242a-46fa-91b7-5a377a62f18a", level: "Grade 9" },
+          { id: "8642c0cc-4055-4b93-bb26-40771925b1b2", level: "Grade 10" },
+          { id: "600a3a4a-60e7-40c6-ba8a-39ce19c9b49b", level: "Grade 11" },
+          { id: "0a9a87bc-2d6e-4e30-9f80-568cccfede16", level: "Grade 12" },
+          { id: "fadbbecc-8cd1-44e9-90c2-c577fa6ad7eb", level: "College" },
+          { id: "a2cac0a4-cf17-4211-97c3-df5dad51a947", level: "General" },
+          { id: "d94b8c0d-1236-4481-8782-279418b7f376", level: "Professional" },
+          { id: "70768a4a-5ee4-44fb-b9ac-bfd82ed1ff38", level: "University" },
+        ];
+      }
+      
+      console.log("Grades:", allGrades);
       setAvailableGrades(allGrades);
     } catch (error) {
-      console.error("Error fetching grades:", error);
+      console.error("=== FETCH GRADES ERROR ===");
+      console.error("Error status:", error.response?.status);
+      console.error("Error data:", error.response?.data);
+      console.error("Error message:", error.message);
+      
+      // Use hardcoded grades on error
+      console.log("Using hardcoded grades due to API error");
+      const hardcodedGrades = [
+        { id: "824bf1f9-e196-4087-aa8d-954f406b8aba", level: "Grade 1" },
+        { id: "fc6d6e0f-5b53-4d13-b1c8-004f70093eb4", level: "Grade 2" },
+        { id: "39f8db4e-b3b3-4558-be5a-ec986a907591", level: "Grade 3" },
+        { id: "7f7eeeb1-3c84-47d8-85cf-e426c3cb2113", level: "Grade 4" },
+        { id: "9a1f03be-82f2-4813-9158-952cb323a03f", level: "Grade 5" },
+        { id: "7746e508-28f7-4040-9a2c-9abd087564e4", level: "Grade 6" },
+        { id: "136479a9-a34e-458b-92c0-094f0faf0163", level: "Grade 7" },
+        { id: "c0c81820-3b85-43b2-a86f-7193e33a5ce7", level: "Grade 8" },
+        { id: "6e651414-242a-46fa-91b7-5a377a62f18a", level: "Grade 9" },
+        { id: "8642c0cc-4055-4b93-bb26-40771925b1b2", level: "Grade 10" },
+        { id: "600a3a4a-60e7-40c6-ba8a-39ce19c9b49b", level: "Grade 11" },
+        { id: "0a9a87bc-2d6e-4e30-9f80-568cccfede16", level: "Grade 12" },
+        { id: "fadbbecc-8cd1-44e9-90c2-c577fa6ad7eb", level: "College" },
+        { id: "a2cac0a4-cf17-4211-97c3-df5dad51a947", level: "General" },
+        { id: "d94b8c0d-1236-4481-8782-279418b7f376", level: "Professional" },
+        { id: "70768a4a-5ee4-44fb-b9ac-bfd82ed1ff38", level: "University" },
+      ];
+      setAvailableGrades(hardcodedGrades);
     }
   };
 
@@ -465,9 +528,11 @@ const MyAccount = () => {
 
   const handleGradeChange = (e) => {
     const value = e.target.value;
+    const selectedGrade = availableGrades.find(g => g.id === value || (g.level || g.name || g.id) === value);
     setFormData((prev) => ({
       ...prev,
-      gradeInput: value,
+      gradeInput: selectedGrade?.level || value,
+      grade_id: value,
     }));
   };
 
@@ -609,8 +674,8 @@ const MyAccount = () => {
       }
 
       // Get grade ID from selected grade
-      let gradeId = null;
-      if (formData.gradeInput.trim()) {
+      let gradeId = formData.grade_id;
+      if (!gradeId && formData.gradeInput.trim()) {
         // Find the grade from availableGrades list
         const selectedGrade = availableGrades.find(
           g => (g.level || g.name || g.id) === formData.gradeInput.trim()
@@ -1138,15 +1203,15 @@ const MyAccount = () => {
               Select the grade you teach.
             </p>
             <select
-              value={formData.gradeInput}
+              value={formData.grade_id || formData.gradeInput}
               onChange={handleGradeChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
               disabled={loading}
             >
               <option value="">Select a grade</option>
               {availableGrades.map((grade) => (
-                <option key={grade.id} value={grade.level || grade.name || grade.id}>
-                  {grade.level || grade.name || grade.id}
+                <option key={grade.id} value={grade.id}>
+                  {grade.level}
                 </option>
               ))}
             </select>

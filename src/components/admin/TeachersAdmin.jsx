@@ -27,6 +27,20 @@ const coerceArray = (value) => {
   return [value].filter((item) => item !== undefined && item !== null && item !== "");
 };
 
+// Helper to get grade level name from ID
+const getGradeLevelName = (gradeId, availableGrades) => {
+  if (!gradeId) return "";
+  const grade = availableGrades.find(g => g.id === gradeId || g.level === gradeId);
+  return grade?.level || grade?.name || gradeId;
+};
+
+// Helper to get subject name from ID
+const getSubjectName = (subjectId, availableSubjects) => {
+  if (!subjectId) return "";
+  const subject = availableSubjects.find(s => s.id === subjectId || s.subject === subjectId);
+  return subject?.subject || subject?.name || subjectId;
+};
+
 const TeachersAdmin = () => {
   const [teachers, setTeachers] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
@@ -540,6 +554,7 @@ const TeachersAdmin = () => {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject(s)</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade(s)</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Balance</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Verification Status</th>
@@ -548,13 +563,14 @@ const TeachersAdmin = () => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
-              <tr><td className="px-6 py-4" colSpan={6}>Loading...</td></tr>
+              <tr><td className="px-6 py-4" colSpan={7}>Loading...</td></tr>
             ) : (
               filteredTeachers.map((t) => (
                 <tr key={t.id}>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{t.full_name || t.username}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{t.email}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{(t.grades || [t.grade]).filter(Boolean).join(", ") || "-"}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{(t.subjects || []).filter(Boolean).map(s => getSubjectName(s, availableSubjects)).join(", ") || "-"}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{(t.grades || [t.grade]).filter(Boolean).map(g => getGradeLevelName(g, availableGrades)).join(", ") || "-"}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">Ksh {(t.balance || 0).toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm">
                     <span className={`px-2 inline-flex text-xs font-semibold rounded-full ${
@@ -850,7 +866,7 @@ const TeachersAdmin = () => {
                               const grade = availableGrades.find(g => g.id === gradeId);
                               return (
                                 <span key={gradeId} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
-                                  {grade?.name || gradeId}
+                                  {grade?.level || grade?.name || gradeId}
                                 </span>
                               );
                             })
