@@ -427,16 +427,27 @@ const TeacherProfileUpdate = () => {
         }
       }
 
-      // Create grade and get ID
+      // Get grade ID from selected grade or use existing grade_id
       let gradeId = formData.grade_id;
+      
+      // If no grade_id from form, try to find it from availableGrades
+      if (!gradeId && formData.grade.trim()) {
+        const selectedGrade = availableGrades.find(
+          g => (g.level || g.name || g.id) === formData.grade.trim()
+        );
+        if (selectedGrade) {
+          gradeId = selectedGrade.id;
+        }
+      }
+      
+      // If still no gradeId, try to find by name (only if grade is provided)
       if (!gradeId && formData.grade.trim()) {
         gradeId = await findGradeByName(formData.grade.trim());
-        if (!gradeId) {
-          setErrorMessage("Failed to create or find the specified grade.");
-          setTimeout(() => setErrorMessage(""), 5000);
-          setLoading(false);
-          return;
-        }
+      }
+      
+      // If gradeId is still not found, use grade as fallback (send the name)
+      if (!gradeId) {
+        console.log("Grade ID not found, will send grade as string:", formData.grade);
       }
 
       const formDataToSend = new FormData();

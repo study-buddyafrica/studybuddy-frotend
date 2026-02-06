@@ -660,25 +660,27 @@ const MyAccount = () => {
         }
       }
 
-      // Get grade ID from selected grade
+      // Get grade ID from selected grade or use existing grade_id
       let gradeId = formData.grade_id;
+      
+      // If no grade_id from form, try to find it from availableGrades
       if (!gradeId && formData.gradeInput.trim()) {
-        // Find the grade from availableGrades list
         const selectedGrade = availableGrades.find(
           g => (g.level || g.name || g.id) === formData.gradeInput.trim()
         );
         if (selectedGrade) {
           gradeId = selectedGrade.id;
-        } else {
-          // Fallback: try to find grade by name using GET only
-          gradeId = await findGradeByName(formData.gradeInput.trim());
-          if (!gradeId) {
-            setErrorMessage("Failed to find the selected grade. Please select a grade from the list.");
-            setTimeout(() => setErrorMessage(""), 5000);
-            setLoading(false);
-            return;
-          }
         }
+      }
+      
+      // If still no gradeId, try to find by name (only if gradeInput is provided)
+      if (!gradeId && formData.gradeInput.trim()) {
+        gradeId = await findGradeByName(formData.gradeInput.trim());
+      }
+      
+      // If gradeId is still not found, use gradeInput as fallback (send the name)
+      if (!gradeId) {
+        console.log("Grade ID not found, will send grade as string:", formData.gradeInput);
       }
 
       const formDataToSend = new FormData();
