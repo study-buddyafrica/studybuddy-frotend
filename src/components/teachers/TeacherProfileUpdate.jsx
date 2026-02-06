@@ -125,41 +125,28 @@ const TeacherProfileUpdate = () => {
     }
   };
 
-  const createGrade = async (level) => {
+  // Find grade by name (GET only, no POST)
+  const findGradeByName = async (level) => {
     try {
-      const response = await axios.post(`${FHOST}/api/grades/`, {
-        level: level.trim()
-      }, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          "Content-Type": "application/json",
-        },
-      });
-      return response.data.id;
-    } catch (error) {
-      console.error("Error creating grade:", error);
-      // If creation fails (maybe already exists), try to find existing
-      try {
-        let allGrades = [];
-        let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
+      let allGrades = [];
+      let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
 
-        while (nextUrl) {
-          const getResponse = await axios.get(nextUrl, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-            },
-          });
-          if (getResponse.data && getResponse.data.results) {
-            allGrades = allGrades.concat(getResponse.data.results);
-          }
-          nextUrl = getResponse.data.next;
+      while (nextUrl) {
+        const getResponse = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (getResponse.data && getResponse.data.results) {
+          allGrades = allGrades.concat(getResponse.data.results);
         }
-
-        const existing = allGrades.find(g => g.level.toLowerCase() === level.trim().toLowerCase());
-        if (existing) return existing.id;
-      } catch (getError) {
-        console.error("Error finding existing grade:", getError);
+        nextUrl = getResponse.data.next;
       }
+
+      const existing = allGrades.find(g => g.level.toLowerCase() === level.trim().toLowerCase());
+      return existing?.id || null;
+    } catch (getError) {
+      console.error("Error finding grade:", getError);
       return null;
     }
   };
@@ -443,7 +430,7 @@ const TeacherProfileUpdate = () => {
       // Create grade and get ID
       let gradeId = formData.grade_id;
       if (!gradeId && formData.grade.trim()) {
-        gradeId = await createGrade(formData.grade.trim());
+        gradeId = await findGradeByName(formData.grade.trim());
         if (!gradeId) {
           setErrorMessage("Failed to create or find the specified grade.");
           setTimeout(() => setErrorMessage(""), 5000);

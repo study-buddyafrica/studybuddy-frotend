@@ -125,41 +125,28 @@ const MyAccount = () => {
     }
   };
 
-  const createGrade = async (level) => {
+  // Find grade by name (GET only, no POST)
+  const findGradeByName = async (level) => {
     try {
-      const response = await axios.post(`${FHOST}/api/grades/`, {
-        level: level.trim()
-      }, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          "Content-Type": "application/json",
-        },
-      });
-      return response.data.id;
-    } catch (error) {
-      console.error("Error creating grade:", error);
-      // If creation fails (maybe already exists), try to find existing
-      try {
-        let allGrades = [];
-        let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
+      let allGrades = [];
+      let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
 
-        while (nextUrl) {
-          const getResponse = await axios.get(nextUrl, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-            },
-          });
-          if (getResponse.data && getResponse.data.results) {
-            allGrades = allGrades.concat(getResponse.data.results);
-          }
-          nextUrl = getResponse.data.next;
+      while (nextUrl) {
+        const getResponse = await axios.get(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (getResponse.data && getResponse.data.results) {
+          allGrades = allGrades.concat(getResponse.data.results);
         }
-
-        const existing = allGrades.find(g => g.level.toLowerCase() === level.trim().toLowerCase());
-        if (existing) return existing.id;
-      } catch (getError) {
-        console.error("Error finding existing grade:", getError);
+        nextUrl = getResponse.data.next;
       }
+
+      const existing = allGrades.find(g => g.level.toLowerCase() === level.trim().toLowerCase());
+      return existing?.id || null;
+    } catch (getError) {
+      console.error("Error finding grade:", getError);
       return null;
     }
   };
@@ -683,8 +670,8 @@ const MyAccount = () => {
         if (selectedGrade) {
           gradeId = selectedGrade.id;
         } else {
-          // Fallback: try to create grade if not found (shouldn't happen with dropdown)
-          gradeId = await createGrade(formData.gradeInput.trim());
+          // Fallback: try to find grade by name using GET only
+          gradeId = await findGradeByName(formData.gradeInput.trim());
           if (!gradeId) {
             setErrorMessage("Failed to find the selected grade. Please select a grade from the list.");
             setTimeout(() => setErrorMessage(""), 5000);
