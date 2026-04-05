@@ -1,8 +1,11 @@
 import axios from "axios";
 // constants/Functions.jsx
 
-// If the env variable is missing, it fails safely rather than accidentally hitting production
-export const FHOST = process.env.REACT_APP_API_URL || "http://localhost:8000";
+
+//  BYPASS: Dynamic Environment Routing
+// Automatically detects if the app is running locally or in production
+const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+export const FHOST = isLocal ? "http://localhost:8000" : "https://backend.studybuddy.africa";
 
 export const checkUser = async (email) => {
     const serverUrl = `${FHOST}/auth/check_user`;
