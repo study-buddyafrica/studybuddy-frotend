@@ -120,20 +120,24 @@ const UniversalSignupPage = () => {
 
     setLoading(true);
     try {
-      // Step 1: Send verification code to email
-      // Django requires trailing slash for POST requests
+      /* =====================================================================
+         BYPASS: TEMPORARILY DISABLED EMAIL VERIFICATION
+         We are bypassing the /verify-email/request/ endpoint until we secure 
+         the AWS Google App Password. 
+         
+         TODO: Once keys are acquired, delete the "DIRECT REGISTRATION BYPASS" 
+         block below, and uncomment this section.
+      ========================================================================
+
       const sendCodeResponse = await fetch(`${FHOST}/api/verify-email/request/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({
-          email: formData.email,
-        }),
+        body: JSON.stringify({ email: formData.email }),
       });
 
-      // Parse response - handle both JSON and potential errors
       let sendCodeData = {};
       const contentType = sendCodeResponse.headers.get("content-type");
       try {
@@ -141,31 +145,16 @@ const UniversalSignupPage = () => {
           sendCodeData = await sendCodeResponse.json();
         } else {
           const responseText = await sendCodeResponse.text();
-          console.error("Non-JSON response received:", responseText);
           sendCodeData = { error: responseText || "Unknown server error" };
         }
       } catch (parseError) {
-        console.error("Failed to parse response:", parseError);
         sendCodeData = { error: "Failed to parse server response" };
       }
 
       if (!sendCodeResponse.ok) {
-        console.error("Verification request failed:", {
-          status: sendCodeResponse.status,
-          statusText: sendCodeResponse.statusText,
-          data: sendCodeData,
-        });
-
-        const errorMsg =
-          sendCodeData.detail ||
-          sendCodeData.message ||
-          sendCodeData.error ||
-          `Server error (${sendCodeResponse.status}): ${sendCodeResponse.statusText}`;
-
+        const errorMsg = sendCodeData.detail || sendCodeData.message || sendCodeData.error || `Server error (${sendCodeResponse.status})`;
         if (errorMsg.includes("email") && errorMsg.includes("already exists")) {
-          setErrorMessage(
-            "An account with this email already exists. Please use a different email or try logging in."
-          );
+          setErrorMessage("An account with this email already exists.");
         } else {
           setErrorMessage(errorMsg);
         }
@@ -173,38 +162,61 @@ const UniversalSignupPage = () => {
         return;
       }
 
-      // Step 2: If code sent successfully, redirect to verification page with form data
       if (sendCodeResponse.status === 200 || sendCodeResponse.status === 201) {
-        setInformationalMessage(
-          "Verification code sent to your email! Redirecting to verification page..."
-        );
-
-        // Store form data in sessionStorage to use after verification
-        const registrationData = {
-          email: formData.email,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          username: formData.username,
-          password: formData.password,
-          confirm_password: formData.confirmPassword,
-          role: formData.role,
-        };
-
-        sessionStorage.setItem(
-          "pendingRegistration",
-          JSON.stringify(registrationData)
-        );
-
-        // Redirect to verification page
+        setInformationalMessage("Verification code sent to your email! Redirecting...");
+        const registrationData = { ...formData, confirm_password: formData.confirmPassword };
+        sessionStorage.setItem("pendingRegistration", JSON.stringify(registrationData));
         setTimeout(() => {
           navigate("/verify-code", {
-            state: {
-              email: formData.email,
-              registrationData: registrationData,
-            },
+            state: { email: formData.email, registrationData: registrationData },
           });
         }, 1500);
       }
+      
+      ========================================================================
+      END OF COMMENTED ORIGINAL LOGIC
+      ===================================================================== */
+
+      // =====================================================================
+      // DIRECT REGISTRATION BYPASS (Active Code)
+      // =====================================================================
+      const registerResponse = await fetch(`${FHOST}/api/users/register/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          username: formData.username,
+          email: formData.email,
+          role: formData.role,
+          password: formData.password,
+          confirm_password: formData.confirmPassword, // <-- Add this missing line!
+        }),
+      });
+
+      if (registerResponse.ok) {
+        setInformationalMessage("Account created successfully! Redirecting to login...");
+        setTimeout(() => {
+          navigate("/login");
+        }, 1500);
+      } else {
+        let errorData = {};
+        try {
+          errorData = await registerResponse.json();
+        } catch(e) {
+           errorData = { detail: "An unknown error occurred during registration." };
+        }
+        
+        console.error("Registration Bypass Failed:", errorData);
+        // Often Django returns an array of errors for specific fields (e.g., {"email": ["Email already exists."]})
+        // We do a quick check to pull out the first error message if it exists.
+        const errorMsg = errorData.detail || errorData.error || Object.values(errorData)[0]?.[0] || "Registration failed. Please try again.";
+        setErrorMessage(errorMsg);
+      }
+      // =====================================================================
 
       setLoading(false);
     } catch (error) {

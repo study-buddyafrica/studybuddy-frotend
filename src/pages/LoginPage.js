@@ -31,7 +31,7 @@ const LoginPage = () => {
     
     try {
       // Use new token endpoint (Django requires trailing slash)
-      const tokenResp = await fetch(`${FHOST}/api/token/request/`, {
+      const tokenResp = await fetch(`${FHOST}/api/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ email, password }),

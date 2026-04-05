@@ -1,10 +1,8 @@
 import axios from "axios";
+// constants/Functions.jsx
 
-// Get server url from build time environment variable
-// export const FHOST=process.env.REACT_APP_API_URL.
-
-export const FHOST="https://backend.studybuddy.africa"
-
+// If the env variable is missing, it fails safely rather than accidentally hitting production
+export const FHOST = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 export const checkUser = async (email) => {
     const serverUrl = `${FHOST}/auth/check_user`;
