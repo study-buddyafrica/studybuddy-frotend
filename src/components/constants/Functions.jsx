@@ -1,4 +1,5 @@
 import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
 export const FHOST = process.env.REACT_APP_API_URL || "";
 console.log("API URL:", FHOST);
@@ -24,5 +25,16 @@ export const checkUser = async (email) => {
     }
 
     return { error: "An unknown error occurred" };
+  }
+};
+
+export const decodeJwtToken = (token) => {
+  try {
+    const decoded = jwtDecode(token);
+    console.log(decoded);
+    return decoded;
+  } catch (error) {
+    console.error("Invalid token", error);
+    return null;
   }
 };
