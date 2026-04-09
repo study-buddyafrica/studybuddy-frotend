@@ -56,15 +56,13 @@ const Navbar = () => {
         scrolled
           ? "bg-white/95 backdrop-blur-md shadow-md"
           : "bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff]"
-      } font-lilita`}
-    >
+      } font-lilita`}>
       <div className="container mx-auto px-6 py-1">
         <div className="flex items-center justify-between">
           {/* Logo with hover effect */}
           <Link
             to="/home"
-            className="flex-shrink-0 transform transition-transform duration-300 hover:scale-105"
-          >
+            className="flex-shrink-0 transform transition-transform duration-300 hover:scale-105">
             <img
               src="/images/logo.png"
               alt="Logo"
@@ -89,8 +87,7 @@ const Navbar = () => {
                     to={item.path}
                     className={`flex items-center text-lg gap-2 group ${
                       scrolled ? "text-[#015575]" : "text-[#015575]"
-                    } relative transition-colors`}
-                  >
+                    } relative transition-colors`}>
                     <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-[#01B0F1] transition-all duration-300 group-hover:w-full"></span>
                     {item.icon}
                     {item.title}
@@ -107,36 +104,32 @@ const Navbar = () => {
                     scrolled
                       ? "text-[#015575] hover:bg-[#01B0F1]/10"
                       : "text-[#015575] hover:bg-white/20"
-                  }`}
-                >
+                  }`}>
                   <FaUserPlus className="text-lg shrink-0" />
                   <span>Sign Up</span>
                 </button>
 
                 {/* Enhanced Dropdown */}
-                <div className="absolute hidden group-hover:block top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-white rounded-xl shadow-2xl z-50 border border-gray-100/50">
+                <div className="absolute hidden group-hover:block top-full left-1/2 -translate-x-1/2 mt-0.5 w-56 bg-white rounded-xl shadow-2xl z-50 border border-gray-100/50">
                   <div className="p-2 space-y-1">
                     <Link
                       to="/signup"
                       state={{ role: "parent" }}
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
-                    >
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
                       <FaUsers className="text-lg shrink-0" />
                       <span>Parent Account</span>
                     </Link>
                     <Link
                       to="/signup"
                       state={{ role: "student" }}
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
-                    >
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
                       <FaGraduationCap className="text-lg shrink-0" />
                       <span>Student Account</span>
                     </Link>
                     <Link
                       to="/signup"
                       state={{ role: "teacher" }}
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
-                    >
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
                       <FaChalkboardTeacher className="text-lg shrink-0" />
                       <span>Teacher Account</span>
                     </Link>
@@ -150,8 +143,7 @@ const Navbar = () => {
                   scrolled
                     ? "bg-gradient-to-r from-[#01B0F1] to-[#027fad] hover:from-[#027fad] hover:to-[#01B0F1] text-white shadow-lg hover:shadow-xl"
                     : "bg-gradient-to-r from-[#01B0F1] to-[#027fad] text-white shadow-lg hover:shadow-xl"
-                }`}
-              >
+                }`}>
                 <FaSignInAlt className="text-lg shrink-0" />
                 <span>Login</span>
               </Link>
@@ -162,8 +154,7 @@ const Navbar = () => {
           <div className="md:hidden">
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="text-2xl p-2.5 rounded-lg bg-white/10 backdrop-blur-sm border border-gray-200"
-            >
+              className="text-2xl p-2.5 rounded-lg bg-white/10 backdrop-blur-sm border border-gray-200">
               {mobileMenuOpen ? (
                 <FaTimes className="text-[#015575]" />
               ) : (
@@ -183,8 +174,7 @@ const Navbar = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="md:hidden absolute w-full bg-white/95 backdrop-blur-lg shadow-xl border-t border-gray-100/50"
-          >
+            className="md:hidden absolute w-full bg-white/95 backdrop-blur-lg shadow-xl border-t border-gray-100/50">
             <div className="px-6 py-5">
               <ul className="flex flex-col space-y-5">
                 {[
@@ -199,8 +189,7 @@ const Navbar = () => {
                   <li key={item.title}>
                     <Link
                       to={item.path}
-                      className="flex items-center gap-3 text-[#015575] hover:text-[#01B0F1] p-3 rounded-xl transition-colors"
-                    >
+                      className="flex items-center gap-3 text-[#015575] hover:text-[#01B0F1] p-3 rounded-xl transition-colors">
                       {item.icon}
                       <span className="text-lg font-medium">{item.title}</span>
                     </Link>
@@ -217,24 +206,23 @@ const Navbar = () => {
                     <Link
                       to="/signup"
                       state={{ role: "parent" }}
-                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
-                    >
+                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
                       <FaUsers className="text-lg shrink-0" />
                       <span>Parent</span>
                     </Link>
                     <Link
                       to="/signup"
-                      state={{ role: "student" }}
-                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
-                    >
+                      state={{
+                        role: "student",
+                      }}
+                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
                       <FaGraduationCap className="text-lg shrink-0" />
                       <span>Student</span>
                     </Link>
                     <Link
                       to="/signup"
                       state={{ role: "teacher" }}
-                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
-                    >
+                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
                       <FaChalkboardTeacher className="text-lg shrink-0" />
                       <span>Teacher</span>
                     </Link>
@@ -243,8 +231,7 @@ const Navbar = () => {
 
                 <Link
                   to="/login"
-                  className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-gradient-to-r from-[#01B0F1] to-[#027fad] text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
-                >
+                  className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-gradient-to-r from-[#01B0F1] to-[#027fad] text-white rounded-xl shadow-lg hover:shadow-xl transition-all">
                   <FaSignInAlt className="text-lg" />
                   <span className="font-medium">Login to Account</span>
                 </Link>
