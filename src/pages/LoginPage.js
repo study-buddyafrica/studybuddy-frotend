@@ -58,6 +58,7 @@ const LoginPage = () => {
           tokenData?.detail ||
           tokenData?.message ||
           tokenData?.error ||
+          `${Object.values(tokenData)[1]?.[0]?.detail}` ||
           tokenRaw ||
           "Login failed. Please check your credentials.";
         setErrorMessage(errorMsg);
@@ -110,6 +111,7 @@ const LoginPage = () => {
     }
   };
 
+  //google login handler
   const handleLoginGoogle = async () => {
     const provider = new GoogleAuthProvider();
     setIsGoogleLoading(true);
@@ -281,8 +283,10 @@ const LoginPage = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-red-500 text-sm font-josefin text-center">
-                {errorMessage}
+                className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">
+                <p className="font-josefin text-sm text-center">
+                  {errorMessage}
+                </p>
               </motion.div>
             )}
 

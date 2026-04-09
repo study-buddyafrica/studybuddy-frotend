@@ -198,7 +198,9 @@ const UniversalSignupPage = () => {
       });
 
       if (registerResponse.ok) {
-        setInformationalMessage("Account created successfully! Redirecting to login...");
+        setInformationalMessage(
+          "Account created successfully! Redirecting to login...",
+        );
         setTimeout(() => {
           navigate("/login");
         }, 1500);
@@ -206,26 +208,37 @@ const UniversalSignupPage = () => {
         let errorData = {};
         try {
           errorData = await registerResponse.json();
-        } catch(e) {
-           errorData = { detail: "An unknown error occurred during registration." };
+          console.error("Registration Bypass Failed:", errorData);
+        } catch (e) {
+          errorData = {
+            detail: "An unknown error occurred during registration.",
+          };
         }
-        
+
         console.error("Registration Bypass Failed:", errorData);
         // Often Django returns an array of errors for specific fields (e.g., {"email": ["Email already exists."]})
         // We do a quick check to pull out the first error message if it exists.
-        const errorMsg = errorData.detail || errorData.error || Object.values(errorData)[0]?.[0] || "Registration failed. Please try again.";
+        const errorMsg =
+          errorData.detail ||
+          errorData.error ||
+          `(${Object.values(errorData)[0]}) ${Object.values(errorData)[1]?.[0]?.detail}` ||
+          "Registration failed. Please try again.";
         setErrorMessage(errorMsg);
+        console.log(errorData);
+        console.log(errorMsg);
       }
       // =====================================================================
 
       setLoading(false);
     } catch (error) {
       console.error("Signup network error:", error);
-      setErrorMessage("Signup failed. Please check your connection and try again.");
+      setErrorMessage(
+        "Signup failed. Please check your connection and try again.",
+      );
       setLoading(false);
     }
   };
-  
+
   const getStrengthLabel = (strength) => {
     if (strength === "strong") return "Strong Password";
     return "Weak Password";
@@ -365,8 +378,7 @@ const UniversalSignupPage = () => {
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-4 w-4 md:h-5 md:w-5"
                   viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
+                  fill="currentColor">
                   <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                   <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                 </svg>
@@ -389,8 +401,7 @@ const UniversalSignupPage = () => {
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-4 w-4 md:h-5 md:w-5"
                   viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
+                  fill="currentColor">
                   <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
                 </svg>
               </div>
@@ -400,8 +411,7 @@ const UniversalSignupPage = () => {
                   className="h-4 w-4 md:h-5 md:w-5"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
+                  stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -415,8 +425,7 @@ const UniversalSignupPage = () => {
                 value={formData.role}
                 onChange={handleInputChange}
                 className="w-full pl-10 pr-10 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
-                required
-              >
+                required>
                 <option value="">Select Role</option>
                 {roles.map((role) => (
                   <option key={role.id} value={role.id}>
@@ -429,8 +438,16 @@ const UniversalSignupPage = () => {
             {/* Username */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 2a5 5 0 100 10A5 5 0 0010 2zM4 12a6 6 0 1112 0v1a2 2 0 01-2 2H6a2 2 0 01-2-2v-1z" clipRule="evenodd" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 md:h-5 md:w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor">
+                  <path
+                    fillRule="evenodd"
+                    d="M10 2a5 5 0 100 10A5 5 0 0010 2zM4 12a6 6 0 1112 0v1a2 2 0 01-2 2H6a2 2 0 01-2-2v-1z"
+                    clipRule="evenodd"
+                  />
                 </svg>
               </div>
               <input
@@ -452,8 +469,7 @@ const UniversalSignupPage = () => {
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-4 w-4 md:h-5 md:w-5"
                     viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
+                    fill="currentColor">
                     <path
                       fillRule="evenodd"
                       d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
@@ -473,8 +489,7 @@ const UniversalSignupPage = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 md:top-3.5 text-gray-500 hover:text-[#01579b]"
-                >
+                  className="absolute right-3 top-2.5 md:top-3.5 text-gray-500 hover:text-[#01579b]">
                   {showPassword ? (
                     <FaRegEyeSlash className="text-sm md:text-base" />
                   ) : (
@@ -489,8 +504,7 @@ const UniversalSignupPage = () => {
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-4 w-4 md:h-5 md:w-5"
                     viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
+                    fill="currentColor">
                     <path
                       fillRule="evenodd"
                       d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
@@ -510,8 +524,7 @@ const UniversalSignupPage = () => {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-2.5 md:top-3.5 text-gray-500 hover:text-[#01579b]"
-                >
+                  className="absolute right-3 top-2.5 md:top-3.5 text-gray-500 hover:text-[#01579b]">
                   {showConfirmPassword ? (
                     <FaRegEyeSlash className="text-sm md:text-base" />
                   ) : (
@@ -533,8 +546,7 @@ const UniversalSignupPage = () => {
                       passwordStrength === "strong"
                         ? "bg-green-100 text-green-800"
                         : "bg-red-100 text-red-800"
-                    }`}
-                  >
+                    }`}>
                     {getStrengthLabel(passwordStrength)}
                   </span>
                 </div>
@@ -547,9 +559,9 @@ const UniversalSignupPage = () => {
                         : "bg-red-500"
                     }`}
                     style={{
-                      inlineSize: passwordStrength === "strong" ? "100%" : "40%",
-                    }}
-                  ></div>
+                      inlineSize:
+                        passwordStrength === "strong" ? "100%" : "40%",
+                    }}></div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-1 md:gap-2">
@@ -559,15 +571,13 @@ const UniversalSignupPage = () => {
                         passwordRequirements.length
                           ? "bg-green-500"
                           : "bg-gray-300"
-                      }`}
-                    ></span>
+                      }`}></span>
                     <span
                       className={`text-xs ${
                         passwordRequirements.length
                           ? "text-green-700"
                           : "text-gray-500"
-                      }`}
-                    >
+                      }`}>
                       8+ characters
                     </span>
                   </div>
@@ -577,15 +587,13 @@ const UniversalSignupPage = () => {
                         passwordRequirements.uppercase
                           ? "bg-green-500"
                           : "bg-gray-300"
-                      }`}
-                    ></span>
+                      }`}></span>
                     <span
                       className={`text-xs ${
                         passwordRequirements.uppercase
                           ? "text-green-700"
                           : "text-gray-500"
-                      }`}
-                    >
+                      }`}>
                       Uppercase
                     </span>
                   </div>
@@ -595,15 +603,13 @@ const UniversalSignupPage = () => {
                         passwordRequirements.lowercase
                           ? "bg-green-500"
                           : "bg-gray-300"
-                      }`}
-                    ></span>
+                      }`}></span>
                     <span
                       className={`text-xs ${
                         passwordRequirements.lowercase
                           ? "text-green-700"
                           : "text-gray-500"
-                      }`}
-                    >
+                      }`}>
                       Lowercase
                     </span>
                   </div>
@@ -613,15 +619,13 @@ const UniversalSignupPage = () => {
                         passwordRequirements.number
                           ? "bg-green-500"
                           : "bg-gray-300"
-                      }`}
-                    ></span>
+                      }`}></span>
                     <span
                       className={`text-xs ${
                         passwordRequirements.number
                           ? "text-green-700"
                           : "text-gray-500"
-                      }`}
-                    >
+                      }`}>
                       Number
                     </span>
                   </div>
@@ -631,15 +635,13 @@ const UniversalSignupPage = () => {
                         passwordRequirements.special
                           ? "bg-green-500"
                           : "bg-gray-300"
-                      }`}
-                    ></span>
+                      }`}></span>
                     <span
                       className={`text-xs ${
                         passwordRequirements.special
                           ? "text-green-700"
                           : "text-gray-500"
-                      }`}
-                    >
+                      }`}>
                       Special character
                     </span>
                   </div>
@@ -663,34 +665,32 @@ const UniversalSignupPage = () => {
 
               <button
                 type="submit"
-                disabled={loading || passwordStrength !== "strong" || !formData.role}
+                disabled={
+                  loading || passwordStrength !== "strong" || !formData.role
+                }
                 className={`w-full py-2.5 md:py-3.5 rounded-xl font-lilita text-base md:text-lg transition-all ${
                   loading || passwordStrength !== "strong" || !formData.role
                     ? "bg-gray-400 cursor-not-allowed text-white"
                     : "bg-gradient-to-r from-[#0288d1] to-[#01579b] text-white hover:shadow-lg hover:from-[#039be5] hover:to-[#0277bd]"
-                }`}
-              >
+                }`}>
                 {loading ? (
                   <span className="flex items-center justify-center text-sm md:text-base">
                     <svg
                       className="animate-spin -ml-1 mr-2 h-4 w-4 md:h-5 md:w-5 text-white"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
-                      viewBox="0 0 24 24"
-                    >
+                      viewBox="0 0 24 24">
                       <circle
                         className="opacity-25"
                         cx="12"
                         cy="12"
                         r="10"
                         stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
+                        strokeWidth="4"></circle>
                       <path
                         className="opacity-75"
                         fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     Creating Account...
                   </span>
@@ -705,8 +705,7 @@ const UniversalSignupPage = () => {
             Already have an account?{" "}
             <Link
               to="/login"
-              className="text-[#0288d1] hover:text-[#01579b] font-semibold"
-            >
+              className="text-[#0288d1] hover:text-[#01579b] font-semibold">
               Log in here
             </Link>
           </p>
