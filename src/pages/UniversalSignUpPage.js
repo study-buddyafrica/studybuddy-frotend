@@ -11,7 +11,7 @@ import {
 import { FHOST } from "../components/constants/Functions";
 
 const UniversalSignupPage = () => {
-  const location = useLocation();
+  const { state } = useLocation();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -19,7 +19,7 @@ const UniversalSignupPage = () => {
     last_name: "",
     username: "",
     email: "",
-    role: "",
+    role: state?.role || "", // Pre-select role if coming from a specific signup button, otherwise default to empty
     password: "",
     confirmPassword: "",
   });
