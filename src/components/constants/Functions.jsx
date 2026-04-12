@@ -1,7 +1,7 @@
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
-export const FHOST = process.env.REACT_APP_API_URL || "";
+export const FHOST = "http://34.234.64.73:8000";
 console.log("API URL:", FHOST);
 
 export const checkUser = async (email) => {
