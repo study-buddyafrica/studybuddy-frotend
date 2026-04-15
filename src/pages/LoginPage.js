@@ -190,7 +190,10 @@ const LoginPage = () => {
       }
 
       // Scenario 2: User doesn't exist in Django yet
-      if (UserInfo.exists === false) {
+     if (
+        UserInfo.exists === false || 
+        String(UserInfo.exists).toLowerCase() === 'false'
+      ) {
         console.log("New Google User. Redirecting to Registration...");
         setErrorMessage("No account found. Redirecting to Sign Up...");
         
@@ -202,6 +205,7 @@ const LoginPage = () => {
             }
           });
         }, 1500);
+        
         return;
       }
 
