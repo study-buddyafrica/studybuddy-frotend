@@ -5,7 +5,7 @@ import { FcGoogle } from "react-icons/fc";
 import { motion } from "framer-motion";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { checkUser, FHOST } from "../components/constants/Functions";
-import { auth, firebaseAuth } from "../firebaseConfig";
+import { firebaseAuth } from "../firebaseConfig";
 import { authService } from "../services/authService";
 
 const LoginPage = () => {
@@ -247,7 +247,7 @@ const LoginPage = () => {
 
       switch (role) {
         case "student":
-          navigate("/student-dashboard/"); // <--- FIXED TYPO (Removed /home)
+          navigate("/student-dashboard/"); 
           break;
         case "parent":
           navigate("/parent-dashboard/home");
