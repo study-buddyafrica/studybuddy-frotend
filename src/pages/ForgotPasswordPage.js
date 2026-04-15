@@ -33,7 +33,7 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${FHOST}/auth/forgot-password`, {
+      const response = await fetch(`${FHOST}/api/auth/forgot-password/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -44,19 +44,17 @@ const ForgotPasswordPage = () => {
       if (!response.ok) {
         setErrorMessage(
           responseData.message ||
-            `Failed to send code: ${response.status} ${response.statusText}`
+            `Failed to send code: ${response.status} ${response.statusText}`,
         );
         setLoading(false);
         return;
-      }
-
-      if (response.status === 200 || response.status === 201) {
+      } else {
         setInformationalMessage("Verification code sent to your email!");
         setStep(2);
       }
     } catch (error) {
       setErrorMessage(
-        "Failed to send code. Please check your connection and try again."
+        "Failed to send code. Please check your connection and try again.",
       );
     } finally {
       setLoading(false);
@@ -89,37 +87,41 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${FHOST}/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email,
-          code: code,
-          new_password: newPassword,
-        }),
-      });
+      const response = await fetch(
+        `${FHOST}/api/auth/reset-password/confirm/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email,
+            code: code,
+            new_password: newPassword,
+            confirm_password: confirmPassword,
+          }),
+        },
+      );
 
       const responseData = await response.json();
 
       if (!response.ok) {
         setErrorMessage(
           responseData.message ||
-            `Password reset failed: ${response.status} ${response.statusText}`
+            `Password reset failed: ${response.statusText}`,
         );
-        setLoading(false);
         return;
       }
 
       if (response.status === 200 || response.status === 201) {
         setInformationalMessage(
-          "Password reset successful! Redirecting to login..."
+          "Password reset successful! Redirecting to login...",
         );
         setTimeout(() => navigate("/login"), 2000);
       }
     } catch (error) {
       setErrorMessage(
-        "Password reset failed. Please check your connection and try again."
+        "Password reset failed. Please check your connection and try again.",
       );
+    } finally {
       setLoading(false);
     }
   };
@@ -136,21 +138,18 @@ const ForgotPasswordPage = () => {
       className="animate-spin h-5 w-5 text-white"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
-      viewBox="0 0 24 24"
-    >
+      viewBox="0 0 24 24">
       <circle
         className="opacity-25"
         cx="12"
         cy="12"
         r="10"
         stroke="currentColor"
-        strokeWidth="4"
-      ></circle>
+        strokeWidth="4"></circle>
       <path
         className="opacity-75"
         fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      ></path>
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
     </svg>
   );
 
@@ -183,7 +182,7 @@ const ForgotPasswordPage = () => {
                   placeholder="Email Address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent font-josefin"
+                  className="w-full pl-12 pr-4 py-3 border outline-none border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent font-josefin"
                   required
                   disabled={loading}
                   autoFocus
@@ -195,8 +194,7 @@ const ForgotPasswordPage = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl"
-              >
+                className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">
                 <p className="font-josefin text-sm">{errorMessage}</p>
               </motion.div>
             )}
@@ -205,8 +203,7 @@ const ForgotPasswordPage = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl"
-              >
+                className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl">
                 <p className="font-josefin text-sm">{informationalMessage}</p>
               </motion.div>
             )}
@@ -216,8 +213,7 @@ const ForgotPasswordPage = () => {
               whileTap={!loading ? { scale: 0.98 } : undefined}
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 rounded-xl font-lilita hover:shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed"
-            >
+              className="w-full bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 rounded-xl font-lilita hover:shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed">
               {loading ? (
                 <div className="flex items-center justify-center gap-2">
                   <Spinner />
@@ -237,8 +233,7 @@ const ForgotPasswordPage = () => {
             <div>
               <label
                 htmlFor="code"
-                className="block text-sm font-medium text-gray-700 mb-2 font-josefin"
-              >
+                className="block text-sm font-medium text-gray-700 mb-2 font-josefin">
                 Verification Code
               </label>
               <motion.div whileHover={{ scale: 1.02 }}>
@@ -262,8 +257,7 @@ const ForgotPasswordPage = () => {
             <div>
               <label
                 htmlFor="newPassword"
-                className="block text-sm font-medium text-gray-700 mb-2 font-josefin"
-              >
+                className="block text-sm font-medium text-gray-700 mb-2 font-josefin">
                 New Password
               </label>
               <motion.div whileHover={{ scale: 1.02 }}>
@@ -285,8 +279,7 @@ const ForgotPasswordPage = () => {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-[#015575]"
-                    disabled={loading}
-                  >
+                    disabled={loading}>
                     {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
                   </button>
                 </div>
@@ -297,8 +290,7 @@ const ForgotPasswordPage = () => {
             <div>
               <label
                 htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-700 mb-2 font-josefin"
-              >
+                className="block text-sm font-medium text-gray-700 mb-2 font-josefin">
                 Confirm New Password
               </label>
               <motion.div whileHover={{ scale: 1.02 }}>
@@ -318,12 +310,9 @@ const ForgotPasswordPage = () => {
                   />
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowConfirmPassword(!showConfirmPassword)
-                    }
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-[#015575]"
-                    disabled={loading}
-                  >
+                    disabled={loading}>
                     {showConfirmPassword ? <FaRegEyeSlash /> : <FaRegEye />}
                   </button>
                 </div>
@@ -334,8 +323,7 @@ const ForgotPasswordPage = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl"
-              >
+                className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">
                 <p className="font-josefin text-sm">{errorMessage}</p>
               </motion.div>
             )}
@@ -344,8 +332,7 @@ const ForgotPasswordPage = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl"
-              >
+                className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl">
                 <p className="font-josefin text-sm">{informationalMessage}</p>
               </motion.div>
             )}
@@ -364,8 +351,7 @@ const ForgotPasswordPage = () => {
                   setInformationalMessage("");
                 }}
                 disabled={loading}
-                className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-xl font-lilita hover:bg-gray-50 transition-all disabled:opacity-75 disabled:cursor-not-allowed"
-              >
+                className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-xl font-lilita hover:bg-gray-50 transition-all disabled:opacity-75 disabled:cursor-not-allowed">
                 Back
               </motion.button>
               <motion.button
@@ -373,8 +359,7 @@ const ForgotPasswordPage = () => {
                 whileTap={!loading ? { scale: 0.98 } : undefined}
                 type="submit"
                 disabled={loading || !code || !newPassword || !confirmPassword}
-                className="flex-1 bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 rounded-xl font-lilita hover:shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed"
-              >
+                className="flex-1 bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 rounded-xl font-lilita hover:shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed">
                 {loading ? (
                   <div className="flex items-center justify-center gap-2">
                     <Spinner />
@@ -394,8 +379,7 @@ const ForgotPasswordPage = () => {
             Remember your password?{" "}
             <Link
               to="/login"
-              className="text-[#015575] hover:text-[#01B0F1] font-semibold"
-            >
+              className="text-[#015575] hover:text-[#01B0F1] font-semibold">
               Back to Login
             </Link>
           </p>

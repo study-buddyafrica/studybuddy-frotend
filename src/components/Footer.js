@@ -24,22 +24,21 @@ export default function Footer() {
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-6"
-          >
+            className="space-y-6">
             <img
               src="/images/logo.png"
               alt="StudyBuddy Logo"
-              className="w-40 h-auto"  // Removed filter classes for clarity
+              className="w-40 h-auto" // Removed filter classes for clarity
             />
             <p className="font-josefin text-white/90 text-lg leading-relaxed">
-            StudyBuddy Africa is an education technology platform empowering learners with accessible, 
-            verified, and affordable learning tools — built in Africa, for Africa.
+              StudyBuddy Africa is an education technology platform empowering
+              learners with accessible, verified, and affordable learning tools
+              — built in Africa, for Africa.
             </p>
             <motion.a
               href="/faq"
               whileHover={{ x: 5 }}
-              className="flex items-center gap-2 text-white/90 hover:text-white transition-colors w-fit"
-            >
+              className="flex items-center gap-2 text-white/90 hover:text-white transition-colors w-fit">
               <span className="font-josefin font-semibold">Explore More</span>
               <FaArrowRight className="mt-1" />
             </motion.a>
@@ -50,16 +49,14 @@ export default function Footer() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="space-y-6"
-          >
+            className="space-y-6">
             <h3 className="font-lilita text-2xl bg-clip-text text-transparent bg-gradient-to-r from-white to-[#aadfff]">
               Connect With Us
             </h3>
             <div className="space-y-4">
               <a
                 href="tel:+254790624153"
-                className="flex items-center gap-3 group hover:text-white transition-colors"
-              >
+                className="flex items-center gap-3 group hover:text-white transition-colors">
                 <div className="p-2 bg-white/10 rounded-lg group-hover:bg-white/20 transition">
                   <FaPhone className="text-xl" />
                 </div>
@@ -67,8 +64,7 @@ export default function Footer() {
               </a>
               <a
                 href="https://wa.me/254790624153"
-                className="flex items-center gap-3 group hover:text-white transition-colors"
-              >
+                className="flex items-center gap-3 group hover:text-white transition-colors">
                 <div className="p-2 bg-white/10 rounded-lg group-hover:bg-white/20 transition">
                   <FaWhatsapp className="text-xl" />
                 </div>
@@ -76,8 +72,7 @@ export default function Footer() {
               </a>
               <a
                 href="mailto:info@studybuddy.africa"
-                className="flex items-center gap-3 group hover:text-white transition-colors"
-              >
+                className="flex items-center gap-3 group hover:text-white transition-colors">
                 <div className="p-2 bg-white/10 rounded-lg group-hover:bg-white/20 transition">
                   <MdEmail className="text-xl" />
                 </div>
@@ -91,30 +86,27 @@ export default function Footer() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            className="space-y-6"
-          >
+            className="space-y-6">
             <h3 className="font-lilita text-2xl bg-clip-text text-transparent bg-gradient-to-r from-white to-[#aadfff]">
-  Quick Access
-</h3>
-<nav className="space-y-4">
-  {[
-    { name: "About Us", path: "/about-us" },
-    { name: "Our Team", path: "/team" },
-    { name: "Terms And Conditions", path: "/terms-and-conditions" },
-    { name: "Privacy Policy", path: "/privacy-policy" },
-    { name: "FAQs", path: "/faq" },
-  ].map((link, index) => (
-    <motion.a
-      key={index}
-      href={link.path}
-      whileHover={{ x: 5 }}
-      className="block font-josefin text-white/90 hover:text-white transition-colors"
-    >
-      {link.name}
-    </motion.a>
-  ))}
-</nav>
-
+              Quick Access
+            </h3>
+            <nav className="space-y-4">
+              {[
+                { name: "About Us", path: "/about-us" },
+                { name: "Our Team", path: "/team" },
+                { name: "Terms And Conditions", path: "/terms-and-conditions" },
+                { name: "Privacy Policy", path: "/privacy-policy" },
+                { name: "FAQs", path: "/faq" },
+              ].map((link, index) => (
+                <motion.a
+                  key={index}
+                  href={link.path}
+                  whileHover={{ x: 5 }}
+                  className="block font-josefin text-white/90 hover:text-white transition-colors">
+                  {link.name}
+                </motion.a>
+              ))}
+            </nav>
           </motion.div>
 
           {/* Social & Legal */}
@@ -122,8 +114,7 @@ export default function Footer() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.6 }}
-            className="space-y-6"
-          >
+            className="space-y-6">
             <h3 className="font-lilita text-2xl bg-clip-text text-transparent bg-gradient-to-r from-white to-[#aadfff]">
               Stay Connected
             </h3>
@@ -139,13 +130,11 @@ export default function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   whileHover={{ scale: 1.1 }}
-                  className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition"
-                >
+                  className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition">
                   <social.icon className="text-xl" />
                 </motion.a>
               ))}
             </div>
-
           </motion.div>
         </div>
 
@@ -156,12 +145,11 @@ export default function Footer() {
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          className="flex flex-col md:flex-row justify-between items-center gap-4 text-white/80"
-        >
+          className="flex flex-col md:flex-row justify-between items-center gap-4 text-white/80">
           <p className="font-josefin text-center text-sm">
             © {new Date().getFullYear()} StudyBuddy Africa. All rights reserved.
           </p>
-          <div className="flex gap-4">
+          {/* <div className="flex gap-4">
             <a
               href="/sitemap"
               className="text-sm hover:text-white transition-colors"
@@ -174,7 +162,7 @@ export default function Footer() {
             >
               Accessibility
             </a>
-          </div>
+          </div> */}
         </motion.div>
       </div>
     </footer>

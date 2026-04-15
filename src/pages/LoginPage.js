@@ -5,7 +5,7 @@ import { FcGoogle } from "react-icons/fc";
 import { motion } from "framer-motion";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { checkUser, FHOST } from "../components/constants/Functions";
-import { auth, firebaseAuth } from "../firebaseConfig";
+import { firebaseAuth } from "../firebaseConfig";
 import { authService } from "../services/authService";
 
 const LoginPage = () => {
@@ -75,7 +75,6 @@ const LoginPage = () => {
             const me = userListData.results[0];
             
             // STRICT CHECK: is_superuser must be explicitly true to be admin
-            // Check multiple possible formats from backend
             const rawIsSuperUser = me.is_superuser;
             const isSuperUser = rawIsSuperUser === true || 
                                rawIsSuperUser === "true" || 
@@ -85,15 +84,10 @@ const LoginPage = () => {
             // Additional check: if email is admin@gmail.com, treat as admin
             const isAdminEmail = email.toLowerCase() === 'admin@gmail.com';
             
-            console.log("Login - Raw user data:", me);
-            console.log("Login - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser, isAdminEmail });
-            
-            // If user is superuser OR admin email, ALWAYS set as admin regardless of role field
             if (isSuperUser || isAdminEmail) {
               me.is_superuser = true;
               me.role = 'admin';
               localStorage.setItem("userInfo", JSON.stringify(me));
-              console.log("Login - Admin user detected, redirecting to /admin");
               navigate("/admin");
               return;
             }
@@ -104,8 +98,6 @@ const LoginPage = () => {
             me.role = role;
             
             localStorage.setItem("userInfo", JSON.stringify(me));
-
-            console.log("Login - User role determined:", { is_superuser: me.is_superuser, role, userData: me });
 
             switch (role) {
               case "student":
@@ -132,37 +124,27 @@ const LoginPage = () => {
             let userData = null;
             try { userData = userOkRaw ? JSON.parse(userOkRaw) : null; } catch(_) { userData = null; }
             if (userResp.ok && userData) {
-              // STRICT CHECK: is_superuser must be explicitly true to be admin
               const rawIsSuperUser = userData.is_superuser;
               const isSuperUser = rawIsSuperUser === true || 
                                  rawIsSuperUser === "true" || 
                                  rawIsSuperUser === 1 ||
                                  String(rawIsSuperUser).toLowerCase() === 'true';
               
-              // Additional check: if email is admin@gmail.com, treat as admin
               const isAdminEmail = email.toLowerCase() === 'admin@gmail.com';
               
-              console.log("Login (fallback) - Raw user data:", userData);
-              console.log("Login (fallback) - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser, isAdminEmail });
-              
-              // If user is superuser OR admin email, ALWAYS set as admin regardless of role field
               if (isSuperUser || isAdminEmail) {
                 userData.is_superuser = true;
                 userData.role = 'admin';
                 localStorage.setItem("userInfo", JSON.stringify(userData));
-                console.log("Login (fallback) - Admin user detected, redirecting to /admin");
                 navigate("/admin");
                 return;
               }
               
-              // Not a superuser, use role field
               userData.is_superuser = false;
               const role = userData?.role || null;
               userData.role = role;
               
               localStorage.setItem("userInfo", JSON.stringify(userData));
-              
-              console.log("Login (fallback) - User role determined:", { is_superuser: userData.is_superuser, role, userData });
               
               switch (role) {
                 case "student": navigate("/student-dashboard/"); break;
@@ -193,62 +175,92 @@ const LoginPage = () => {
   const handleLoginGoogle = async () => {
     const provider = new GoogleAuthProvider();
     setIsGoogleLoading(true);
+    setErrorMessage(""); // Clear old errors
     try {
       const { user } = await signInWithPopup(firebaseAuth, provider);
       const UserInfo = await checkUser(user.email);
 
+      // Scenario 1: Actual Network/Server Error
       if (UserInfo.error) {
         setError(UserInfo.error);
+        setErrorMessage(UserInfo.error);
         localStorage.removeItem("userInfo");
-      } else {
-        // Set localstorage with user info empty first "UserInfo" to avoid any issues
-        localStorage.removeItem("userInfo");
-        
-        // STRICT CHECK: is_superuser must be explicitly true to be admin
-        const rawIsSuperUser = UserInfo.is_superuser;
-        const isSuperUser = rawIsSuperUser === true || 
-                           rawIsSuperUser === "true" || 
-                           rawIsSuperUser === 1 ||
-                           String(rawIsSuperUser).toLowerCase() === 'true';
-        
-        // Additional check: if email is admin@gmail.com, treat as admin
-        const isAdminEmail = user.email.toLowerCase() === 'admin@gmail.com';
-        
-        console.log("Google Login - Raw user data:", UserInfo);
-        console.log("Google Login - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser, isAdminEmail });
-        
-        // If user is superuser OR admin email, ALWAYS set as admin regardless of role field
-        if (isSuperUser || isAdminEmail) {
-          UserInfo.is_superuser = true;
-          UserInfo.role = 'admin';
-          localStorage.setItem("userInfo", JSON.stringify(UserInfo));
-          console.log("Google Login - Admin user detected, redirecting to /admin");
-          navigate("/admin");
-          return;
-        }
-        
-        // Not a superuser, use role field
-        UserInfo.is_superuser = false;
-        const role = UserInfo?.role || null;
-        UserInfo.role = role;
-        localStorage.setItem("userInfo", JSON.stringify(UserInfo));
+        setIsGoogleLoading(false);
+        return;
+      }
 
-        switch (role) {
-          case "student":
-            navigate("/student-dashboard/");
-            break;
-          case "parent":
-            navigate("/parent-dashboard/home");
-            break;
-          case "teacher":
-            navigate("/teacher-dashboard");
-            break;
-          case "admin":
-            navigate("/admin");
-            break;
-          default:
-            setErrorMessage("Unexpected role " + role);
-        }
+      // Scenario 2: User doesn't exist in Django yet
+     if (
+        UserInfo.exists === false || 
+        String(UserInfo.exists).toLowerCase() === 'false'
+      ) {
+        console.log("New Google User. Redirecting to Registration...");
+        setErrorMessage("No account found. Redirecting to Sign Up...");
+        
+        setTimeout(() => {
+          navigate("/signup", {
+            state: {
+              prefillEmail: user.email,
+              prefillName: user.displayName
+            }
+          });
+        }, 1500);
+        
+        return;
+      }
+
+      // Scenario 3: User Exists! Proceed with Login
+      localStorage.removeItem("userInfo");
+      
+      // Save backend tokens if provided by checkUser
+      if (UserInfo.access) localStorage.setItem("access_token", UserInfo.access);
+      if (UserInfo.refresh) localStorage.setItem("refresh_token", UserInfo.refresh);
+      
+      // STRICT CHECK: is_superuser must be explicitly true to be admin
+      const rawIsSuperUser = UserInfo.is_superuser;
+      const isSuperUser = rawIsSuperUser === true || 
+                         rawIsSuperUser === "true" || 
+                         rawIsSuperUser === 1 ||
+                         String(rawIsSuperUser).toLowerCase() === 'true';
+      
+      // Additional check: if email is admin@gmail.com, treat as admin
+      const isAdminEmail = user.email.toLowerCase() === 'admin@gmail.com';
+      
+      console.log("Google Login - Raw user data:", UserInfo);
+      console.log("Google Login - is_superuser check:", { raw: rawIsSuperUser, converted: isSuperUser, isAdminEmail });
+      
+      // If user is superuser OR admin email, ALWAYS set as admin regardless of role field
+      if (isSuperUser || isAdminEmail) {
+        UserInfo.is_superuser = true;
+        UserInfo.role = 'admin';
+        localStorage.setItem("userInfo", JSON.stringify(UserInfo));
+        console.log("Google Login - Admin user detected, redirecting to /admin");
+        navigate("/admin");
+        return;
+      }
+      
+      // Not a superuser, use role field
+      UserInfo.is_superuser = false;
+      const role = UserInfo?.role || null;
+      UserInfo.role = role;
+      localStorage.setItem("userInfo", JSON.stringify(UserInfo));
+
+      switch (role) {
+        case "student":
+          navigate("/student-dashboard/"); 
+          break;
+        case "parent":
+          navigate("/parent-dashboard/home");
+          break;
+        case "teacher":
+          navigate("/teacher-dashboard");
+          break;
+        case "admin":
+          navigate("/admin");
+          break;
+        default:
+          setErrorMessage("Please complete your profile to continue.");
+          navigate("/signup"); 
       }
     } catch (err) {
       console.error("Google login error:", err);
@@ -315,7 +327,7 @@ const LoginPage = () => {
                   placeholder="Email Address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border outline-none border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                   required
                   disabled={isEmailLoading || isGoogleLoading}
                 />
@@ -331,7 +343,7 @@ const LoginPage = () => {
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border outline-none border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                   required
                   disabled={isEmailLoading || isGoogleLoading}
                 />
@@ -359,9 +371,11 @@ const LoginPage = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-red-500 text-sm font-josefin text-center"
+                className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl"
               >
-                {errorMessage}
+                <p className="font-josefin text-sm text-center">
+                  {errorMessage}
+                </p>
               </motion.div>
             )}
 
@@ -395,6 +409,7 @@ const LoginPage = () => {
               <motion.button
                 whileHover={!isGoogleLoading ? { scale: 1.02 } : undefined}
                 whileTap={!isGoogleLoading ? { scale: 0.98 } : undefined}
+                type="button"
                 onClick={handleLoginGoogle}
                 disabled={isGoogleLoading || isEmailLoading}
                 className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-75 disabled:cursor-not-allowed"

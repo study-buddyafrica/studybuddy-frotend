@@ -325,10 +325,7 @@ const App = () => {
             }
           />
 
-          <Route
-            path="/student-dashboard"
-            element={<StudentDashboard />}
-          ></Route>
+          <Route path="/student-dashboard/*" element={<StudentDashboard />} />
 
 
 
