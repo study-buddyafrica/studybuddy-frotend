@@ -235,7 +235,7 @@ const LoginPage = () => {
 
         switch (role) {
           case "student":
-            navigate("/student-dashboard/home");
+            navigate("/student-dashboard/");
             break;
           case "parent":
             navigate("/parent-dashboard/home");
