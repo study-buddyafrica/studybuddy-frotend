@@ -5,11 +5,12 @@ export const FHOST = process.env.REACT_APP_API_URL;
 console.log("API URL:", FHOST);
 
 export const checkUser = async (email) => {
-  // CTO FIX: Added the /api/ prefix and the trailing slash (Django requires the trailing slash!)
-  const serverUrl = `${FHOST}/api/check-user/`;
+  //  FIX: Pointing to the exact explicit route defined in config/urls.py
+  const serverUrl = `${FHOST}/api/auth/check_user/`;
 
   try {
     const response = await axios.post(serverUrl, { email });
+   
     const responseData = response.data;
 
     if (responseData !== null) {
