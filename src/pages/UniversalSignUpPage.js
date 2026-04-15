@@ -19,9 +19,10 @@ const UniversalSignupPage = () => {
     last_name: "",
     username: "",
     email: "",
-    role: state?.role || "", // Pre-select role if coming from a specific signup button, otherwise default to empty
+    role: state?.role || "",
     password: "",
     confirmPassword: "",
+    education_level: "",
   });
 
   const [errorMessage, setErrorMessage] = useState("");
@@ -30,6 +31,9 @@ const UniversalSignupPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState("");
+  const [educationLevels, setEducationLevels] = useState([]);
+  const [educationLevelsLoading, setEducationLevelsLoading] = useState(false);
+  const [educationLevelsError, setEducationLevelsError] = useState("");
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
     uppercase: false,
@@ -95,6 +99,32 @@ const UniversalSignupPage = () => {
       });
     }
   }, [formData.password]);
+
+  //fetch education levels if role is student
+  async function fetchEducationLevels() {
+    setEducationLevelsLoading(true);
+    setEducationLevelsError("");
+    try {
+      const response = await fetch(`${FHOST}/api/education-levels/`);
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      const data = await response.json();
+      if (!data.results.length) throw new Error("No education levels found");
+      setEducationLevels(data.results);
+    } catch (error) {
+      setEducationLevelsError("Failed to load education levels.");
+    } finally {
+      setEducationLevelsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (state?.role === "student") {
+      fetchEducationLevels();
+    } else {
+      setEducationLevels([]);
+      setFormData((prev) => ({ ...prev, education_level: "" }));
+    }
+  }, [state?.role]);
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -193,7 +223,10 @@ const UniversalSignupPage = () => {
           email: formData.email,
           role: formData.role,
           password: formData.password,
-          confirm_password: formData.confirmPassword, // <-- Add this missing line!
+          confirm_password: formData.confirmPassword,
+          ...(formData.role === "student" && {
+            education_level_id: formData.education_level,
+          }),
         }),
       });
 
@@ -395,44 +428,107 @@ const UniversalSignupPage = () => {
             </div>
 
             {/* Role Selection */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 md:h-5 md:w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor">
-                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                </svg>
+            <div className="flex items-center flex-col md:flex-row gap-4 ">
+              <div className="relative w-full">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 md:h-5 md:w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                  </svg>
+                </div>
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 md:h-5 md:w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+                <select
+                  name="role"
+                  value={formData.role}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
+                  required>
+                  <option value="">Select Role</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 md:h-5 md:w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
-                required>
-                <option value="">Select Role</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
+
+              {/* Education Level */}
+              {formData.role === "student" && (
+                <div className="relative w-full">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 md:h-5 md:w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor">
+                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
+                    </svg>
+                  </div>
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 md:h-5 md:w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                  <select
+                    name="education_level"
+                    value={formData.education_level}
+                    disabled={educationLevelsLoading || !!educationLevelsError}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
+                    required>
+                    <option value="">
+                      {educationLevelsLoading
+                        ? "Loading..."
+                        : educationLevelsError
+                          ? "Failed to load"
+                          : "Select Education Level"}
+                    </option>
+                    {educationLevels.map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {level.name}
+                      </option>
+                    ))}
+                  </select>
+                  {educationLevelsError && (
+                    <p className="text-red-500 text-xs mt-1 font-josefin">
+                      {educationLevelsError}{" "}
+                      <button
+                        type="button"
+                        onClick={fetchEducationLevels}
+                        className="underline text-[#0288d1]">
+                        Retry
+                      </button>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Username */}

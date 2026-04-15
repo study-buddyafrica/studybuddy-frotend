@@ -2,7 +2,6 @@ import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
 export const FHOST = process.env.REACT_APP_API_URL;
-console.log("API URL:", FHOST);
 
 export const checkUser = async (email) => {
   const serverUrl = `${FHOST}/auth/check_user`;
