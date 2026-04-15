@@ -14,6 +14,11 @@ const UniversalSignupPage = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
 
+  // CTO UPGRADE: Extract Google Data if the user was redirected from the Login Page
+  const initialFirstName = state?.prefillName ? state.prefillName.split(' ')[0] : "";
+  const initialLastName = state?.prefillName ? state.prefillName.split(' ').slice(1).join(' ') : "";
+  const initialUsername = initialFirstName ? `${initialFirstName.toLowerCase()}${Math.floor(Math.random() * 1000)}` : "";
+
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -134,7 +139,7 @@ const UniversalSignupPage = () => {
     setInformationalMessage("");
 
     if (passwordStrength !== "strong") {
-      setErrorMessage("Password is too weak. Please meet all requirements");
+      setErrorMessage("Password is too weak. Please meet all requirements.");
       return;
     }
 
@@ -144,21 +149,13 @@ const UniversalSignupPage = () => {
     }
 
     if (!formData.role) {
-      setErrorMessage("Please select a role");
+      setErrorMessage("Please select a role.");
       return;
     }
 
     setLoading(true);
     try {
-      /* =====================================================================
-         BYPASS: TEMPORARILY DISABLED EMAIL VERIFICATION
-         We are bypassing the /verify-email/request/ endpoint until we secure 
-         the AWS Google App Password. 
-         
-         TODO: Once keys are acquired, delete the "DIRECT REGISTRATION BYPASS" 
-         block below, and uncomment this section.
-      ========================================================================
-
+      // 1. Request the Verification Code (OTP) from Django
       const sendCodeResponse = await fetch(`${FHOST}/api/verify-email/request/`, {
         method: "POST",
         headers: {
@@ -181,9 +178,15 @@ const UniversalSignupPage = () => {
         sendCodeData = { error: "Failed to parse server response" };
       }
 
+      // 2. Handle Errors (e.g., Email already exists)
       if (!sendCodeResponse.ok) {
-        const errorMsg = sendCodeData.detail || sendCodeData.message || sendCodeData.error || `Server error (${sendCodeResponse.status})`;
-        if (errorMsg.includes("email") && errorMsg.includes("already exists")) {
+        const errorMsg =
+          sendCodeData.detail ||
+          sendCodeData.message ||
+          sendCodeData.error ||
+          `Server error (${sendCodeResponse.status})`;
+          
+        if (errorMsg.toLowerCase().includes("email") && errorMsg.toLowerCase().includes("already exists")) {
           setErrorMessage("An account with this email already exists.");
         } else {
           setErrorMessage(errorMsg);
@@ -192,10 +195,14 @@ const UniversalSignupPage = () => {
         return;
       }
 
+      // 3. Success! Save data temporarily and route to the OTP Verification page
       if (sendCodeResponse.status === 200 || sendCodeResponse.status === 201) {
         setInformationalMessage("Verification code sent to your email! Redirecting...");
+        
+        // Bundle the form data so the next page can submit the final registration
         const registrationData = { ...formData, confirm_password: formData.confirmPassword };
         sessionStorage.setItem("pendingRegistration", JSON.stringify(registrationData));
+        
         setTimeout(() => {
           navigate("/verify-code", {
             state: { email: formData.email, registrationData: registrationData },
@@ -265,9 +272,7 @@ const UniversalSignupPage = () => {
       setLoading(false);
     } catch (error) {
       console.error("Signup network error:", error);
-      setErrorMessage(
-        "Signup failed. Please check your connection and try again.",
-      );
+      setErrorMessage("Signup failed. Please check your connection and try again.");
       setLoading(false);
     }
   };
@@ -303,7 +308,6 @@ const UniversalSignupPage = () => {
     }
   };
 
-  // Update left panel content based on selected role or show default
   const displayRole = formData.role || "parent";
 
   return (

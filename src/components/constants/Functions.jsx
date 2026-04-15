@@ -4,13 +4,14 @@ import { jwtDecode } from "jwt-decode";
 export const FHOST = process.env.REACT_APP_API_URL;
 
 export const checkUser = async (email) => {
-  const serverUrl = `${FHOST}/auth/check_user`;
+  //  FIX: Pointing to the exact explicit route defined in config/urls.py
+  const serverUrl = `${FHOST}/api/auth/check_user/`;
 
   try {
     const response = await axios.post(serverUrl, { email });
+   
     const responseData = response.data;
 
-    // If the response data is not null, return the response data
     if (responseData !== null) {
       return responseData;
     }
@@ -18,7 +19,6 @@ export const checkUser = async (email) => {
   } catch (error) {
     console.error("Error checking email:", error);
 
-    // Extract and return the server's error message
     if (error.response && error.response.data && error.response.data.message) {
       return { error: error.response.data.message };
     }
