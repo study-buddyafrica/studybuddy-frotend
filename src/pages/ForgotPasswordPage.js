@@ -33,7 +33,7 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${FHOST}/api/password/reset/request/`, {
+      const response = await fetch(`${FHOST}/api/auth/forgot-password/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -87,24 +87,27 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${FHOST}/api/password/reset/confirm/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email,
-          code: code,
-          new_password: newPassword,
-        }),
-      });
+      const response = await fetch(
+        `${FHOST}/api/auth/reset-password/confirm/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email,
+            code: code,
+            new_password: newPassword,
+            confirm_password: confirmPassword,
+          }),
+        },
+      );
 
       const responseData = await response.json();
 
       if (!response.ok) {
         setErrorMessage(
           responseData.message ||
-            `Password reset failed: ${response.status} ${response.statusText}`,
+            `Password reset failed: ${response.statusText}`,
         );
-        setLoading(false);
         return;
       }
 
