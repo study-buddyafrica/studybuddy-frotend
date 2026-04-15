@@ -33,7 +33,7 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${FHOST}/auth/forgot-password`, {
+      const response = await fetch(`${FHOST}/api/password/reset/request/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -48,9 +48,7 @@ const ForgotPasswordPage = () => {
         );
         setLoading(false);
         return;
-      }
-
-      if (response.status === 200 || response.status === 201) {
+      } else {
         setInformationalMessage("Verification code sent to your email!");
         setStep(2);
       }
@@ -89,7 +87,7 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${FHOST}/auth/reset-password`, {
+      const response = await fetch(`${FHOST}/api/password/reset/confirm/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -120,6 +118,7 @@ const ForgotPasswordPage = () => {
       setErrorMessage(
         "Password reset failed. Please check your connection and try again.",
       );
+    } finally {
       setLoading(false);
     }
   };
