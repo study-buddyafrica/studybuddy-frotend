@@ -37,6 +37,7 @@ import MyWallet from "./components/students/MyWallet";
 import MyLessons from "./components/students/MyLessons";
 import TeacherProfiles from "./components/students/TeachersProfiles";
 
+
 import StudentsHome from "./components/students/studentsHome";
 
 // Teachers components
@@ -69,8 +70,8 @@ const VerificationCodePage = lazy(() => import("./pages/VerificationCodePage"));
 const AboutUsPage = lazy(() => import("./pages/AboutUsPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const CookiesPolicy = lazy(() => import("./pages/CookiesPolicy"));
-const ChildrenSafetyGuidelines = lazy(
-  () => import("./pages/Children-Safety-Guidelines"),
+const ChildrenSafetyGuidelines = lazy(() =>
+  import("./pages/Children-Safety-Guidelines")
 );
 const TermsAndConditions = lazy(() => import("./pages/Terms-and-Conditions"));
 const ConfirmEmail = lazy(() => import("./pages/ConfirmEmail"));
@@ -95,7 +96,7 @@ const AdminProtectedRoute = ({ children }) => {
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-
+  
   // Check if user is superuser (admin)
   const userInfo = localStorage.getItem("userInfo");
   if (userInfo) {
@@ -105,9 +106,9 @@ const AdminProtectedRoute = ({ children }) => {
       if (user.is_superuser !== true) {
         // Redirect non-admin users to their appropriate dashboard
         const role = user.role;
-        if (role === "teacher") return <Navigate to="/teacher-dashboard" />;
-        if (role === "student") return <Navigate to="/student-dashboard/" />;
-        if (role === "parent") return <Navigate to="/parent-dashboard/home" />;
+        if (role === 'teacher') return <Navigate to="/teacher-dashboard" />;
+        if (role === 'student') return <Navigate to="/student-dashboard/" />;
+        if (role === 'parent') return <Navigate to="/parent-dashboard/home" />;
         return <Navigate to="/login" />;
       }
     } catch (e) {
@@ -117,7 +118,7 @@ const AdminProtectedRoute = ({ children }) => {
   } else {
     return <Navigate to="/login" />;
   }
-
+  
   return children;
 };
 
@@ -125,7 +126,7 @@ const App = () => {
   return (
     <Router>
       <CookieConsent />
-      <ToastContainer />
+       <ToastContainer />
       <Suspense
         fallback={
           <div className="text-center text-blue-500">
@@ -135,7 +136,8 @@ const App = () => {
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="relative h-24 w-24">
+                  className="relative h-24 w-24"
+                >
                   <div className="absolute inset-0 border-4 border-blue-200 rounded-full animate-pulse"></div>
                   <div className="absolute inset-4 border-4 border-blue-300 rounded-full animate-ping"></div>
                   <div className="absolute inset-8 border-4 border-blue-400 rounded-full"></div>
@@ -146,7 +148,8 @@ const App = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5 }}
-                  className="flex items-center space-x-2">
+                  className="flex items-center space-x-2"
+                >
                   <span className="text-2xl font-bold text-[#015575] font-lilita">
                     Loading
                   </span>
@@ -160,7 +163,8 @@ const App = () => {
                           repeat: Infinity,
                           delay: i * 0.2,
                         }}
-                        className="text-2xl text-[#01B0F1]">
+                        className="text-2xl text-[#01B0F1]"
+                      >
                         .
                       </motion.span>
                     ))}
@@ -173,7 +177,8 @@ const App = () => {
               </div>
             </div>
           </div>
-        }>
+        }
+      >
         <Routes>
           {/* Public Routes wrapped with MainLayout */}
           <Route
@@ -297,13 +302,7 @@ const App = () => {
               </MainLayout>
             }
           />
-          <Route
-            path="/admin"
-            element={
-              <AdminProtectedRoute>
-                <AdminLayout />
-              </AdminProtectedRoute>
-            }>
+          <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="users" element={<Users />} />
             <Route path="teachers" element={<AdminTeachers />} />
@@ -328,19 +327,12 @@ const App = () => {
 
           <Route
             path="/student-dashboard"
-            element={
-              <ProtectedRoute>
-                <StudentDashboard />
-              </ProtectedRoute>
-            }></Route>
+            element={<StudentDashboard />}
+          ></Route>
 
-          <Route
-            path="/teacher-dashboard/*"
-            element={
-              <ProtectedRoute>
-                <TeacherDashboard />
-              </ProtectedRoute>
-            }></Route>
+
+
+          <Route path="/teacher-dashboard/*" element={<TeacherDashboard/>}></Route>
 
           <Route
             path="/parent-dashboard/home"

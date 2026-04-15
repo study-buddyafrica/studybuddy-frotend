@@ -14,12 +14,17 @@ const UniversalSignupPage = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
 
+  // CTO UPGRADE: Extract Google Data if the user was redirected from the Login Page
+  const initialFirstName = state?.prefillName ? state.prefillName.split(' ')[0] : "";
+  const initialLastName = state?.prefillName ? state.prefillName.split(' ').slice(1).join(' ') : "";
+  const initialUsername = initialFirstName ? `${initialFirstName.toLowerCase()}${Math.floor(Math.random() * 1000)}` : "";
+
   const [formData, setFormData] = useState({
-    first_name: "",
-    last_name: "",
-    username: "",
-    email: "",
-    role: state?.role || "", // Pre-select role if coming from a specific signup button, otherwise default to empty
+    first_name: initialFirstName,
+    last_name: initialLastName,
+    username: initialUsername,
+    email: state?.prefillEmail || "", // Auto-fills the Google Email!
+    role: state?.role || "", 
     password: "",
     confirmPassword: "",
   });
@@ -96,7 +101,7 @@ const UniversalSignupPage = () => {
     }
   }, [formData.password]);
 
-  const handleSignup = async (e) => {
+ const handleSignup = async (e) => {
     e.preventDefault();
     if (loading) return;
 
@@ -104,7 +109,7 @@ const UniversalSignupPage = () => {
     setInformationalMessage("");
 
     if (passwordStrength !== "strong") {
-      setErrorMessage("Password is too weak. Please meet all requirements");
+      setErrorMessage("Password is too weak. Please meet all requirements.");
       return;
     }
 
@@ -114,21 +119,13 @@ const UniversalSignupPage = () => {
     }
 
     if (!formData.role) {
-      setErrorMessage("Please select a role");
+      setErrorMessage("Please select a role.");
       return;
     }
 
     setLoading(true);
     try {
-      /* =====================================================================
-         BYPASS: TEMPORARILY DISABLED EMAIL VERIFICATION
-         We are bypassing the /verify-email/request/ endpoint until we secure 
-         the AWS Google App Password. 
-         
-         TODO: Once keys are acquired, delete the "DIRECT REGISTRATION BYPASS" 
-         block below, and uncomment this section.
-      ========================================================================
-
+      // 1. Request the Verification Code (OTP) from Django
       const sendCodeResponse = await fetch(`${FHOST}/api/verify-email/request/`, {
         method: "POST",
         headers: {
@@ -151,9 +148,15 @@ const UniversalSignupPage = () => {
         sendCodeData = { error: "Failed to parse server response" };
       }
 
+      // 2. Handle Errors (e.g., Email already exists)
       if (!sendCodeResponse.ok) {
-        const errorMsg = sendCodeData.detail || sendCodeData.message || sendCodeData.error || `Server error (${sendCodeResponse.status})`;
-        if (errorMsg.includes("email") && errorMsg.includes("already exists")) {
+        const errorMsg =
+          sendCodeData.detail ||
+          sendCodeData.message ||
+          sendCodeData.error ||
+          `Server error (${sendCodeResponse.status})`;
+          
+        if (errorMsg.toLowerCase().includes("email") && errorMsg.toLowerCase().includes("already exists")) {
           setErrorMessage("An account with this email already exists.");
         } else {
           setErrorMessage(errorMsg);
@@ -162,10 +165,14 @@ const UniversalSignupPage = () => {
         return;
       }
 
+      // 3. Success! Save data temporarily and route to the OTP Verification page
       if (sendCodeResponse.status === 200 || sendCodeResponse.status === 201) {
         setInformationalMessage("Verification code sent to your email! Redirecting...");
+        
+        // Bundle the form data so the next page can submit the final registration
         const registrationData = { ...formData, confirm_password: formData.confirmPassword };
         sessionStorage.setItem("pendingRegistration", JSON.stringify(registrationData));
+        
         setTimeout(() => {
           navigate("/verify-code", {
             state: { email: formData.email, registrationData: registrationData },
@@ -173,68 +180,10 @@ const UniversalSignupPage = () => {
         }, 1500);
       }
       
-      ========================================================================
-      END OF COMMENTED ORIGINAL LOGIC
-      ===================================================================== */
-
-      // =====================================================================
-      // DIRECT REGISTRATION BYPASS (Active Code)
-      // =====================================================================
-      const registerResponse = await fetch(`${FHOST}/api/users/register/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          username: formData.username,
-          email: formData.email,
-          role: formData.role,
-          password: formData.password,
-          confirm_password: formData.confirmPassword, // <-- Add this missing line!
-        }),
-      });
-
-      if (registerResponse.ok) {
-        setInformationalMessage(
-          "Account created successfully! Redirecting to login...",
-        );
-        setTimeout(() => {
-          navigate("/login");
-        }, 1500);
-      } else {
-        let errorData = {};
-        try {
-          errorData = await registerResponse.json();
-          console.error("Registration Bypass Failed:", errorData);
-        } catch (e) {
-          errorData = {
-            detail: "An unknown error occurred during registration.",
-          };
-        }
-
-        console.error("Registration Bypass Failed:", errorData);
-        // Often Django returns an array of errors for specific fields (e.g., {"email": ["Email already exists."]})
-        // We do a quick check to pull out the first error message if it exists.
-        const errorMsg =
-          errorData.detail ||
-          errorData.error ||
-          `(${Object.values(errorData)[0]}) ${Object.values(errorData)[1]?.[0]?.detail}` ||
-          "Registration failed. Please try again.";
-        setErrorMessage(errorMsg);
-        console.log(errorData);
-        console.log(errorMsg);
-      }
-      // =====================================================================
-
       setLoading(false);
     } catch (error) {
       console.error("Signup network error:", error);
-      setErrorMessage(
-        "Signup failed. Please check your connection and try again.",
-      );
+      setErrorMessage("Signup failed. Please check your connection and try again.");
       setLoading(false);
     }
   };
@@ -270,7 +219,6 @@ const UniversalSignupPage = () => {
     }
   };
 
-  // Update left panel content based on selected role or show default
   const displayRole = formData.role || "parent";
 
   return (
