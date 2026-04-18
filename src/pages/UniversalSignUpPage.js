@@ -184,6 +184,7 @@ const UniversalSignupPage = () => {
         const registrationData = {
           ...formData,
           confirm_password: formData.confirmPassword,
+          role: formData.role,
         };
         sessionStorage.setItem(
           "pendingRegistration",
@@ -241,7 +242,7 @@ const UniversalSignupPage = () => {
     }
   };
 
-  const displayRole = formData.role || "parent";
+  const displayRole = formData.role;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] to-[#e1f5fe] flex items-center justify-center p-4">
