@@ -149,6 +149,7 @@ const UniversalSignupPage = () => {
       try {
         if (contentType && contentType.includes("application/json")) {
           sendCodeData = await sendCodeResponse.json();
+          console.log(sendCodeData);
         } else {
           const responseText = await sendCodeResponse.text();
           sendCodeData = { error: responseText || "Unknown server error" };
@@ -159,11 +160,7 @@ const UniversalSignupPage = () => {
 
       // 2. Handle Errors (e.g., Email already exists)
       if (!sendCodeResponse.ok) {
-        const errorMsg =
-          sendCodeData.detail ||
-          sendCodeData.message ||
-          sendCodeData.error ||
-          `Server error (${sendCodeResponse.status})`;
+        const errorMsg = `${sendCodeData.errors[0].detail}`;
 
         if (
           errorMsg.toLowerCase().includes("email") &&
@@ -625,7 +622,7 @@ const UniversalSignupPage = () => {
             {/* Messages and Submit Button */}
             <div className="space-y-3">
               {errorMessage && (
-                <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">
+                <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-center">
                   <p className="font-josefin text-sm">{errorMessage}</p>
                 </div>
               )}
