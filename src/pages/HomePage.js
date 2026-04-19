@@ -43,6 +43,7 @@ const users = [
   },
   {
     title: "K-12 Student",
+    education_level: "k-12",
     role: "student",
     path: "/signup",
     image: "/images/kid.jpg",
@@ -61,7 +62,7 @@ const users = [
     role: "parent",
     path: "/signup",
     image: "/images/pare.jpg",
-    icon: FaUsers,
+    icon: FaUserGraduate,
     description: "Monitor your child's academic progress and growth",
     features: [
       "Child report",
@@ -72,10 +73,11 @@ const users = [
   },
   {
     title: "University Scholar",
+    education_level: "university",
     role: "student",
     path: "/signup",
     image: "/images/student2.png",
-    icon: FaUsers,
+    icon: FaUserGraduate,
     description:
       "Access advanced resources and expert guidance for your academic journey",
     features: [
@@ -86,10 +88,11 @@ const users = [
   },
   {
     title: "Lifelong Learner",
+    education_level: "continuous",
     role: "student",
     path: "/signup",
     image: "/images/student.jpg",
-    icon: FaUsers,
+    icon: FaUserGraduate,
     description: " Expand your horizons with expert-led continuous learning",
     features: [
       "Upskill for your career",
@@ -195,6 +198,7 @@ const learningTracks = [
     title: "K-12 & High School",
     role: "student",
     image: "/images/high-school.jpeg",
+    education_level: "k-12",
     features: [
       "Curriculum-aligned lessons",
       "Exam prep",
@@ -208,6 +212,7 @@ const learningTracks = [
     title: "University & Higher Ed",
     role: "student",
     image: "/images/university.png",
+    education_level: "university",
     features: [
       "Advanced tutoring",
       "research assistance",
@@ -221,6 +226,7 @@ const learningTracks = [
     title: "Continuous Learning",
     role: "student",
     image: "/images/continuous.jpg",
+    education_level: "continuous",
     features: [
       "Advanced tutoring",
       "research assistance",
@@ -591,21 +597,30 @@ function HomePage() {
 
         {/* Learning tracks section */}
         <section className="py-16 w-full mb-32">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.5 }}
-            className="max-w-7xl mx-auto relative z-10">
-            <h1 className="text-4xl md:text-5xl font-bold text-[#015575] mb-8 text-center font-lilita">
-              Learning Tracks
-            </h1>
-            <h2 className="text-xl text-gray-600 mb-8 text-center font-josefin">
-              Discover our comprehensive learning tracks designed to help you
-              achieve your educational goals.
-            </h2>
+          <div className="max-w-7xl mx-auto relative z-10">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.5 }}>
+              <h1 className="text-4xl md:text-5xl font-bold text-[#015575] mb-8 text-center font-lilita">
+                Learning Tracks
+              </h1>
+              <h2 className="text-xl text-gray-600 mb-8 text-center font-josefin">
+                Discover our comprehensive learning tracks designed to help you
+                achieve your educational goals.
+              </h2>
+            </motion.div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 ">
-              {learningTracks.map((track) => (
-                <div
+              {learningTracks.map((track, index) => (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{
+                    delay: index * 0.15,
+                    duration: 0.6,
+                    ease: "easeOut",
+                  }}
                   key={track.id}
                   className="bg-[#f7fdff] px-6 group py-4 rounded-xl shadow-xl hover:shadow-4xl hover:scale-105 cursor-pointer transition-all duration-500">
                   <div className=" group">
@@ -636,7 +651,12 @@ function HomePage() {
                     </ul>
                   </div>
                   <div className="flex flex-col justify-start mt-4 mb-4 font-josefin">
-                    <Link to="/signup" state={{ role: track.role }}>
+                    <Link
+                      to="/signup"
+                      state={{
+                        role: track.role,
+                        education_level: track.education_level,
+                      }}>
                       <button
                         to="/signup"
                         className="inline-flex items-center justify-center w-full gap-2 bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 px-6 rounded-xl font-josefin hover:shadow-lg transition-all duration-300 hover:gap-3">
@@ -645,10 +665,10 @@ function HomePage() {
                       </button>
                     </Link>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </section>
 
         <div className="max-w-7xl mx-auto relative z-10">

@@ -33,10 +33,14 @@ const UniversalSignupPage = () => {
     role: state?.role || "",
     password: "",
     confirmPassword: "",
+    education_level: "",
   });
 
   const [errorMessage, setErrorMessage] = useState("");
   const [informationalMessage, setInformationalMessage] = useState("");
+  const [educationLevels, setEducationLevels] = useState([]);
+  const [educationLevelIsLoading, setEducationLevelIsLoading] = useState(false);
+  const [educationLevelError, setEducationLevelError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -211,6 +215,45 @@ const UniversalSignupPage = () => {
     }
   };
 
+  //learning levels for students
+  async function fetchLearningLevels() {
+    setEducationLevelIsLoading(true);
+    setEducationLevelError("");
+    try {
+      const response = await fetch(`${FHOST}/api/education-levels/`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch learning levels");
+      }
+      const data = await response.json();
+      if (!data?.results?.length) throw new Error("No learning levels found");
+      setEducationLevels(data.results);
+      if (state.education_level) {
+        const match = data.results.find((level) =>
+          level.name
+            .toLowerCase()
+            .includes(state.education_level.toLowerCase()),
+        );
+        if (match) {
+          setFormData((prev) => ({ ...prev, education_level: match.id }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching learning levels:", error);
+      setEducationLevelError("Unable to load education levels.");
+    } finally {
+      setEducationLevelIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (formData.role === "student") {
+      fetchLearningLevels();
+    } else {
+      setEducationLevels([]);
+      setFormData((prev) => ({ ...prev, education_level: "" }));
+    }
+  }, [formData.role, formData.education_level]);
+
   const getStrengthLabel = (strength) => {
     if (strength === "strong") return "Strong Password";
     return "Weak Password";
@@ -365,45 +408,97 @@ const UniversalSignupPage = () => {
               />
             </div>
 
-            {/* Role Selection */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 md:h-5 md:w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor">
-                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                </svg>
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+              {/* Role Selection */}
+              <div className="relative w-full">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 md:h-5 md:w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                  </svg>
+                </div>
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 md:h-5 md:w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+                <select
+                  name="role"
+                  value={formData.role}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
+                  required>
+                  <option value="">Select Role</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 md:h-5 md:w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
-                required>
-                <option value="">Select Role</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
+
+              {/* Education Level — only shown for students */}
+              {formData.role === "student" && (
+                <div className="relative w-full">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 md:h-5 md:w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor">
+                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
+                    </svg>
+                  </div>
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 md:h-5 md:w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                  <select
+                    name="education_level"
+                    value={formData.education_level}
+                    onChange={handleInputChange}
+                    disabled={educationLevelIsLoading || educationLevelError}
+                    className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
+                    required>
+                    <option value="">
+                      {educationLevelIsLoading
+                        ? "Loading..."
+                        : educationLevelError
+                          ? "Error loading levels"
+                          : "Select Education Level"}
+                    </option>
+                    {educationLevels.map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {level.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Username */}
