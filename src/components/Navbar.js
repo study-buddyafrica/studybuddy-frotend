@@ -23,17 +23,20 @@ const navItems = [
     dropdown: [
       {
         title: "Primary and Secondary",
-        path: "/programs",
+        path: "/signup",
+        state: { role: "student", education_level: "k-12" },
         icon: <FaGraduationCap />,
       },
       {
         title: "University and Higher Ed",
-        path: "/programs/online",
+        path: "/signup",
+        state: { role: "student", education_level: "university" },
         icon: <FaGraduationCap />,
       },
       {
         title: "Continuous Learning",
-        path: "/programs/in-person",
+        path: "/signup",
+        state: { role: "student", education_level: "continuous" },
         icon: <FaGraduationCap />,
       },
     ],
@@ -251,17 +254,26 @@ const Navbar = () => {
                           transition={{ duration: 0.2 }}
                           className="space-y-6 px-4 pb-4 pt-2 border-t shadow-md border-[#e1f3ff]">
                           <Link
-                            to="/programs"
+                            to="/signup"
+                            state={{ role: "student", education_level: "k-12" }}
                             className="block text-[#015575] hover:text-[#01B0F1] transition-colors">
                             Primary and Secondary
                           </Link>
                           <Link
-                            to="/programs/online"
+                            to="/signup"
+                            state={{
+                              role: "student",
+                              education_level: "university",
+                            }}
                             className="block text-[#015575] hover:text-[#01B0F1] transition-colors">
                             University and Higher Ed
                           </Link>
                           <Link
-                            to="/programs/in-person"
+                            to="/signup"
+                            state={{
+                              role: "student",
+                              education_level: "continuous",
+                            }}
                             className="block text-[#015575] hover:text-[#01B0F1] transition-colors">
                             Continuous Learning
                           </Link>

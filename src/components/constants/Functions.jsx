@@ -2,7 +2,6 @@ import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
 export const FHOST = process.env.REACT_APP_API_URL;
-console.log("API URL:", FHOST);
 
 export const checkUser = async (email) => {
   //  FIX: Pointing to the exact explicit route defined in config/urls.py
@@ -10,7 +9,7 @@ export const checkUser = async (email) => {
 
   try {
     const response = await axios.post(serverUrl, { email });
-   
+
     const responseData = response.data;
 
     if (responseData !== null) {
