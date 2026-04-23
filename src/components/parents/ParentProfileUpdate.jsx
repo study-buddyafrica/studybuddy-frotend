@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { FHOST } from "../constants/Functions";
+import { FHOST, refreshAccessToken } from "../constants/Functions";
 
 const ParentProfileUpdate = ({ userInfo }) => {
   const [profilePhoto, setProfilePhoto] = useState(null);
@@ -10,28 +10,47 @@ const ParentProfileUpdate = ({ userInfo }) => {
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [formData, setFormData] = useState({
+    full_name: userInfo?.full_name || userInfo?.username || "",
     birth_date: "",
   });
 
   useEffect(() => {
     if (userInfo?.id) {
+      if (userInfo?.id) {
+        setFormData((prev) => ({
+          ...prev,
+          full_name: userInfo?.full_name || userInfo?.username || "",
+        }));
+      }
       fetchProfile();
     }
   }, [userInfo]);
 
   const fetchProfile = async () => {
+    let token;
     try {
-      const response = await axios.get(
-        `${FHOST}/api/parent/profile/update/${userInfo.id}/`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
+      token = await refreshAccessToken();
+    } catch (refreshError) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("userInfo");
+      window.location.href = "/";
+      return;
+    }
+    try {
+      const response = await axios.get(`${FHOST}/api/parent/profile/update/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
       if (response.data) {
         setProfileData(response.data);
         setFormData({
+          full_name:
+            response.data.full_name ||
+            userInfo.full_name ||
+            userInfo.username ||
+            "",
           birth_date: response.data.birth_date || "",
         });
         if (response.data.profile_picture) {
@@ -83,11 +102,20 @@ const ParentProfileUpdate = ({ userInfo }) => {
     setSuccessMessage("");
 
     try {
-      // Get and refresh token if needed
-      let token = localStorage.getItem("access_token");
+      // refresh token before making API call
+      let token;
+      try {
+        token = await refreshAccessToken();
+      } catch (refreshError) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("userInfo");
+        window.location.href = "/";
+        return;
+      }
       if (!token) {
         setErrorMessage("No authentication token found. Please login again.");
-        setTimeout(() => setErrorMessage(""), 5000);
+        setTimeout(() => setErrorMessage(""), 8000);
         setLoading(false);
         return;
       }
@@ -124,6 +152,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
               "Content-Type": "multipart/form-data",
               Authorization: `Bearer ${token}`,
             },
+            withCredentials: true,
           },
         );
         console.log("Parent profile created successfully via POST");
@@ -137,13 +166,14 @@ const ParentProfileUpdate = ({ userInfo }) => {
         // Strategy 2: Try PUT (should create if not exists, update if exists)
         try {
           response = await axios.put(
-            `${FHOST}/api/parent/profile/update/${userInfo.id}/`,
+            `${FHOST}/api/parent/profile/update/`,
             formDataToSend,
             {
               headers: {
                 "Content-Type": "multipart/form-data",
                 Authorization: `Bearer ${token}`,
               },
+              withCredentials: true,
             },
           );
           console.log("Parent profile updated/created successfully via PUT");
@@ -157,13 +187,14 @@ const ParentProfileUpdate = ({ userInfo }) => {
           // Strategy 3: Try PATCH (update only - if profile exists)
           try {
             response = await axios.patch(
-              `${FHOST}/api/parent/profile/update/${userInfo.id}/`,
+              `${FHOST}/api/parent/profile/update/`,
               formDataToSend,
               {
                 headers: {
                   "Content-Type": "multipart/form-data",
                   Authorization: `Bearer ${token}`,
                 },
+                withCredentials: true,
               },
             );
             console.log("Parent profile updated successfully via PATCH");
@@ -209,19 +240,6 @@ const ParentProfileUpdate = ({ userInfo }) => {
           }
         }
       }
-
-      if (response.status === 200 || response.status === 201) {
-        setSuccessMessage("Profile updated successfully!");
-
-        const updatedProfile = response.data;
-        const currentUserInfo = JSON.parse(localStorage.getItem("userInfo"));
-        const updatedUserInfo = { ...currentUserInfo, ...updatedProfile };
-        localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
-
-        window.dispatchEvent(new Event("profile-updated"));
-
-        setTimeout(() => setSuccessMessage(""), 5000);
-      }
     } catch (error) {
       console.error("Error updating profile:", error);
       const errorMsg =
@@ -243,27 +261,16 @@ const ParentProfileUpdate = ({ userInfo }) => {
           Update Profile
         </h1>
 
-        {successMessage && (
-          <div className="p-4 mb-6 bg-green-100 text-green-700 rounded-xl border border-green-300">
-            {successMessage}
-          </div>
-        )}
-        {errorMessage && (
-          <div className="p-4 mb-6 bg-red-100 text-red-700 rounded-xl border border-red-300">
-            {errorMessage}
-          </div>
-        )}
-
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
+          className="bg-white rounded-2xl shadow-md p-6 md:p-8">
           {/* Profile Photo */}
           <div className="mb-8">
             <label className="block text-lg font-semibold text-[#015575] mb-4">
               Profile Photo
             </label>
-            <div className="flex flex-col items-center space-y-4">
-              <div className="relative group">
+            <div className="flex justify-center">
+              <div className="relative">
                 <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#015575]/20">
                   {profilePhotoPreview ? (
                     <img
@@ -273,7 +280,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                      <span className="text-gray-400">Add Photo</span>
+                      <span className="text-gray-400 text-sm">Add Photo</span>
                     </div>
                   )}
                 </div>
@@ -287,7 +294,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
                   />
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6"
+                    className="h-5 w-5"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor">
@@ -315,6 +322,28 @@ const ParentProfileUpdate = ({ userInfo }) => {
               Personal Information
             </h3>
             <div className="grid gap-6 md:grid-cols-2">
+              {/* Full Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter your full name"
+                  disabled={loading}
+                />
+                {userInfo?.full_name && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Pre-filled from your registration details
+                  </p>
+                )}
+              </div>
+
+              {/* Birth Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Birth Date
@@ -349,11 +378,13 @@ const ParentProfileUpdate = ({ userInfo }) => {
                     cy="12"
                     r="10"
                     stroke="currentColor"
-                    strokeWidth="4"></circle>
+                    strokeWidth="4"
+                  />
                   <path
                     className="opacity-75"
                     fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
                 </svg>
                 Updating...
               </span>
@@ -362,7 +393,101 @@ const ParentProfileUpdate = ({ userInfo }) => {
             )}
           </button>
         </form>
+
+        {/* Toast Notifications */}
+        {successMessage && (
+          <div className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-green-500 text-white px-6 py-4 rounded-xl shadow-lg">
+            <svg
+              className="w-5 h-5 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            <span className="font-medium">{successMessage}</span>
+            <button
+              onClick={() => setSuccessMessage("")}
+              className="ml-2 hover:opacity-75">
+              ✕
+            </button>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-red-500 text-white px-6 py-4 rounded-xl shadow-lg">
+            <svg
+              className="w-5 h-5 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+            <span className="font-medium">{errorMessage}</span>
+            <button
+              onClick={() => setErrorMessage("")}
+              className="ml-2 hover:opacity-75">
+              ✕
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Toast Notifications */}
+      {successMessage && (
+        <div className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-green-500 text-white px-6 py-4 rounded-xl shadow-lg">
+          <svg
+            className="w-5 h-5 flex-shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          <span className="font-medium">{successMessage}</span>
+          <button
+            onClick={() => setSuccessMessage("")}
+            className="ml-2 hover:opacity-75">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-red-500 text-white px-6 py-4 rounded-xl shadow-lg">
+          <svg
+            className="w-5 h-5 flex-shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+          <span className="font-medium">{errorMessage}</span>
+          <button
+            onClick={() => setErrorMessage("")}
+            className="ml-2 hover:opacity-75">
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 };

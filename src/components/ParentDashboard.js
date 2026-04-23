@@ -35,7 +35,7 @@ import {
   ArrowTrendingUpIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
-import { FHOST } from "./constants/Functions.jsx";
+import { FHOST, refreshAccessToken } from "./constants/Functions.jsx";
 import ParentFeedback from "./parents/ParentFeedback.jsx";
 import ParentProfileUpdate from "./parents/ParentProfileUpdate";
 import DashboardHeader from "./layout/DashboardHeader.jsx";
@@ -95,7 +95,17 @@ const ParentDashboard = () => {
   const fetchParentBalance = async () => {
     try {
       if (!userInfo) return;
-      const token = localStorage.getItem("access_token");
+
+      let token;
+      try {
+        token = await refreshAccessToken();
+      } catch (refreshError) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("userInfo");
+        window.location.href = "/";
+        return;
+      }
       const headers = {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -380,7 +390,7 @@ const ParentDashboard = () => {
 
     try {
       setDepositLoading(true);
-      const token = localStorage.getItem("access_token");
+      const token = await refreshAccessToken();
       if (!token) {
         alert("Authentication required. Please login again.");
         setDepositLoading(false);

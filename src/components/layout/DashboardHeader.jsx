@@ -44,7 +44,7 @@ const DashboardHeader = ({
           {showSidebarToggle && (
             <button
               onClick={onToggleSidebar}
-              className="mr-4 p-2 text-white hover:text-gray-200 lg:hidden">
+              className="mr-4 p-2 text-[#015474] hover:text-gray-200 lg:hidden">
               <svg
                 className="w-6 h-6"
                 fill="none"
