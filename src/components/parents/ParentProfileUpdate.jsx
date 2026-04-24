@@ -239,6 +239,66 @@ const ParentProfileUpdate = ({ userInfo }) => {
             }
           }
         }
+        // success handling
+        if (response && response.data) {
+          console.log("Profile updated successfully:", response.data);
+          setSuccessMessage("Profile updated successfully!");
+          setTimeout(() => setSuccessMessage(""), 3000);
+
+          // Fetch the updated profile to get the full data including image URL
+          try {
+            const updatedProfileResponse = await axios.get(
+              `${FHOST}/api/parent/profile/update/`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            );
+
+            if (updatedProfileResponse.data) {
+              // Update local profile data
+              setProfileData(updatedProfileResponse.data);
+
+              // Update localStorage userInfo with new profile data
+              const currentUserInfo = JSON.parse(
+                localStorage.getItem("userInfo"),
+              );
+              const updatedUserInfo = {
+                ...currentUserInfo,
+                full_name:
+                  updatedProfileResponse.data.full_name ||
+                  currentUserInfo.full_name,
+                profile_picture: updatedProfileResponse.data.profile_picture,
+                birth_date: updatedProfileResponse.data.birth_date,
+              };
+              localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
+
+              // Dispatch custom event to notify parent component
+              window.dispatchEvent(new Event("profile-updated"));
+
+              // Update form with fresh data
+              setFormData({
+                full_name:
+                  updatedProfileResponse.data.full_name ||
+                  currentUserInfo.full_name ||
+                  currentUserInfo.username ||
+                  "",
+                birth_date: updatedProfileResponse.data.birth_date || "",
+              });
+
+              // Update preview if new image was uploaded
+              if (updatedProfileResponse.data.profile_picture) {
+                setProfilePhotoPreview(
+                  updatedProfileResponse.data.profile_picture,
+                );
+              }
+            }
+          } catch (fetchError) {
+            console.error("Error fetching updated profile:", fetchError);
+            // Still show success even if refetch fails
+          }
+        }
       }
     } catch (error) {
       console.error("Error updating profile:", error);

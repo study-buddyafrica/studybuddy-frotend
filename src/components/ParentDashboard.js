@@ -162,7 +162,7 @@ const ParentDashboard = () => {
       const checkProfileCompletion = async () => {
         try {
           const profileResponse = await axios.get(
-            `${FHOST}/api/parent/profile/update/${storedUserInfo.id}/`,
+            `${FHOST}/api/parent/profile/update/`,
             {
               headers: {
                 Authorization: `Bearer ${localStorage.getItem("access_token")}`,
@@ -207,6 +207,8 @@ const ParentDashboard = () => {
       if (updatedUserInfo) {
         setUserInfo(updatedUserInfo);
         fetchParentBalance();
+        setProfileComplete(true);
+        setShowProfileUpdateModal(false);
       }
     };
     window.addEventListener("profile-updated", onProfileUpdate);
@@ -1533,6 +1535,7 @@ const ParentDashboard = () => {
           onToggleSidebar={() => setIsSidebarOpen(true)}
           onViewProfile={handleViewProfile}
           onEditProfile={handleEditProfile}
+          profilePicture={userInfo?.profile_picture}
         />
 
         {/* Profile Update Modal */}
