@@ -610,6 +610,7 @@ const TeacherDashboard = () => {
   const getDisplayName = () => {
     if (!userInfo) return "Teacher";
     const name = userInfo.full_name || userInfo.first_name || userInfo.email;
+    if (!name) return "Teacher";
     return name.split("@")[0] || name;
   };
 

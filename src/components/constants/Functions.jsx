@@ -37,3 +37,18 @@ export const decodeJwtToken = (token) => {
     return null;
   }
 };
+
+export const refreshAccessToken = async () => {
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (!refreshToken) throw new Error("No refresh token, Please login again");
+
+  const response = await axios.post(`${FHOST}/api/token/refresh/`, {
+    refresh: refreshToken,
+  });
+
+  console.log("response", response);
+
+  const newAccessToken = response.data.access;
+  localStorage.setItem("access_token", newAccessToken);
+  return newAccessToken;
+};

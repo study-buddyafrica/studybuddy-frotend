@@ -38,13 +38,13 @@ const DashboardHeader = ({
   };
 
   return (
-    <header className="bg-blue-300 dark:bg-blue-700 shadow-sm border-b border-blue-400 dark:border-blue-800 z-20 sticky top-0">
+    <header className="bg-gradient-to-r from-[#f2f9fe] to-[#cdeafd] shadow-sm border-b border-blue-300 z-20 sticky top-0 ">
       <div className="flex items-center justify-between px-4 md:px-6 py-4">
         <div className="flex items-center">
           {showSidebarToggle && (
             <button
               onClick={onToggleSidebar}
-              className="mr-4 p-2 text-white hover:text-gray-200 lg:hidden">
+              className="mr-4 p-2 text-[#015474] hover:text-gray-200 lg:hidden">
               <svg
                 className="w-6 h-6"
                 fill="none"
@@ -59,7 +59,7 @@ const DashboardHeader = ({
               </svg>
             </button>
           )}
-          <h1 className="text-xl md:text-2xl font-lilita text-white truncate">
+          <h1 className="text-xl md:text-2xl font-lilita text-[#015575] truncate">
             {title}
           </h1>
         </div>
@@ -67,7 +67,7 @@ const DashboardHeader = ({
         <div className="flex items-center space-x-4 md:space-x-6">
           {/* Notifications */}
           <div className="relative">
-            <button className="p-2 text-white hover:text-gray-200 relative">
+            <button className="p-2 text-[#015575] hover:scale-x-125 transition-all duration-300 relative">
               <BellIcon className="w-6 h-6" />
               {notificationCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -81,7 +81,7 @@ const DashboardHeader = ({
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="p-0 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors overflow-hidden w-10 h-10 flex items-center justify-center">
+              className="p-0 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors overflow-hidden w-10 h-10 flex items-center justify-center outline outline-2 outline-[#015575]">
               {userInfo?.profile_picture ? (
                 <img
                   src={userInfo.profile_picture}
