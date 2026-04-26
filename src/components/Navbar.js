@@ -80,9 +80,18 @@ const Navbar = () => {
   // 1. Put authentication into React State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // 2. Force Navbar to re-check localStorage EVERY time the URL changes
+  // 2. The Bulletproof Check: Force Navbar to re-check localStorage EVERY time the URL changes
   useEffect(() => {
-    setIsAuthenticated(!!localStorage.getItem("access_token"));
+    const token = localStorage.getItem("access_token");
+    
+    // Explicitly reject the literal strings "undefined", "null", and empty strings
+    const isActuallyAuthenticated = 
+        token !== null && 
+        token !== "undefined" && 
+        token !== "null" && 
+        token !== "";
+        
+    setIsAuthenticated(isActuallyAuthenticated);
   }, [location.pathname]);
 
   // Scorched Earth Logout
