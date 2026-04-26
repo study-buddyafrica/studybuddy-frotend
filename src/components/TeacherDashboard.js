@@ -20,7 +20,7 @@ import {
   FaSearch,
   FaBars,
 } from "react-icons/fa";
-import { FHOST } from "./constants/Functions";
+import { FHOST, refreshAccessToken } from "./constants/Functions";
 import MyLessons from "./teachers/MyLessons";
 import Liveclass from "./teachers/Liveclass";
 import MyAccount from "./teachers/MyAccount";
@@ -75,6 +75,16 @@ const TeacherDashboard = () => {
   };
 
   const fetchSubjects = async () => {
+    let token;
+    try {
+      token = await refreshAccessToken();
+    } catch (refreshError) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("userInfo");
+      window.location.href = "/";
+      return;
+    }
     try {
       let allSubjects = [];
       let nextUrl = `${FHOST}/api/subjects/`;
@@ -82,7 +92,7 @@ const TeacherDashboard = () => {
       while (nextUrl) {
         const response = await axios.get(nextUrl, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            Authorization: `Bearer ${token}`,
           },
         });
         if (response.data && response.data.results) {

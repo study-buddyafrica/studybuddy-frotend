@@ -232,7 +232,7 @@ const ParentDashboard = () => {
 
         // Use userInfo.id from state
         const balanceRes = await axios.get(
-          `${FHOST}/payments/wallet/${userInfo.id}`,
+          `${FHOST}/payments/wallet/{wallet_id}`,
         );
         setWalletBalance(balanceRes.data.balance || 0);
 
