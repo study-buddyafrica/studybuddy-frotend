@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   FaHome,
   FaChalkboardTeacher,
   FaQuestionCircle,
   FaUserPlus,
   FaSignInAlt,
+  FaSignOutAlt,
   FaUsers,
   FaGraduationCap,
   FaBars,
@@ -69,11 +70,29 @@ const navItems = [
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileProgramsOpen, setMobileProgramsOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const navRef = useRef(null);
+
+  // 1. Put authentication into React State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // 2. Force Navbar to re-check localStorage EVERY time the URL changes
+  useEffect(() => {
+    setIsAuthenticated(!!localStorage.getItem("access_token"));
+  }, [location.pathname]);
+
+  // Scorched Earth Logout
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("userInfo");
+    sessionStorage.clear();
+    window.location.href = "/login"; 
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 700);
@@ -120,7 +139,7 @@ const Navbar = () => {
             />
           </Link>
 
-          {/* Desktop Nav — all items rendered uniformly */}
+          {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-2">
             {navItems.map((item) => (
               <div
@@ -178,13 +197,22 @@ const Navbar = () => {
               </div>
             ))}
 
-            {/* Login */}
-            <Link
-              to="/login"
-              className="flex items-center gap-2 px-6 py-2.5 ml-2 rounded-full bg-gradient-to-r from-[#01B0F1] to-[#027fad] hover:from-[#027fad] hover:to-[#01B0F1] text-white shadow-lg hover:shadow-xl transition-all focus:outline-none focus:ring-0">
-              <FaSignInAlt className="text-lg shrink-0" />
-              <span>Login</span>
-            </Link>
+            {/* Login / Logout Toggle */}
+            {isAuthenticated ? (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-6 py-2.5 ml-2 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all focus:outline-none">
+                <FaSignOutAlt className="text-lg shrink-0" />
+                <span>Logout</span>
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center gap-2 px-6 py-2.5 ml-2 rounded-full bg-gradient-to-r from-[#01B0F1] to-[#027fad] hover:from-[#027fad] hover:to-[#01B0F1] text-white shadow-lg hover:shadow-xl transition-all focus:outline-none focus:ring-0">
+                <FaSignInAlt className="text-lg shrink-0" />
+                <span>Login</span>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Toggle */}
@@ -216,7 +244,6 @@ const Navbar = () => {
               <ul className="flex flex-col space-y-5">
                 {[
                   { title: "Home", icon: <FaHome />, path: "/home" },
-
                   { title: "FAQs", icon: <FaQuestionCircle />, path: "/faq" },
                 ].map((item) => (
                   <li key={item.title}>
@@ -314,12 +341,22 @@ const Navbar = () => {
                   </div>
                 </div>
 
-                <Link
-                  to="/login"
-                  className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-gradient-to-r from-[#01B0F1] to-[#027fad] text-white rounded-xl shadow-lg hover:shadow-xl transition-all">
-                  <FaSignInAlt className="text-lg" />
-                  <span className="font-medium">Login to Account</span>
-                </Link>
+                {/* Mobile Login / Logout Toggle */}
+                {isAuthenticated ? (
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-red-500 text-white rounded-xl shadow-lg hover:shadow-xl transition-all">
+                    <FaSignOutAlt className="text-lg" />
+                    <span className="font-medium">Logout</span>
+                  </button>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-gradient-to-r from-[#01B0F1] to-[#027fad] text-white rounded-xl shadow-lg hover:shadow-xl transition-all">
+                    <FaSignInAlt className="text-lg" />
+                    <span className="font-medium">Login to Account</span>
+                  </Link>
+                )}
               </div>
             </div>
           </motion.div>
