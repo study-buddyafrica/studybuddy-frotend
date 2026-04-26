@@ -120,7 +120,6 @@ const TeacherDashboard = () => {
     }
   };
 
-  // Helper functions to get names from IDs
   const getSubjectName = (subject) => {
     if (typeof subject === "object" && subject?.name) return subject.name;
     if (typeof subject === "string" || typeof subject === "number") {
@@ -174,8 +173,12 @@ const TeacherDashboard = () => {
               typeof teacher.user === "object"
                 ? teacher.user?.id
                 : teacher.user;
+            
+            // FIX: Ensure undefined records do not accidentally match undefined test accounts
+            if (!teacherUserId) return false; 
+            
             return (
-              teacherUserId && String(teacherUserId) === String(userData.id)
+              teacherUserId && String(teacherUserId) === String(userData.id || userData.user_id)
             );
           }) || null
         );
@@ -194,9 +197,14 @@ const TeacherDashboard = () => {
         navigate("/");
         return;
       }
+      
+      // FIX: Normalize Django's user_id to React's id immediately so the component doesn't bleed data
+      if (!userData.id && userData.user_id) {
+        userData.id = userData.user_id;
+      }
+      
       setUserInfo(userData);
 
-      // Fetch profile data (optional, not blocking)
       try {
         const profileResponse = await axios.get(
           `${FHOST}/api/teacher/profile/update/`,
@@ -210,11 +218,9 @@ const TeacherDashboard = () => {
           setProfileData(profileResponse.data);
         }
       } catch (error) {
-        // Profile fetch failed, but don't block access
         console.error("Error fetching profile:", error);
       }
 
-      // Fetch latest teacher data from backend to get verification status
       let finalStatus = userData.verification_status || null;
       try {
         const token = localStorage.getItem("access_token");
@@ -254,43 +260,30 @@ const TeacherDashboard = () => {
         setVerificationStatus(finalStatus);
       }
 
-      // Allow bypass for testing in development (set 'dev_mode' to 'true' in localStorage to bypass)
       const allowTestingAccess = localStorage.getItem("dev_mode") === "true";
 
-      // Flow:
-      // - If status is null/undefined: Profile not submitted yet - block access
-      // - If status is 'pending': Profile submitted, waiting for admin - allow access but show notice
-      // - If status is 'approved': Fully verified - full access
-      // - If status is 'rejected': Profile rejected - allow access but show resubmit notice
-
       if (finalStatus === "approved" || allowTestingAccess) {
-        // Verified - full access
         setIsBlocked(false);
         setShowVerificationNotice(false);
         setShowWelcomeModal(false);
       } else if (finalStatus === "pending") {
-        // Profile submitted, waiting for admin approval - allow access but show notice
-        setIsBlocked(false); // Don't block access
-        setShowVerificationNotice(true); // Show notice that verification is pending
+        setIsBlocked(false); 
+        setShowVerificationNotice(true); 
         setShowWelcomeModal(false);
       } else if (!finalStatus || finalStatus === null) {
-        // Profile not submitted yet - block access and show welcome modal
         setIsBlocked(true);
         setShowVerificationNotice(true);
         setShowWelcomeModal(true);
       } else if (finalStatus === "rejected") {
-        // Profile rejected - block access and show resubmit notice
         setIsBlocked(true);
         setShowVerificationNotice(true);
         setShowWelcomeModal(false);
       } else {
-        // Unknown status - allow access but show notice
         setIsBlocked(false);
         setShowVerificationNotice(true);
         setShowWelcomeModal(false);
       }
 
-      // Generate random avatar
       const seed =
         userData.full_name ||
         userData.username ||
@@ -301,17 +294,14 @@ const TeacherDashboard = () => {
     };
 
     refreshState();
-    // Listen for verification status updates from MyAccount
     const onVerificationChange = () => refreshState();
     window.addEventListener(
       "verification-status-changed",
       onVerificationChange,
     );
 
-    // Listen for profile updates
     const onProfileUpdate = () => {
       refreshState();
-      // Also update userInfo from localStorage
       const updatedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
       if (updatedUserInfo) {
         setUserInfo(updatedUserInfo);
@@ -328,18 +318,16 @@ const TeacherDashboard = () => {
     };
   }, [navigate]);
 
-  // Fetch subjects and grades on mount
   useEffect(() => {
     fetchSubjects();
     fetchGrades();
   }, []);
 
   const handleLogout = () => {
-    // Clear user-scoped verification flag on logout to avoid leakage across users
     try {
       const prev = JSON.parse(localStorage.getItem("userInfo"));
-      if (prev?.id) {
-        localStorage.removeItem(`verification_submitted_${prev.id}`);
+      if (prev?.id || prev?.user_id) {
+        localStorage.removeItem(`verification_submitted_${prev.id || prev.user_id}`);
       }
     } catch (e) {}
     localStorage.removeItem("userInfo");
@@ -383,8 +371,9 @@ const TeacherDashboard = () => {
 
     setUploading(true);
     try {
+      // FIX: Ensure video upload accurately references normalized ID
       const response = await axios.post(
-        `${FHOST}/lessons/api/upload-video/${userInfo?.id}`,
+        `${FHOST}/lessons/api/upload-video/${userInfo?.id || userInfo?.user_id}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } },
       );
@@ -422,12 +411,9 @@ const TeacherDashboard = () => {
           },
         });
 
-        // Handle paginated response structure
-        // Teachers see sessions they are teaching (filtered by backend)
         if (response.data?.results && Array.isArray(response.data.results)) {
           setLiveSessions(response.data.results);
         } else if (Array.isArray(response.data)) {
-          // Fallback if response is directly an array
           setLiveSessions(response.data);
         } else {
           setLiveSessions([]);
@@ -435,12 +421,10 @@ const TeacherDashboard = () => {
         setLoading(false);
       } catch (err) {
         console.error("Error fetching live sessions:", err);
-        // Try to refresh token if 401/403
         if (err.response?.status === 401 || err.response?.status === 403) {
           try {
             const { authService } = await import("../services/authService");
             const newToken = await authService.refreshToken();
-            // Retry with new token
             const retryResponse = await axios.get(
               `${FHOST}/api/live-sessions/`,
               {
@@ -470,10 +454,10 @@ const TeacherDashboard = () => {
       }
     };
 
-    if (userInfo?.id) {
+    if (userInfo?.id || userInfo?.user_id) {
       fetchLiveSessions();
     }
-  }, [userInfo?.id]);
+  }, [userInfo?.id, userInfo?.user_id]);
 
   const stats = [
     {
@@ -502,7 +486,6 @@ const TeacherDashboard = () => {
     },
   ];
 
-  // Sync UI with URL path
   useEffect(() => {
     const path = location.pathname.replace(/\/$/, "");
     const base = "/teacher-dashboard";
@@ -551,12 +534,9 @@ const TeacherDashboard = () => {
     }
   }, [location.pathname]);
 
-  // Close sidebar on mobile and navigate
   const handleMenuItemClick = (component) => {
-    // Allow testing access (set 'dev_mode' to 'true' in localStorage to bypass verification)
     const allowTestingAccess = localStorage.getItem("dev_mode") === "true";
 
-    // Block navigation to any page except myaccount if not verified (unless testing)
     if (isBlocked && component !== "myaccount" && !allowTestingAccess) {
       setShowWelcomeModal(true);
       return;
@@ -606,7 +586,6 @@ const TeacherDashboard = () => {
     }
   };
 
-  // Get display name from email
   const getDisplayName = () => {
     if (!userInfo) return "Teacher";
     const name = userInfo.full_name || userInfo.first_name || userInfo.email;
@@ -853,7 +832,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Block Overlay - Prevents access to dashboard features (unless testing) */}
+        {/* Block Overlay */}
         {(() => {
           const allowTestingAccess =
             localStorage.getItem("dev_mode") === "true";
@@ -890,7 +869,6 @@ const TeacherDashboard = () => {
           <div className="p-4 md:p-6">
             {activeComponent === "dashboard" && (
               <div className="space-y-6">
-                {/* Block dashboard content if not verified (unless testing) */}
                 {(() => {
                   const allowTestingAccess =
                     localStorage.getItem("dev_mode") === "true";
@@ -947,7 +925,6 @@ const TeacherDashboard = () => {
 
                       {/* Action Cards */}
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-                        {/* Go Live Card */}
                         <div
                           className="bg-gradient-to-r from-[#027FAD] to-[#015575] rounded-xl shadow-lg text-white p-6 cursor-pointer hover:shadow-xl transition-shadow"
                           onClick={handleGoLive}>
@@ -965,7 +942,6 @@ const TeacherDashboard = () => {
                           </button>
                         </div>
 
-                        {/* Schedule Card */}
                         <div
                           className="bg-white rounded-xl shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border border-gray-100"
                           onClick={() => handleMenuItemClick("schedule")}>
@@ -985,7 +961,6 @@ const TeacherDashboard = () => {
                           </button>
                         </div>
 
-                        {/* Upload Video Card */}
                         <div
                           className="bg-white rounded-xl shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border border-gray-100"
                           onClick={() => setIsModalOpen(true)}>
@@ -1163,7 +1138,6 @@ const TeacherDashboard = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 md:p-6">
-              {/* Form Section */}
               <div className="space-y-4 md:space-y-6">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2 text-sm md:text-base">
@@ -1223,7 +1197,6 @@ const TeacherDashboard = () => {
                 </div>
               </div>
 
-              {/* Preview Section */}
               <div className="bg-gray-50 rounded-xl p-4 md:p-6">
                 <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">
                   Video Preview
