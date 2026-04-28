@@ -171,6 +171,15 @@ const ParentDashboard = () => {
           );
           if (profileResponse.data) {
             const profileData = profileResponse.data;
+            const mergedUserInfo = {
+              ...storedUserInfo,
+              full_name: profileData.full_name || storedUserInfo.full_name,
+              birth_date: profileData.birth_date || storedUserInfo.birth_date,
+              profile_picture:
+                profileData.profile_picture || storedUserInfo.profile_picture,
+            };
+            localStorage.setItem("userInfo", JSON.stringify(mergedUserInfo));
+            setUserInfo(mergedUserInfo);
             // Check if profile has required fields
             const isComplete = !!(
               profileData.profile_picture &&

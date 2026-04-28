@@ -71,7 +71,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
             userInfo?.full_name ||
             userInfo?.username ||
             "",
-          birth_date: response.data.birth_date || "",
+          birth_date: toDateInputValue(response.data.birth_date) || "",
         });
 
         if (response.data.profile_picture) {
@@ -104,7 +104,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
   // Shared function to handle post-save actions
   const handleSaveSuccess = async (token) => {
     setSuccessMessage("Profile updated successfully!");
-    setTimeout(() => setSuccessMessage(""), 3000);
+    setTimeout(() => setSuccessMessage(""), 8000);
 
     try {
       const updatedProfileResponse = await axios.get(
@@ -123,7 +123,8 @@ const ParentProfileUpdate = ({ userInfo }) => {
             formData.full_name ||
             currentUserInfo.full_name,
           profile_picture: updatedProfileResponse.data.profile_picture,
-          birth_date: updatedProfileResponse.data.birth_date,
+          birth_date:
+            toDateInputValue(updatedProfileResponse.data.birth_date) || "",
         };
         localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
 
@@ -137,7 +138,8 @@ const ParentProfileUpdate = ({ userInfo }) => {
             currentUserInfo.full_name ||
             currentUserInfo.username ||
             "",
-          birth_date: updatedProfileResponse.data.birth_date || "",
+          birth_date:
+            toDateInputValue(updatedProfileResponse.data.birth_date) || "",
         });
 
         if (updatedProfileResponse.data.profile_picture) {
@@ -167,12 +169,12 @@ const ParentProfileUpdate = ({ userInfo }) => {
     const maxBytes = 5 * 1024 * 1024;
     if (!isImage) {
       setErrorMessage("Please select a valid image file.");
-      setTimeout(() => setErrorMessage(""), 3000);
+      setTimeout(() => setErrorMessage(""), 8000);
       return;
     }
     if (file.size > maxBytes) {
       setErrorMessage("Image is too large. Max size is 5MB.");
-      setTimeout(() => setErrorMessage(""), 3000);
+      setTimeout(() => setErrorMessage(""), 8000);
       return;
     }
 
@@ -228,7 +230,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
     };
 
     try {
-      // ── Strategy 1: POST (create) ──────────────────────────────────────
+      // post
       try {
         await axios.post(
           `${FHOST}/api/parent/profile/update/`,
@@ -236,13 +238,13 @@ const ParentProfileUpdate = ({ userInfo }) => {
           requestConfig,
         );
         console.log("Profile created via POST");
-        await handleSaveSuccess(token); // ← success runs here
+        await handleSaveSuccess(token);
         return;
       } catch (postError) {
         console.log("POST failed:", postError.response?.status);
       }
 
-      // ── Strategy 2: PUT (update or upsert) ────────────────────────────
+      // PUT
       try {
         await axios.put(
           `${FHOST}/api/parent/profile/update/`,
@@ -250,13 +252,13 @@ const ParentProfileUpdate = ({ userInfo }) => {
           requestConfig,
         );
         console.log("Profile updated via PUT");
-        await handleSaveSuccess(token); // ← success runs here
+        await handleSaveSuccess(token);
         return;
       } catch (putError) {
         console.log("PUT failed:", putError.response?.status);
       }
 
-      // ── Strategy 3: PATCH (partial update) ───────────────────────────
+      // PATCH
       try {
         await axios.patch(
           `${FHOST}/api/parent/profile/update/`,
@@ -264,7 +266,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
           requestConfig,
         );
         console.log("Profile updated via PATCH");
-        await handleSaveSuccess(token); // ← success runs here
+        await handleSaveSuccess(token);
         return;
       } catch (patchError) {
         console.log("PATCH failed:", patchError.response?.status);
