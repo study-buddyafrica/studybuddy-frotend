@@ -44,7 +44,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
       }));
       fetchProfile();
     }
-  }, [userInfo?.id]);
+  }, [userInfo?.id, userInfo?.full_name, userInfo?.username]);
 
   const fetchProfile = async () => {
     let token;
@@ -104,7 +104,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
   // Shared function to handle post-save actions
   const handleSaveSuccess = async (token) => {
     setSuccessMessage("Profile updated successfully!");
-    setTimeout(() => setSuccessMessage(""), 8000);
+    setTimeout(() => setSuccessMessage(""), 10000);
 
     try {
       const updatedProfileResponse = await axios.get(
@@ -169,12 +169,12 @@ const ParentProfileUpdate = ({ userInfo }) => {
     const maxBytes = 5 * 1024 * 1024;
     if (!isImage) {
       setErrorMessage("Please select a valid image file.");
-      setTimeout(() => setErrorMessage(""), 8000);
+      setTimeout(() => setErrorMessage(""), 10000);
       return;
     }
     if (file.size > maxBytes) {
       setErrorMessage("Image is too large. Max size is 5MB.");
-      setTimeout(() => setErrorMessage(""), 8000);
+      setTimeout(() => setErrorMessage(""), 10000);
       return;
     }
 
@@ -287,7 +287,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
         error.message ||
         "Profile update failed. Please try again.";
       setErrorMessage(errorMsg);
-      setTimeout(() => setErrorMessage(""), 5000);
+      setTimeout(() => setErrorMessage(""), 10000);
     } finally {
       setLoading(false);
     }
@@ -372,7 +372,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
                   value={formData.full_name}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  className="w-full px-4 py-3 border outline-none border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   placeholder="Enter your full name"
                   disabled={loading}
                 />
@@ -394,7 +394,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
                   value={formData.birth_date}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  className="w-full px-4 py-3 border outline-none border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   disabled={loading}
                 />
               </div>

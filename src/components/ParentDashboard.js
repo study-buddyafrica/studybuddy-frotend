@@ -68,6 +68,7 @@ const ParentDashboard = () => {
 
   // State for dynamic data
   const [userInfo, setUserInfo] = useState(null);
+  const [errormessage, setErrorMessage] = useState("");
   const [walletBalance, setWalletBalance] = useState(0);
   const [students, setStudents] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -79,7 +80,8 @@ const ParentDashboard = () => {
   const [studentForm, setStudentForm] = useState({
     fullName: "",
     dateOfBirth: "",
-    className: "",
+    grade: "",
+    School: "",
   });
 
   // New state for smart features
@@ -92,6 +94,7 @@ const ParentDashboard = () => {
   const [depositInfo, setDepositInfo] = useState(null);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   // Refresh parent wallet balance and transactions (used after successful funding)
+
   const fetchParentBalance = async () => {
     try {
       if (!userInfo) return;
@@ -225,76 +228,76 @@ const ParentDashboard = () => {
   }, []);
 
   // Fetch wallet data when userInfo changes
-  useEffect(() => {
-    if (userInfo?.id) {
-      fetchParentBalance();
-    }
-  }, [userInfo?.id]);
+  // useEffect(() => {
+  //   if (userInfo?.id) {
+  //     fetchParentBalance();
+  //   }
+  // }, [userInfo?.id]);
 
   // Fetch data on component mount
   useEffect(() => {
-    const fetchData = async () => {
+    const loadInitialData = async () => {
       try {
-        if (!userInfo) return;
+        const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
+        if (!storedUserInfo) return;
 
         setIsLoading(true);
 
-        // Use userInfo.id from state
-        const balanceRes = await axios.get(
-          `${FHOST}/payments/wallet/{wallet_id}`,
-        );
-        setWalletBalance(balanceRes.data.balance || 0);
+        const token = await refreshAccessToken();
+        if (!token) {
+          window.location.href = "/";
+        }
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        };
 
-        // Use userInfo.id from state
-        const childrenRes = await axios.get(
-          `${FHOST}/users/parent/${userInfo.id}/students`,
-        );
+        //fetch student and wallet balance in parallel
+        const [studentsRes, walletRes, transactionsRes] =
+          await Promise.allSettled([
+            axios.get(`${FHOST}/users/parent/${storedUserInfo.id}/students`, {
+              headers,
+            }),
+            axios.get(`${FHOST}/api/wallet/`, { headers }),
+            axios.get(`${FHOST}/api/transactions/`, { headers }),
+          ]);
 
-        console.log(childrenRes.data);
-        setStudents(childrenRes.data.students || []);
+        // Students
+        if (studentsRes.status === "fulfilled") {
+          const data = studentsRes.value.data;
+          setStudents(data.students || data.results || []);
+        }
 
-        // Set mock data for now - replace with actual API calls
-        // setTransactions(mockTransactions);
-        // setUpcomingPayments(mockUpcomingPayments);
+        //wallet balance
+        if (walletRes.status === "fulfilled") {
+          const results = walletRes.value.data?.results;
+          if (results?.length > 0) {
+            setWalletBalance(parseFloat(results[0].balance) || 0);
+          }
+        }
 
-        // If no students from API, use mock data for demonstration
-        if (
-          !childrenRes.data.students ||
-          childrenRes.data.students.length === 0
-        ) {
-          // setStudents(mockStudentsWithBalances);
+        if (transactionsRes.status === "fulfilled") {
+          const txData = transactionsRes.value.data?.results || [];
+          setTransactions(
+            txData.map((tx) => ({
+              id: tx.id,
+              date: new Date(tx.timestamp || tx.created_at),
+              description: tx.description || "Transaction",
+              type: tx.transaction_type,
+              amount: parseFloat(tx.amount || 0),
+              status: tx.status,
+              payment_method: tx.payment_method,
+            })),
+          );
         }
       } catch (error) {
-        console.error("Failed to fetch data:", error);
+        console.error("Failed to load initial data:", error);
       } finally {
         setIsLoading(false);
       }
     };
-
-    const fetchAll = async () => {
-      try {
-        const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
-        const res = await axios.get(
-          `${FHOST}/users/parent/${storedUserInfo.id}/students`,
-        );
-        setStudents(res.data.students || []);
-
-        // If no students from API, use mock data for demonstration
-        if (!res.data.students || res.data.students.length === 0) {
-          // setStudents(mockStudentsWithBalances);
-        }
-      } catch (error) {
-        console.error("Failed to fetch students:", error);
-        // Use mock data if API fails
-        //setStudents(mockStudentsWithBalances);
-      }
-    };
-
-    fetchAll();
-    if (userInfo) {
-      fetchData();
-    }
-  }, [userInfo]);
+    loadInitialData();
+  }, []);
 
   // Handle student form changes
   const handleStudentFormChange = (e) => {
@@ -322,35 +325,45 @@ const ParentDashboard = () => {
       email: `${username}@studybuddy.com`,
       full_name: studentForm.fullName,
       birth_date: studentForm.dateOfBirth,
+      grade: studentForm.grade,
+      school: studentForm.School,
       password: "defaultPassword123#",
       confirm_password: "defaultPassword123#",
       username: username,
     };
 
     try {
+      const token = await refreshAccessToken();
+      if (!token) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+
       const response = await axios.post(
         `${FHOST}/users/parent/register-student`,
         payload,
+        { headers },
       );
 
       const res = await axios.get(
         `${FHOST}/users/parent/${userInfo.id}/students`,
+        { headers },
       );
 
-      setStudents(res.data.students || []);
+      setStudents(res.data.students || res.data.results || []);
       console.log("New student added:", response.data);
       setShowAddStudentModal(false);
-      setStudentForm({ fullName: "", dateOfBirth: "", className: "" });
-      alert("Student registered successfully!");
+      setStudentForm({ fullName: "", dateOfBirth: "", grade: "", school: "" });
     } catch (error) {
       if (error.response) {
         console.error("Backend error:", error.response.data);
-        alert(
-          `Error: ${error.response.data.message || "Check console for details"}`,
-        );
       } else {
         console.error("Request failed:", error.message);
-        alert("Network error. Please try again.");
       }
     }
   };
@@ -359,10 +372,20 @@ const ParentDashboard = () => {
   const handleEditStudent = async (e) => {
     e.preventDefault();
     try {
+      const token = await refreshAccessToken();
+      if (!token) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
       // API call to update student
       await axios.put(
         `${FHOST}/users/student/${editingStudent.id}`,
         editStudentForm,
+        { headers },
       );
 
       // Update local state
@@ -1757,18 +1780,34 @@ const ParentDashboard = () => {
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Class
+                  Grade
                 </label>
                 <input
                   type="text"
-                  name="className"
-                  value={studentForm.className}
+                  name="grade"
+                  value={studentForm.grade}
                   onChange={handleStudentFormChange}
                   className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
-                  placeholder="Class/Grade"
+                  placeholder="Grade"
                   required
                 />
               </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  School
+                </label>
+                <input
+                  type="text"
+                  name="school"
+                  value={studentForm.school}
+                  onChange={handleStudentFormChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
+                  placeholder="School name"
+                  required
+                />
+              </div>
+
               <button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition duration-200">
