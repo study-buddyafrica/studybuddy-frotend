@@ -39,6 +39,8 @@ import { FHOST, refreshAccessToken } from "./constants/Functions.jsx";
 import ParentFeedback from "./parents/ParentFeedback.jsx";
 import ParentProfileUpdate from "./parents/ParentProfileUpdate";
 import DashboardHeader from "./layout/DashboardHeader.jsx";
+import useToast from "../hooks/useToast.js";
+import Toast from "./Toast.jsx";
 
 ChartJS.register(
   CategoryScale,
@@ -53,6 +55,8 @@ ChartJS.register(
 );
 
 const ParentDashboard = () => {
+  const { toasts, removeToast, success, error } = useToast();
+
   // State declarations
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -155,7 +159,6 @@ const ParentDashboard = () => {
   // New color scheme
   const primaryColor = "#00aae8";
 
-  // Add this useEffect hook at the top of your component hooks
   useEffect(() => {
     const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (storedUserInfo) {
@@ -226,13 +229,6 @@ const ParentDashboard = () => {
     window.addEventListener("profile-updated", onProfileUpdate);
     return () => window.removeEventListener("profile-updated", onProfileUpdate);
   }, []);
-
-  // Fetch wallet data when userInfo changes
-  // useEffect(() => {
-  //   if (userInfo?.id) {
-  //     fetchParentBalance();
-  //   }
-  // }, [userInfo?.id]);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -359,12 +355,16 @@ const ParentDashboard = () => {
       console.log("New student added:", response.data);
       setShowAddStudentModal(false);
       setStudentForm({ fullName: "", dateOfBirth: "", grade: "", school: "" });
-    } catch (error) {
-      if (error.response) {
-        console.error("Backend error:", error.response.data);
-      } else {
-        console.error("Request failed:", error.message);
-      }
+      success(
+        "Student Added!",
+        `${studentForm.fullName} was registered successfully.`,
+      );
+    } catch (err) {
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Something went wrong. Please try again.";
+      error("Failed to add student.", msg);
     }
   };
 
@@ -407,10 +407,13 @@ const ParentDashboard = () => {
 
       setShowStudentDetailsModal(false);
       setEditingStudent(null);
-      alert("Student updated successfully!");
-    } catch (error) {
-      console.error("Failed to update student:", error);
-      alert("Failed to update student. Please try again.");
+      success(
+        "Student Updated!",
+        `${editStudentForm.fullName} was updated successfully.`,
+      );
+    } catch (err) {
+      console.error("Failed to update student:", err);
+      error("Failed to update student.", "Please try again.");
     }
   };
 
@@ -1515,6 +1518,8 @@ const ParentDashboard = () => {
       className={`${
         darkMode ? "dark" : ""
       } flex min-h-screen bg-gray-50 dark:bg-gray-900 font-josefin`}>
+      <Toast toasts={toasts} removeToast={removeToast} />
+
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 z-50 transform lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-xl w-64 ${
