@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { FHOST } from '../constants/Functions';
-import { CalendarIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { FHOST, refreshAccessToken } from "../constants/Functions";
+import { CalendarIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 
 const LiveClass = ({ userInfo }) => {
-  const [activeTab, setActiveTab] = useState('create');
+  const [activeTab, setActiveTab] = useState("create");
   const [useBooking, setUseBooking] = useState(true);
   const [meetingDetails, setMeetingDetails] = useState({
-    session_booking_id: '',
-    topic: '',
-    agenda: '',
-    start_time: '',
+    session_booking_id: "",
+    topic: "",
+    agenda: "",
+    start_time: "",
     duration: 45,
-    timezone: 'UTC',
+    timezone: "UTC",
   });
   const [bookings, setBookings] = useState([]);
   const [liveSessions, setLiveSessions] = useState([]);
@@ -24,7 +24,7 @@ const LiveClass = ({ userInfo }) => {
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const token = localStorage.getItem('access_token');
+        const token = await refreshAccessToken();
         if (!token) return;
 
         const response = await axios.get(`${FHOST}/api/booked-sessions/`, {
@@ -39,22 +39,21 @@ const LiveClass = ({ userInfo }) => {
 
         // Filter for bookings that are allowed and not attended yet
         const availableBookings = allBookings.filter(
-          booking => booking.is_allowed && !booking.attended
+          (booking) => booking.is_allowed && !booking.attended,
         );
         setBookings(availableBookings);
       } catch (err) {
-        console.error('Error fetching bookings:', err);
+        console.error("Error fetching bookings:", err);
         setBookings([]);
       }
     };
     fetchBookings();
   }, []);
 
-
   useEffect(() => {
     const fetchLiveSessions = async () => {
       try {
-        const token = localStorage.getItem('access_token');
+        const token = await refreshAccessToken();
         if (!token) return;
 
         const response = await axios.get(`${FHOST}/api/live-sessions/`, {
@@ -68,23 +67,21 @@ const LiveClass = ({ userInfo }) => {
         const sessions = Array.isArray(data?.results) ? data.results : [];
         setLiveSessions(sessions);
       } catch (err) {
-        console.error('Error fetching live sessions:', err);
+        console.error("Error fetching live sessions:", err);
         setLiveSessions([]);
       }
     };
 
-
     fetchLiveSessions();
   }, []);
-
 
   const handleUpdateLiveSession = async (sessionId, updateData) => {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('access_token');
+      const token = await refreshAccessToken();
       if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
+        throw new Error("You are not authenticated. Please login again.");
       }
 
       const response = await axios.patch(
@@ -92,28 +89,32 @@ const LiveClass = ({ userInfo }) => {
         updateData,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.status === 200) {
         // Update the specific session in the list
-        setLiveSessions(prevSessions => prevSessions.map(s => s.id === sessionId ? response.data : s));
-        alert('Session marked as attended successfully!');
+        setLiveSessions((prevSessions) =>
+          prevSessions.map((s) => (s.id === sessionId ? response.data : s)),
+        );
+        alert("Session marked as attended successfully!");
       } else {
-        setError('Unexpected response from server.');
+        setError("Unexpected response from server.");
       }
     } catch (err) {
       const status = err?.response?.status;
       const data = err?.response?.data;
-      const details = typeof data === 'string'
-        ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error marking session as attended.';
+      const details =
+        typeof data === "string"
+          ? data
+          : data?.error || data?.message || data?.details;
+      const msg =
+        details ||
+        (status ? `Request failed with status ${status}` : err?.message) ||
+        "Error marking session as attended.";
       setError(String(msg));
     } finally {
       setLoading(false);
@@ -126,15 +127,18 @@ const LiveClass = ({ userInfo }) => {
     setError(null);
     try {
       // Check if user is authenticated
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem("access_token");
       if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
+        throw new Error("You are not authenticated. Please login again.");
       }
 
       // Basic validation before request
-      if (!meetingDetails.session_booking_id) throw new Error('Please select a booking session.');
-      if (!meetingDetails.topic.trim()) throw new Error('Please enter a class topic.');
-      if (!meetingDetails.agenda.trim()) throw new Error('Please enter a class description.');
+      if (!meetingDetails.session_booking_id)
+        throw new Error("Please select a booking session.");
+      if (!meetingDetails.topic.trim())
+        throw new Error("Please enter a class topic.");
+      if (!meetingDetails.agenda.trim())
+        throw new Error("Please enter a class description.");
 
       const payload = {
         session_booking_id: meetingDetails.session_booking_id,
@@ -147,10 +151,10 @@ const LiveClass = ({ userInfo }) => {
         payload,
         {
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${await refreshAccessToken()}`,
           },
-        }
+        },
       );
 
       if (response.status === 201 || response.status === 200) {
@@ -170,12 +174,12 @@ const LiveClass = ({ userInfo }) => {
 
         // Reset form after successful creation
         setMeetingDetails({
-          session_booking_id: '',
-          topic: '',
-          agenda: '',
-          start_time: '',
+          session_booking_id: "",
+          topic: "",
+          agenda: "",
+          start_time: "",
           duration: 45,
-          timezone: 'UTC',
+          timezone: "UTC",
         });
 
         // Refresh live sessions
@@ -185,39 +189,47 @@ const LiveClass = ({ userInfo }) => {
           },
         });
         const refreshData = refreshResponse.data;
-        const sessions = Array.isArray(refreshData?.results) ? refreshData.results : [];
+        const sessions = Array.isArray(refreshData?.results)
+          ? refreshData.results
+          : [];
         setLiveSessions(sessions);
 
         // Refresh bookings to remove the used one
-        const refreshBookingsResponse = await axios.get(`${FHOST}/api/booked-sessions/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const refreshBookingsResponse = await axios.get(
+          `${FHOST}/api/booked-sessions/`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
         const refreshBookingsData = refreshBookingsResponse.data;
-        const allBookings = Array.isArray(refreshBookingsData?.results) ? refreshBookingsData.results : [];
+        const allBookings = Array.isArray(refreshBookingsData?.results)
+          ? refreshBookingsData.results
+          : [];
         const availableBookings = allBookings.filter(
-          booking => booking.is_allowed && !booking.attended
+          (booking) => booking.is_allowed && !booking.attended,
         );
         setBookings(availableBookings);
       } else {
-        setError('Unexpected response from server while creating meeting.');
+        setError("Unexpected response from server while creating meeting.");
       }
     } catch (err) {
       const status = err?.response?.status;
       const data = err?.response?.data;
-      const details = typeof data === 'string'
-        ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error creating meeting. Please check your inputs.';
+      const details =
+        typeof data === "string"
+          ? data
+          : data?.error || data?.message || data?.details;
+      const msg =
+        details ||
+        (status ? `Request failed with status ${status}` : err?.message) ||
+        "Error creating meeting. Please check your inputs.";
       setError(String(msg));
     } finally {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-gray-50 font-josefin p-6">
@@ -229,149 +241,187 @@ const LiveClass = ({ userInfo }) => {
         {/* Tab Navigation */}
         <div className="flex border-b border-gray-200 mb-6">
           <button
-            onClick={() => setActiveTab('create')}
+            onClick={() => setActiveTab("create")}
             className={`px-4 py-2 font-medium text-sm ${
-              activeTab === 'create'
-                ? 'border-b-2 border-[#015575] text-[#015575]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
+              activeTab === "create"
+                ? "border-b-2 border-[#015575] text-[#015575]"
+                : "text-gray-500 hover:text-gray-700"
+            }`}>
             Create one on one session
           </button>
           <button
-            onClick={() => setActiveTab('sessions')}
+            onClick={() => setActiveTab("sessions")}
             className={`px-4 py-2 font-medium text-sm ${
-              activeTab === 'sessions'
-                ? 'border-b-2 border-[#015575] text-[#015575]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
+              activeTab === "sessions"
+                ? "border-b-2 border-[#015575] text-[#015575]"
+                : "text-gray-500 hover:text-gray-700"
+            }`}>
             My Live Sessions
           </button>
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'create' && (
+        {activeTab === "create" && (
           <div>
             <h2 className="text-2xl font-lilita text-[#015575] mb-6 text-center">
               Schedule New Class
             </h2>
 
-        <form className="space-y-6">
-          {/* Booking Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Booking Session <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={meetingDetails.session_booking_id}
-              onChange={(e) => setMeetingDetails({ ...meetingDetails, session_booking_id: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-              required
-            >
-              <option value="">Choose a booking session</option>
-              {bookings.map((booking) => (
-                <option key={booking.id} value={booking.id}>
-                  Course {booking.course} - {new Date(booking.scheduled_start).toLocaleString()} - {booking.status}
-                </option>
-              ))}
-            </select>
-            {bookings.length === 0 && (
-              <p className="mt-2 text-sm text-gray-500">
-                No accepted or confirmed bookings available. Please accept a booking request first.
-              </p>
-            )}
-          </div>
+            <form className="space-y-6">
+              {/* Booking Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Booking Session <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={meetingDetails.session_booking_id}
+                  onChange={(e) =>
+                    setMeetingDetails({
+                      ...meetingDetails,
+                      session_booking_id: e.target.value,
+                    })
+                  }
+                  className="w-full outline-none px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  required>
+                  <option value="">Choose a booking session</option>
+                  {bookings.map((booking) => (
+                    <option key={booking.id} value={booking.id}>
+                      Course {booking.course} -{" "}
+                      {new Date(booking.scheduled_start).toLocaleString()} -{" "}
+                      {booking.status}
+                    </option>
+                  ))}
+                </select>
+                {bookings.length === 0 && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    No accepted or confirmed bookings available. Please accept a
+                    booking request first.
+                  </p>
+                )}
+              </div>
 
-          {/* Topic */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Class Topic
-            </label>
-            <input
-              type="text"
-              value={meetingDetails.topic}
-              onChange={(e) => setMeetingDetails({ ...meetingDetails, topic: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-              placeholder="Enter class topic"
-              required
-            />
-          </div>
+              {/* Topic */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Class Topic
+                </label>
+                <input
+                  type="text"
+                  value={meetingDetails.topic}
+                  onChange={(e) =>
+                    setMeetingDetails({
+                      ...meetingDetails,
+                      topic: e.target.value,
+                    })
+                  }
+                  className="w-full outline-none px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent"
+                  placeholder="Enter class topic"
+                  required
+                />
+              </div>
 
-          {/* Agenda */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Class Description
-            </label>
-            <textarea
-              value={meetingDetails.agenda}
-              onChange={(e) => setMeetingDetails({ ...meetingDetails, agenda: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent h-32"
-              placeholder="Describe the class content"
-              required
-            />
-          </div>
+              {/* Agenda */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Class Description
+                </label>
+                <textarea
+                  value={meetingDetails.agenda}
+                  onChange={(e) =>
+                    setMeetingDetails({
+                      ...meetingDetails,
+                      agenda: e.target.value,
+                    })
+                  }
+                  className="w-full outline-none px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#015575] focus:border-transparent h-32"
+                  placeholder="Describe the class content"
+                  required
+                />
+              </div>
 
+              {/* Note: Time and duration are now determined by the booking session */}
+              {meetingDetails.session_booking_id && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <p className="text-sm text-blue-700">
+                    <strong>Note:</strong> The session time and duration will be
+                    determined by the selected booking.
+                  </p>
+                </div>
+              )}
 
-          {/* Note: Time and duration are now determined by the booking session */}
-          {meetingDetails.session_booking_id && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <p className="text-sm text-blue-700">
-                <strong>Note:</strong> The session time and duration will be determined by the selected booking.
-              </p>
-            </div>
-          )}
+              {/* Submit Button */}
+              <button
+                type="button"
+                onClick={handleCreateMeeting}
+                disabled={loading}
+                className="w-full bg-[#015575] text-white py-3 rounded-xl hover:bg-[#01415e] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {loading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Meeting...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircleIcon className="h-5 w-5" />
+                    Create Live Session
+                  </>
+                )}
+              </button>
 
-          {/* Submit Button */}
-          <button
-            type="button"
-            onClick={handleCreateMeeting}
-            disabled={loading}
-            className="w-full bg-[#015575] text-white py-3 rounded-xl hover:bg-[#01415e] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Creating Meeting...
-              </>
-            ) : (
-              <>
-                <CheckCircleIcon className="h-5 w-5" />
-                Create Live Session
-              </>
-            )}
-          </button>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-xl text-center">
-              {error}
-            </div>
-          )}
-        </form>
+              {error && (
+                <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-xl text-center">
+                  {error}
+                </div>
+              )}
+            </form>
           </div>
         )}
 
-        {activeTab === 'sessions' && (
+        {activeTab === "sessions" && (
           <div>
             <h2 className="text-2xl font-lilita text-[#015575] mb-6 text-center">
               My Live Sessions
             </h2>
             {liveSessions.length === 0 ? (
-              <p className="text-center text-gray-500">No live sessions found.</p>
+              <p className="text-center text-gray-500">
+                No live sessions found.
+              </p>
             ) : (
               <div className="space-y-4">
                 {liveSessions.map((session) => (
-                  <div key={session.id} className="border border-gray-200 rounded-xl p-4">
+                  <div
+                    key={session.id}
+                    className="border border-gray-200 rounded-xl p-4">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-lg font-semibold text-[#015575]">{session.title}</h3>
+                      <h3 className="text-lg font-semibold text-[#015575]">
+                        {session.title}
+                      </h3>
                       <button
-                        onClick={() => handleUpdateLiveSession(session.id, { session_booking_id: session.id, title: session.title, description: session.description })}
+                        onClick={() =>
+                          handleUpdateLiveSession(session.id, {
+                            session_booking_id: session.id,
+                            title: session.title,
+                            description: session.description,
+                          })
+                        }
                         className="px-3 py-1 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm"
-                        disabled={loading}
-                      >
+                        disabled={loading}>
                         Mark as Attended
                       </button>
                     </div>
@@ -382,8 +432,7 @@ const LiveClass = ({ userInfo }) => {
                           href={session.teacher_meeting_link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-block px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm"
-                        >
+                          className="inline-block px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm">
                           Join Meeting
                         </a>
                       )}
@@ -392,15 +441,24 @@ const LiveClass = ({ userInfo }) => {
                           href={session.whiteboard_link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
-                        >
+                          className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm">
                           Open Whiteboard
                         </a>
                       )}
                     </div>
                     <div className="text-sm text-gray-500 space-y-1">
-                      <p>Started: {session.started_at ? new Date(session.started_at).toLocaleString() : 'Not started'}</p>
-                      <p>Ended: {session.ended_at ? new Date(session.ended_at).toLocaleString() : 'Not ended'}</p>
+                      <p>
+                        Started:{" "}
+                        {session.started_at
+                          ? new Date(session.started_at).toLocaleString()
+                          : "Not started"}
+                      </p>
+                      <p>
+                        Ended:{" "}
+                        {session.ended_at
+                          ? new Date(session.ended_at).toLocaleString()
+                          : "Not ended"}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -408,8 +466,6 @@ const LiveClass = ({ userInfo }) => {
             )}
           </div>
         )}
-
-
       </div>
 
       {/* Success Modal */}
@@ -422,9 +478,10 @@ const LiveClass = ({ userInfo }) => {
                 Live Session Created!
               </h2>
               <p className="mb-6 text-gray-600">
-                Your live session has been successfully created. Google Meet links have been generated.
+                Your live session has been successfully created. Google Meet
+                links have been generated.
               </p>
-              
+
               {meetingData.meetLink && (
                 <div className="w-full space-y-3 mb-4">
                   <div className="bg-gray-50 rounded-xl p-4">
@@ -441,15 +498,14 @@ const LiveClass = ({ userInfo }) => {
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(meetingData.meetLink);
-                          alert('Link copied to clipboard!');
+                          alert("Link copied to clipboard!");
                         }}
-                        className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm"
-                      >
+                        className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm">
                         Copy
                       </button>
                     </div>
                   </div>
-                  
+
                   {meetingData.studentLink && (
                     <div className="bg-gray-50 rounded-xl p-4">
                       <label className="block text-xs font-medium text-gray-500 mb-2 text-left">
@@ -464,11 +520,12 @@ const LiveClass = ({ userInfo }) => {
                         />
                         <button
                           onClick={() => {
-                            navigator.clipboard.writeText(meetingData.studentLink);
-                            alert('Link copied to clipboard!');
+                            navigator.clipboard.writeText(
+                              meetingData.studentLink,
+                            );
+                            alert("Link copied to clipboard!");
                           }}
-                          className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm"
-                        >
+                          className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm">
                           Copy
                         </button>
                       </div>
@@ -489,11 +546,12 @@ const LiveClass = ({ userInfo }) => {
                         />
                         <button
                           onClick={() => {
-                            navigator.clipboard.writeText(meetingData.whiteboardLink);
-                            alert('Link copied to clipboard!');
+                            navigator.clipboard.writeText(
+                              meetingData.whiteboardLink,
+                            );
+                            alert("Link copied to clipboard!");
                           }}
-                          className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm"
-                        >
+                          className="px-3 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] transition text-sm">
                           Copy
                         </button>
                       </div>
@@ -506,13 +564,21 @@ const LiveClass = ({ userInfo }) => {
                 <button
                   onClick={() => {
                     if (meetingData.meetLink) {
-                      window.open(meetingData.meetLink, '_blank');
+                      window.open(meetingData.meetLink, "_blank");
                     }
                   }}
-                  className="w-full bg-[#015575] text-white py-2 rounded-xl hover:bg-[#01415e] transition flex items-center justify-center gap-2"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  className="w-full bg-[#015575] text-white py-2 rounded-xl hover:bg-[#01415e] transition flex items-center justify-center gap-2">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                    />
                   </svg>
                   Join Meeting
                 </button>
@@ -521,8 +587,7 @@ const LiveClass = ({ userInfo }) => {
                     setShowPopup(false);
                     setMeetingData(null);
                   }}
-                  className="w-full bg-gray-200 text-gray-700 py-2 rounded-xl hover:bg-gray-300 transition"
-                >
+                  className="w-full bg-gray-200 text-gray-700 py-2 rounded-xl hover:bg-gray-300 transition">
                   Close
                 </button>
               </div>

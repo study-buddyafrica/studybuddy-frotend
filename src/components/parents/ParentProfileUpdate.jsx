@@ -54,7 +54,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("userInfo");
-      window.location.href = "/";
+      window.location.href = "/login";
       return;
     }
     try {
