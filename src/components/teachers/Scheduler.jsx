@@ -1,23 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, addMonths, subMonths, isSameDay } from 'date-fns';
-import axios from 'axios';
-import { FHOST } from '../constants/Functions';
-import { 
-  FaCalendarAlt, 
-  FaClock, 
-  FaPlus, 
-  FaEdit, 
-  FaTrash, 
-  FaEye, 
+import React, { useState, useEffect } from "react";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  startOfWeek,
+  addMonths,
+  subMonths,
+  isSameDay,
+} from "date-fns";
+import axios from "axios";
+import { FHOST } from "../constants/Functions";
+import {
+  FaCalendarAlt,
+  FaClock,
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaEye,
   FaBookOpen,
   FaUsers,
-  FaTimes
-} from 'react-icons/fa';
+  FaTimes,
+} from "react-icons/fa";
 
 const Scheduler = ({ userInfo }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
-  const [activeTab, setActiveTab] = useState('availability');
+  const [activeTab, setActiveTab] = useState("availability");
   const [availableTimes, setAvailableTimes] = useState({});
   const [filteredTimes, setFilteredTimes] = useState([]);
   const [timeRange, setTimeRange] = useState({ start: "", end: "" });
@@ -26,8 +35,8 @@ const Scheduler = ({ userInfo }) => {
   const [showLessonModal, setShowLessonModal] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [availableGrades, setAvailableGrades] = useState([]);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
@@ -36,31 +45,31 @@ const Scheduler = ({ userInfo }) => {
   const [courses, setCourses] = useState([]);
   const [showCreatePeerModal, setShowCreatePeerModal] = useState(false);
   const [newPeerSession, setNewPeerSession] = useState({
-    course: '',
-    teacher: '',
-    title: '',
-    description: '',
-    started_at: '',
+    course: "",
+    teacher: "",
+    title: "",
+    description: "",
+    started_at: "",
     duration_hours: 1,
   });
   const [editingSession, setEditingSession] = useState(null);
 
   // Form state for adding new lesson
   const [newLesson, setNewLesson] = useState({
-    title: '',
-    description: '',
-    subject: '',
-    grade: '',
-    price: '',
-    code: '',
-    cover_image: '',
-    topics: '',
+    title: "",
+    description: "",
+    subject: "",
+    grade: "",
+    price: "",
+    code: "",
+    cover_image: "",
+    topics: "",
     is_active: true,
-    country: 'Kenya',
-    is_universal: false
+    country: "Kenya",
+    is_universal: false,
   });
 
-  const lessonTypes = ['online', 'in-person', 'hybrid'];
+  const lessonTypes = ["online", "in-person", "hybrid"];
 
   // Days of the week
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -87,7 +96,9 @@ const Scheduler = ({ userInfo }) => {
 
       // Fetch available times
       try {
-        const timesResponse = await axios.get(`${FHOST}/lessons/api/get-available-times/${userInfo?.id || 9}`);
+        const timesResponse = await axios.get(
+          `${FHOST}/lessons/api/get-available-times/${userInfo?.id || 9}`,
+        );
         if (timesResponse.status === 200 && Array.isArray(timesResponse.data)) {
           const data = timesResponse.data;
           const timesByDate = {};
@@ -108,17 +119,22 @@ const Scheduler = ({ userInfo }) => {
         if (err?.response?.status === 404) {
           setAvailableTimes({});
         } else {
-          console.error('Error fetching available times:', err);
+          console.error("Error fetching available times:", err);
         }
       }
 
       // Fetch planned lessons
       try {
-        const lessonsResponse = await axios.get(`${FHOST}/lessons/api/teacher-planned-lessons/${userInfo?.id || 9}`);
+        const lessonsResponse = await axios.get(
+          `${FHOST}/lessons/api/teacher-planned-lessons/${userInfo?.id}`,
+        );
         // Server currently returns an array or 404
         if (Array.isArray(lessonsResponse.data)) {
           setPlannedLessons(lessonsResponse.data);
-        } else if (lessonsResponse.data?.success && Array.isArray(lessonsResponse.data.lessons)) {
+        } else if (
+          lessonsResponse.data?.success &&
+          Array.isArray(lessonsResponse.data.lessons)
+        ) {
           setPlannedLessons(lessonsResponse.data.lessons);
         } else {
           setPlannedLessons([]);
@@ -127,7 +143,7 @@ const Scheduler = ({ userInfo }) => {
         if (err?.response?.status === 404) {
           setPlannedLessons([]);
         } else {
-          console.error('Error fetching planned lessons:', err);
+          console.error("Error fetching planned lessons:", err);
         }
       }
     } finally {
@@ -150,7 +166,7 @@ const Scheduler = ({ userInfo }) => {
 
   const fetchCourses = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem("access_token");
       if (!token) return;
 
       const response = await axios.get(`${FHOST}/api/courses/`, {
@@ -164,14 +180,14 @@ const Scheduler = ({ userInfo }) => {
         setCourses(coursesList);
       }
     } catch (error) {
-      console.error('Error fetching courses:', error);
+      console.error("Error fetching courses:", error);
       setCourses([]);
     }
   };
 
   const fetchPeerToPeerSessions = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem("access_token");
       if (!token) return;
 
       const response = await axios.get(`${FHOST}/api/peer-to-peer-sessions/`, {
@@ -185,7 +201,7 @@ const Scheduler = ({ userInfo }) => {
         setPeerToPeerSessions(sessionsList);
       }
     } catch (error) {
-      console.error('Error fetching peer-to-peer sessions:', error);
+      console.error("Error fetching peer-to-peer sessions:", error);
       setPeerToPeerSessions([]);
     }
   };
@@ -220,16 +236,22 @@ const Scheduler = ({ userInfo }) => {
     };
 
     try {
-      const response = await axios.post(`${FHOST}/lessons/api/submit-time-range/${userInfo?.id || 9}`, payload);
+      const response = await axios.post(
+        `${FHOST}/lessons/api/submit-time-range/${userInfo?.id || 9}`,
+        payload,
+      );
 
       if (response.status === 200) {
         setSuccessMessage("Time range added successfully!");
-        
+
         const updatedAvailableTimes = { ...availableTimes };
         if (!updatedAvailableTimes[dateKey]) {
           updatedAvailableTimes[dateKey] = [];
         }
-        updatedAvailableTimes[dateKey].push({ start_time: start, end_time: end });
+        updatedAvailableTimes[dateKey].push({
+          start_time: start,
+          end_time: end,
+        });
 
         setAvailableTimes(updatedAvailableTimes);
         const filtered = updatedAvailableTimes[dateKey] || [];
@@ -331,17 +353,17 @@ const Scheduler = ({ userInfo }) => {
         setSuccessMessage("Course created successfully!");
         setShowLessonModal(false);
         setNewLesson({
-          title: '',
-          description: '',
-          subject: '',
-          grade: '',
-          price: '',
-          code: '',
-          cover_image: '',
-          topics: '',
+          title: "",
+          description: "",
+          subject: "",
+          grade: "",
+          price: "",
+          code: "",
+          cover_image: "",
+          topics: "",
           is_active: true,
-          country: 'Kenya',
-          is_universal: false
+          country: "Kenya",
+          is_universal: false,
         });
         fetchData();
         setTimeout(() => setSuccessMessage(""), 4000);
@@ -352,13 +374,17 @@ const Scheduler = ({ userInfo }) => {
         error.response?.data?.error ||
         error.response?.data?.detail ||
         "Failed to create course. Please try again.";
-      console.error('Error creating course:', error);
+      console.error("Error creating course:", error);
       setErrorMessage(errorMsg);
     }
   };
 
   const changeMonth = (direction) => {
-    setCurrentDate(direction === "prev" ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
+    setCurrentDate(
+      direction === "prev"
+        ? subMonths(currentDate, 1)
+        : addMonths(currentDate, 1),
+    );
     setSelectedDay(null);
   };
 
@@ -367,9 +393,9 @@ const Scheduler = ({ userInfo }) => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem("access_token");
       if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
+        throw new Error("You are not authenticated. Please login again.");
       }
 
       const teacherIdentifier =
@@ -391,14 +417,14 @@ const Scheduler = ({ userInfo }) => {
         payload,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.status === 201 || response.status === 200) {
-        setSuccessMessage('Peer-to-peer session created successfully!');
+        setSuccessMessage("Peer-to-peer session created successfully!");
         setShowCreatePeerModal(false);
         const teacherIdentifier =
           userInfo?.teacher_profile_id ||
@@ -406,26 +432,28 @@ const Scheduler = ({ userInfo }) => {
           userInfo?.id;
 
         setNewPeerSession({
-          course: '',
+          course: "",
           teacher: teacherIdentifier,
-          title: '',
-          description: '',
-          started_at: '',
+          title: "",
+          description: "",
+          started_at: "",
           duration_hours: 1,
         });
         fetchPeerToPeerSessions();
       } else {
-        setErrorMessage('Unexpected response from server.');
+        setErrorMessage("Unexpected response from server.");
       }
     } catch (err) {
       const status = err?.response?.status;
       const data = err?.response?.data;
-      const details = typeof data === 'string'
-        ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error creating peer-to-peer session. Please check your inputs.';
+      const details =
+        typeof data === "string"
+          ? data
+          : data?.error || data?.message || data?.details;
+      const msg =
+        details ||
+        (status ? `Request failed with status ${status}` : err?.message) ||
+        "Error creating peer-to-peer session. Please check your inputs.";
       setErrorMessage(String(msg));
     } finally {
       setLoading(false);
@@ -436,9 +464,9 @@ const Scheduler = ({ userInfo }) => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem("access_token");
       if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
+        throw new Error("You are not authenticated. Please login again.");
       }
 
       const response = await axios.patch(
@@ -446,28 +474,32 @@ const Scheduler = ({ userInfo }) => {
         updateData,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.status === 200) {
-        setPeerToPeerSessions(prev => prev.map(s => s.id === sessionId ? response.data : s));
-        setSuccessMessage('Session updated successfully!');
+        setPeerToPeerSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? response.data : s)),
+        );
+        setSuccessMessage("Session updated successfully!");
         setEditingSession(null);
       } else {
-        setErrorMessage('Unexpected response from server.');
+        setErrorMessage("Unexpected response from server.");
       }
     } catch (err) {
       const status = err?.response?.status;
       const data = err?.response?.data;
-      const details = typeof data === 'string'
-        ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error updating session.';
+      const details =
+        typeof data === "string"
+          ? data
+          : data?.error || data?.message || data?.details;
+      const msg =
+        details ||
+        (status ? `Request failed with status ${status}` : err?.message) ||
+        "Error updating session.";
       setErrorMessage(String(msg));
     } finally {
       setLoading(false);
@@ -475,13 +507,14 @@ const Scheduler = ({ userInfo }) => {
   };
 
   const handleDeletePeerSession = async (sessionId) => {
-    if (!window.confirm('Are you sure you want to delete this session?')) return;
+    if (!window.confirm("Are you sure you want to delete this session?"))
+      return;
     setLoading(true);
     setErrorMessage(null);
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem("access_token");
       if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
+        throw new Error("You are not authenticated. Please login again.");
       }
 
       const response = await axios.delete(
@@ -490,24 +523,26 @@ const Scheduler = ({ userInfo }) => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.status === 204 || response.status === 200) {
-        setPeerToPeerSessions(prev => prev.filter(s => s.id !== sessionId));
-        setSuccessMessage('Session deleted successfully!');
+        setPeerToPeerSessions((prev) => prev.filter((s) => s.id !== sessionId));
+        setSuccessMessage("Session deleted successfully!");
       } else {
-        setErrorMessage('Unexpected response from server.');
+        setErrorMessage("Unexpected response from server.");
       }
     } catch (err) {
       const status = err?.response?.status;
       const data = err?.response?.data;
-      const details = typeof data === 'string'
-        ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error deleting session.';
+      const details =
+        typeof data === "string"
+          ? data
+          : data?.error || data?.message || data?.details;
+      const msg =
+        details ||
+        (status ? `Request failed with status ${status}` : err?.message) ||
+        "Error deleting session.";
       setErrorMessage(String(msg));
     } finally {
       setLoading(false);
@@ -516,12 +551,15 @@ const Scheduler = ({ userInfo }) => {
 
   const getDayClasses = (day) => {
     const dateKey = format(day, "yyyy-MM-dd");
-    const hasAvailability = availableTimes[dateKey] && availableTimes[dateKey].length > 0;
-    const hasLessons = plannedLessons.some(lesson => format(new Date(lesson.date), "yyyy-MM-dd") === dateKey);
+    const hasAvailability =
+      availableTimes[dateKey] && availableTimes[dateKey].length > 0;
+    const hasLessons = plannedLessons.some(
+      (lesson) => format(new Date(lesson.date), "yyyy-MM-dd") === dateKey,
+    );
     const isSelected = selectedDay && isSameDay(day, selectedDay);
-    
+
     let baseClasses = "p-4 rounded text-sm font-medium transition-colors";
-    
+
     if (isSelected) {
       baseClasses += " bg-[#01B0F1] text-white";
     } else if (hasLessons) {
@@ -531,13 +569,13 @@ const Scheduler = ({ userInfo }) => {
     } else {
       baseClasses += " bg-gray-200 hover:bg-gray-300";
     }
-    
+
     return baseClasses;
   };
 
   const tabs = [
-    { id: 'availability', name: 'Manage Availability', icon: <FaClock /> },
-    { id: 'peerToPeer', name: 'Peer-to-Peer', icon: <FaUsers /> }
+    { id: "availability", name: "Manage Availability", icon: <FaClock /> },
+    { id: "peerToPeer", name: "Peer-to-Peer", icon: <FaUsers /> },
   ];
 
   return (
@@ -545,14 +583,17 @@ const Scheduler = ({ userInfo }) => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Schedule Management</h1>
-          <p className="text-gray-600">Manage your availability and peer-to-peer sessions</p>
+          <h1 className="text-2xl font-bold text-gray-800">
+            Schedule Management
+          </h1>
+          <p className="text-gray-600">
+            Manage your availability and peer-to-peer sessions
+          </p>
         </div>
-        {activeTab === 'peerToPeer' && (
+        {activeTab === "peerToPeer" && (
           <button
             onClick={() => setShowCreatePeerModal(true)}
-            className="bg-[#01B0F1] hover:bg-[#0199d4] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-          >
+            className="bg-[#01B0F1] hover:bg-[#0199d4] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
             <FaPlus />
             Create Session
           </button>
@@ -568,10 +609,9 @@ const Scheduler = ({ userInfo }) => {
               onClick={() => setActiveTab(tab.id)}
               className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
                 activeTab === tab.id
-                  ? 'border-[#01B0F1] text-[#01B0F1]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
+                  ? "border-[#01B0F1] text-[#01B0F1]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}>
               {tab.icon}
               {tab.name}
             </button>
@@ -580,21 +620,21 @@ const Scheduler = ({ userInfo }) => {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'availability' && (
+      {activeTab === "availability" && (
         <div className="space-y-6">
           {/* Calendar Header */}
           <div className="flex justify-between items-center">
             <button
               onClick={() => changeMonth("prev")}
-              className="bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors"
-            >
+              className="bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors">
               Previous
             </button>
-            <h2 className="text-xl font-semibold text-gray-800">{format(currentDate, "MMMM yyyy")}</h2>
+            <h2 className="text-xl font-semibold text-gray-800">
+              {format(currentDate, "MMMM yyyy")}
+            </h2>
             <button
               onClick={() => changeMonth("next")}
-              className="bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors"
-            >
+              className="bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors">
               Next
             </button>
           </div>
@@ -614,17 +654,18 @@ const Scheduler = ({ userInfo }) => {
               <button
                 key={index}
                 onClick={() => handleDayClick(day)}
-                className={getDayClasses(day)}
-              >
+                className={getDayClasses(day)}>
                 <div className="text-center">
                   <div className="font-medium">{format(day, "d")}</div>
                   <div className="text-xs mt-1">
                     {availableTimes[format(day, "yyyy-MM-dd")]?.length > 0 && (
                       <span className="text-blue-600">●</span>
                     )}
-                    {plannedLessons.some(lesson => format(new Date(lesson.date), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")) && (
-                      <span className="text-green-600">●</span>
-                    )}
+                    {plannedLessons.some(
+                      (lesson) =>
+                        format(new Date(lesson.date), "yyyy-MM-dd") ===
+                        format(day, "yyyy-MM-dd"),
+                    ) && <span className="text-green-600">●</span>}
                   </div>
                 </div>
               </button>
@@ -640,8 +681,7 @@ const Scheduler = ({ userInfo }) => {
                 </h3>
                 <button
                   onClick={() => setShowAddTimeModal(true)}
-                  className="bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors flex items-center gap-2"
-                >
+                  className="bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors flex items-center gap-2">
                   <FaPlus />
                   Add Availability
                 </button>
@@ -649,13 +689,19 @@ const Scheduler = ({ userInfo }) => {
 
               {/* Available Times */}
               <div className="mb-6">
-                <h4 className="font-semibold mb-3 text-gray-700">Available Time Ranges:</h4>
+                <h4 className="font-semibold mb-3 text-gray-700">
+                  Available Time Ranges:
+                </h4>
                 {filteredTimes.length === 0 ? (
-                  <p className="text-gray-500">No availability set for this day</p>
+                  <p className="text-gray-500">
+                    No availability set for this day
+                  </p>
                 ) : (
                   <div className="grid gap-2">
                     {filteredTimes.map((time, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <span className="font-medium">
                           {time.start_time} - {time.end_time}
                         </span>
@@ -670,24 +716,44 @@ const Scheduler = ({ userInfo }) => {
 
               {/* Planned Lessons for this day */}
               <div>
-                <h4 className="font-semibold mb-3 text-gray-700">Planned Lessons:</h4>
-                {plannedLessons.filter(lesson => format(new Date(lesson.date), "yyyy-MM-dd") === format(selectedDay, "yyyy-MM-dd")).length === 0 ? (
-                  <p className="text-gray-500">No lessons planned for this day</p>
+                <h4 className="font-semibold mb-3 text-gray-700">
+                  Planned Lessons:
+                </h4>
+                {plannedLessons.filter(
+                  (lesson) =>
+                    format(new Date(lesson.date), "yyyy-MM-dd") ===
+                    format(selectedDay, "yyyy-MM-dd"),
+                ).length === 0 ? (
+                  <p className="text-gray-500">
+                    No lessons planned for this day
+                  </p>
                 ) : (
                   <div className="grid gap-2">
                     {plannedLessons
-                      .filter(lesson => format(new Date(lesson.date), "yyyy-MM-dd") === format(selectedDay, "yyyy-MM-dd"))
+                      .filter(
+                        (lesson) =>
+                          format(new Date(lesson.date), "yyyy-MM-dd") ===
+                          format(selectedDay, "yyyy-MM-dd"),
+                      )
                       .map((lesson) => (
-                        <div key={lesson.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <div
+                          key={lesson.id}
+                          className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                           <div>
-                            <div className="font-medium text-green-800">{lesson.title}</div>
+                            <div className="font-medium text-green-800">
+                              {lesson.title}
+                            </div>
                             <div className="text-sm text-green-600">
-                              {lesson.start_time} - {lesson.end_time} • {lesson.subject} • Grade {lesson.grade}
+                              {lesson.start_time} - {lesson.end_time} •{" "}
+                              {lesson.subject} • Grade {lesson.grade}
                             </div>
                           </div>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            lesson.status === 'scheduled' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                          }`}>
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              lesson.status === "scheduled"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}>
                             {lesson.status}
                           </span>
                         </div>
@@ -700,45 +766,62 @@ const Scheduler = ({ userInfo }) => {
         </div>
       )}
 
-      {activeTab === 'peerToPeer' && (
+      {activeTab === "peerToPeer" && (
         <div className="space-y-4">
           {peerToPeerSessions.length === 0 ? (
             <div className="text-center py-12">
               <FaUsers className="text-4xl text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-700">No peer-to-peer sessions</h3>
-              <p className="text-gray-500 mt-2">Create your first peer-to-peer session</p>
+              <h3 className="text-lg font-semibold text-gray-700">
+                No peer-to-peer sessions
+              </h3>
+              <p className="text-gray-500 mt-2">
+                Create your first peer-to-peer session
+              </p>
               <button
                 onClick={() => setShowCreatePeerModal(true)}
-                className="mt-4 bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors"
-              >
+                className="mt-4 bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors">
                 Create Session
               </button>
             </div>
           ) : (
             <div className="grid gap-4">
               {peerToPeerSessions.map((session) => (
-                <div key={session.id} className="bg-white p-6 rounded-lg shadow-sm border">
+                <div
+                  key={session.id}
+                  className="bg-white p-6 rounded-lg shadow-sm border">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800">{session.title}</h3>
-                      <p className="text-gray-600 mb-2">{session.description}</p>
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        {session.title}
+                      </h3>
+                      <p className="text-gray-600 mb-2">
+                        {session.description}
+                      </p>
                       <div className="text-sm text-gray-500 space-y-1">
-                        <p>Started: {session.started_at ? new Date(session.started_at).toLocaleString() : 'Not started'}</p>
-                        <p>Ended: {session.ended_at ? new Date(session.ended_at).toLocaleString() : 'Not ended'}</p>
+                        <p>
+                          Started:{" "}
+                          {session.started_at
+                            ? new Date(session.started_at).toLocaleString()
+                            : "Not started"}
+                        </p>
+                        <p>
+                          Ended:{" "}
+                          {session.ended_at
+                            ? new Date(session.ended_at).toLocaleString()
+                            : "Not ended"}
+                        </p>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setEditingSession(session)}
-                        className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
-                      >
+                        className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm">
                         Edit
                       </button>
                       <button
                         onClick={() => handleDeletePeerSession(session.id)}
                         className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
-                        disabled={loading}
-                      >
+                        disabled={loading}>
                         Delete
                       </button>
                     </div>
@@ -749,8 +832,7 @@ const Scheduler = ({ userInfo }) => {
                         href={session.teacher_meeting_link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm"
-                      >
+                        className="inline-block px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm">
                         Join Meeting
                       </a>
                     )}
@@ -759,8 +841,7 @@ const Scheduler = ({ userInfo }) => {
                         href={session.whiteboard_link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
-                      >
+                        className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm">
                         Open Whiteboard
                       </a>
                     )}
@@ -772,27 +853,34 @@ const Scheduler = ({ userInfo }) => {
         </div>
       )}
 
-      {activeTab === 'lessons' && (
+      {activeTab === "lessons" && (
         <div className="space-y-4">
           {plannedLessons.length === 0 ? (
             <div className="text-center py-12">
               <FaBookOpen className="text-4xl text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-700">No courses created yet</h3>
-              <p className="text-gray-500 mt-2">Create your first course to get started</p>
+              <h3 className="text-lg font-semibold text-gray-700">
+                No courses created yet
+              </h3>
+              <p className="text-gray-500 mt-2">
+                Create your first course to get started
+              </p>
               <button
                 onClick={() => setShowLessonModal(true)}
-                className="mt-4 bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors"
-              >
+                className="mt-4 bg-[#01B0F1] text-white px-4 py-2 rounded-lg hover:bg-[#0199d4] transition-colors">
                 Create Course
               </button>
             </div>
           ) : (
             <div className="grid gap-4">
               {plannedLessons.map((lesson) => (
-                <div key={lesson.id} className="bg-white p-6 rounded-lg shadow-sm border">
+                <div
+                  key={lesson.id}
+                  className="bg-white p-6 rounded-lg shadow-sm border">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800">{lesson.title}</h3>
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        {lesson.title}
+                      </h3>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                         <span className="flex items-center gap-1">
                           <FaBookOpen />
@@ -816,9 +904,12 @@ const Scheduler = ({ userInfo }) => {
                       <div className="text-sm text-gray-600">
                         {lesson.current_students}/{lesson.max_students} students
                       </div>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        lesson.status === 'scheduled' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          lesson.status === "scheduled"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
                         {lesson.status}
                       </span>
                     </div>
@@ -835,51 +926,63 @@ const Scheduler = ({ userInfo }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-semibold text-gray-800">Add Availability</h2>
+              <h2 className="text-xl font-semibold text-gray-800">
+                Add Availability
+              </h2>
               <button
                 onClick={() => setShowAddTimeModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
+                className="text-gray-400 hover:text-gray-600">
                 <FaTimes className="text-xl" />
               </button>
             </div>
-            
-            <form onSubmit={(e) => { e.preventDefault(); addTimeRange(); }} className="p-6 space-y-4">
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                addTimeRange();
+              }}
+              className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time *
+                  </label>
                   <input
                     type="time"
                     required
                     value={timeRange.start}
-                    onChange={(e) => setTimeRange({ ...timeRange, start: e.target.value })}
+                    onChange={(e) =>
+                      setTimeRange({ ...timeRange, start: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">End Time *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time *
+                  </label>
                   <input
                     type="time"
                     required
                     value={timeRange.end}
-                    onChange={(e) => setTimeRange({ ...timeRange, end: e.target.value })}
+                    onChange={(e) =>
+                      setTimeRange({ ...timeRange, end: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                   />
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowAddTimeModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4]"
-                >
+                  className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4]">
                   Add Time Range
                 </button>
               </div>
@@ -893,37 +996,45 @@ const Scheduler = ({ userInfo }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-semibold text-gray-800">Create New Course</h2>
+              <h2 className="text-xl font-semibold text-gray-800">
+                Create New Course
+              </h2>
               <button
                 onClick={() => setShowLessonModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
+                className="text-gray-400 hover:text-gray-600">
                 <FaTimes className="text-xl" />
               </button>
             </div>
-            
+
             <form onSubmit={handleCreateLesson} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Title *
+                  </label>
                   <input
                     type="text"
                     required
                     value={newLesson.title}
-                    onChange={(e) => setNewLesson({...newLesson, title: e.target.value})}
+                    onChange={(e) =>
+                      setNewLesson({ ...newLesson, title: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                     placeholder="Course title"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Subject *
+                  </label>
                   <select
                     required
                     value={newLesson.subject}
-                    onChange={(e) => setNewLesson({...newLesson, subject: e.target.value})}
+                    onChange={(e) =>
+                      setNewLesson({ ...newLesson, subject: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                    disabled={loadingSubjects}
-                  >
+                    disabled={loadingSubjects}>
                     <option value="">Select a subject</option>
                     {availableSubjects.map((subject) => (
                       <option key={subject.id} value={subject.id}>
@@ -933,14 +1044,17 @@ const Scheduler = ({ userInfo }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Grade *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Grade *
+                  </label>
                   <select
                     required
                     value={newLesson.grade}
-                    onChange={(e) => setNewLesson({...newLesson, grade: e.target.value})}
+                    onChange={(e) =>
+                      setNewLesson({ ...newLesson, grade: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                    disabled={loadingGrades}
-                  >
+                    disabled={loadingGrades}>
                     <option value="">Select a grade</option>
                     {availableGrades.map((grade) => (
                       <option key={grade.id} value={grade.id}>
@@ -950,51 +1064,74 @@ const Scheduler = ({ userInfo }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price (KES)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Price (KES)
+                  </label>
                   <input
                     type="number"
                     value={newLesson.price}
-                    onChange={(e) => setNewLesson({...newLesson, price: e.target.value})}
+                    onChange={(e) =>
+                      setNewLesson({ ...newLesson, price: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                     placeholder="e.g. 1500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Course Code</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Course Code
+                  </label>
                   <input
                     type="text"
                     value={newLesson.code}
-                    onChange={(e) => setNewLesson({...newLesson, code: e.target.value})}
+                    onChange={(e) =>
+                      setNewLesson({ ...newLesson, code: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                     placeholder="Optional code"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cover Image URL</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cover Image URL
+                  </label>
                   <input
                     type="text"
                     value={newLesson.cover_image}
-                    onChange={(e) => setNewLesson({...newLesson, cover_image: e.target.value})}
+                    onChange={(e) =>
+                      setNewLesson({
+                        ...newLesson,
+                        cover_image: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                     placeholder="https://..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Country
+                  </label>
                   <input
                     type="text"
                     value={newLesson.country}
-                    onChange={(e) => setNewLesson({...newLesson, country: e.target.value})}
+                    onChange={(e) =>
+                      setNewLesson({ ...newLesson, country: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                     placeholder="e.g. Kenya"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Topics (one per line)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Topics (one per line)
+                  </label>
                   <textarea
                     rows={3}
                     value={newLesson.topics}
-                    onChange={(e) => setNewLesson({...newLesson, topics: e.target.value})}
+                    onChange={(e) =>
+                      setNewLesson({ ...newLesson, topics: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                     placeholder={`Topic 1
 Topic 2
@@ -1002,11 +1139,18 @@ Topic 3`}
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
                   <textarea
                     rows={4}
                     value={newLesson.description}
-                    onChange={(e) => setNewLesson({...newLesson, description: e.target.value})}
+                    onChange={(e) =>
+                      setNewLesson({
+                        ...newLesson,
+                        description: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
                     placeholder="Describe the course content..."
                   />
@@ -1016,10 +1160,17 @@ Topic 3`}
                     type="checkbox"
                     id="course-active"
                     checked={newLesson.is_active}
-                    onChange={(e) => setNewLesson({...newLesson, is_active: e.target.checked})}
+                    onChange={(e) =>
+                      setNewLesson({
+                        ...newLesson,
+                        is_active: e.target.checked,
+                      })
+                    }
                     className="h-4 w-4 text-[#01B0F1] focus:ring-[#01B0F1]"
                   />
-                  <label htmlFor="course-active" className="text-sm text-gray-700">
+                  <label
+                    htmlFor="course-active"
+                    className="text-sm text-gray-700">
                     Course is active and visible to students
                   </label>
                 </div>
@@ -1028,10 +1179,17 @@ Topic 3`}
                     type="checkbox"
                     id="course-universal"
                     checked={newLesson.is_universal}
-                    onChange={(e) => setNewLesson({...newLesson, is_universal: e.target.checked})}
+                    onChange={(e) =>
+                      setNewLesson({
+                        ...newLesson,
+                        is_universal: e.target.checked,
+                      })
+                    }
                     className="h-4 w-4 text-[#01B0F1] focus:ring-[#01B0F1]"
                   />
-                  <label htmlFor="course-universal" className="text-sm text-gray-700">
+                  <label
+                    htmlFor="course-universal"
+                    className="text-sm text-gray-700">
                     Course is universal (available in all countries)
                   </label>
                 </div>
@@ -1041,14 +1199,12 @@ Topic 3`}
                 <button
                   type="button"
                   onClick={() => setShowLessonModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4]"
-                >
+                  className="px-4 py-2 bg-[#01B0F1] text-white rounded-lg hover:bg-[#0199d4]">
                   Create Course
                 </button>
               </div>
@@ -1062,20 +1218,26 @@ Topic 3`}
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md">
             <div className="flex flex-col">
-              <h2 className="text-2xl font-semibold text-[#015575] mb-4">Edit Session</h2>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const updateData = {
-                  title: formData.get('title'),
-                  description: formData.get('description'),
-                  started_at: formData.get('started_at'),
-                  duration_hours: parseInt(formData.get('duration_hours')),
-                };
-                handleUpdatePeerSession(editingSession.id, updateData);
-              }} className="space-y-4">
+              <h2 className="text-2xl font-semibold text-[#015575] mb-4">
+                Edit Session
+              </h2>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  const updateData = {
+                    title: formData.get("title"),
+                    description: formData.get("description"),
+                    started_at: formData.get("started_at"),
+                    duration_hours: parseInt(formData.get("duration_hours")),
+                  };
+                  handleUpdatePeerSession(editingSession.id, updateData);
+                }}
+                className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Title
+                  </label>
                   <input
                     name="title"
                     defaultValue={editingSession.title}
@@ -1084,7 +1246,9 @@ Topic 3`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
                   <textarea
                     name="description"
                     defaultValue={editingSession.description}
@@ -1092,16 +1256,26 @@ Topic 3`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Time
+                  </label>
                   <input
                     name="started_at"
                     type="datetime-local"
-                    defaultValue={editingSession.started_at ? new Date(editingSession.started_at).toISOString().slice(0, 16) : ''}
+                    defaultValue={
+                      editingSession.started_at
+                        ? new Date(editingSession.started_at)
+                            .toISOString()
+                            .slice(0, 16)
+                        : ""
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Duration (hours)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duration (hours)
+                  </label>
                   <input
                     name="duration_hours"
                     type="number"
@@ -1114,16 +1288,14 @@ Topic 3`}
                   <button
                     type="button"
                     onClick={() => setEditingSession(null)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                  >
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] disabled:opacity-50"
-                  >
-                    {loading ? 'Updating...' : 'Update'}
+                    className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] disabled:opacity-50">
+                    {loading ? "Updating..." : "Update"}
                   </button>
                 </div>
               </form>
@@ -1137,59 +1309,96 @@ Topic 3`}
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md">
             <div className="flex flex-col">
-              <h2 className="text-2xl font-semibold text-[#015575] mb-4">Create Peer Session</h2>
+              <h2 className="text-2xl font-semibold text-[#015575] mb-4">
+                Create Peer Session
+              </h2>
               <form onSubmit={handleCreatePeerSession} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Course</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Course
+                  </label>
                   <select
                     value={newPeerSession.course}
-                    onChange={(e) => setNewPeerSession({ ...newPeerSession, course: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
-                  >
+                    onChange={(e) =>
+                      setNewPeerSession({
+                        ...newPeerSession,
+                        course: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent">
                     <option value="">Select a course</option>
                     {courses.map((course) => (
                       <option key={course.id} value={course.id}>
-                        {course.title} - {course.subject?.name || course.subject}
+                        {course.title} -{" "}
+                        {course.subject?.name || course.subject}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Title
+                  </label>
                   <input
                     type="text"
                     value={newPeerSession.title}
-                    onChange={(e) => setNewPeerSession({ ...newPeerSession, title: e.target.value })}
+                    onChange={(e) =>
+                      setNewPeerSession({
+                        ...newPeerSession,
+                        title: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                     placeholder="Session title"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
                   <textarea
                     value={newPeerSession.description}
-                    onChange={(e) => setNewPeerSession({ ...newPeerSession, description: e.target.value })}
+                    onChange={(e) =>
+                      setNewPeerSession({
+                        ...newPeerSession,
+                        description: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent h-24"
                     placeholder="Describe the session"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Time
+                  </label>
                   <input
                     type="datetime-local"
                     value={newPeerSession.started_at}
-                    onChange={(e) => setNewPeerSession({ ...newPeerSession, started_at: e.target.value })}
+                    onChange={(e) =>
+                      setNewPeerSession({
+                        ...newPeerSession,
+                        started_at: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Duration (hours)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duration (hours)
+                  </label>
                   <input
                     type="number"
                     value={newPeerSession.duration_hours}
-                    onChange={(e) => setNewPeerSession({ ...newPeerSession, duration_hours: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setNewPeerSession({
+                        ...newPeerSession,
+                        duration_hours: parseInt(e.target.value),
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] focus:border-transparent"
                     min="1"
                     required
@@ -1199,16 +1408,14 @@ Topic 3`}
                   <button
                     type="button"
                     onClick={() => setShowCreatePeerModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                  >
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] disabled:opacity-50"
-                  >
-                    {loading ? 'Creating...' : 'Create'}
+                    className="px-4 py-2 bg-[#015575] text-white rounded-lg hover:bg-[#01415e] disabled:opacity-50">
+                    {loading ? "Creating..." : "Create"}
                   </button>
                 </div>
               </form>

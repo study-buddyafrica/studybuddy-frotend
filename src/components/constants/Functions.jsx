@@ -30,7 +30,7 @@ export const checkUser = async (email) => {
 export const decodeJwtToken = (token) => {
   try {
     const decoded = jwtDecode(token);
-    console.log(decoded);
+    console.log("decoded", decoded);
     return decoded;
   } catch (error) {
     console.error("Invalid token", error);
@@ -46,9 +46,8 @@ export const refreshAccessToken = async () => {
     refresh: refreshToken,
   });
 
-  console.log("response", response);
-
   const newAccessToken = response.data.access;
   localStorage.setItem("access_token", newAccessToken);
+
   return newAccessToken;
 };

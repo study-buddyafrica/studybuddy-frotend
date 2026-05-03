@@ -39,6 +39,8 @@ import { FHOST, refreshAccessToken } from "./constants/Functions.jsx";
 import ParentFeedback from "./parents/ParentFeedback.jsx";
 import ParentProfileUpdate from "./parents/ParentProfileUpdate";
 import DashboardHeader from "./layout/DashboardHeader.jsx";
+import useToast from "../hooks/useToast.js";
+import Toast from "./Toast.jsx";
 
 ChartJS.register(
   CategoryScale,
@@ -53,6 +55,8 @@ ChartJS.register(
 );
 
 const ParentDashboard = () => {
+  const { toasts, removeToast, success, error } = useToast();
+
   // State declarations
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -68,6 +72,7 @@ const ParentDashboard = () => {
 
   // State for dynamic data
   const [userInfo, setUserInfo] = useState(null);
+  const [errormessage, setErrorMessage] = useState("");
   const [walletBalance, setWalletBalance] = useState(0);
   const [students, setStudents] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -79,7 +84,8 @@ const ParentDashboard = () => {
   const [studentForm, setStudentForm] = useState({
     fullName: "",
     dateOfBirth: "",
-    className: "",
+    grade: "",
+    School: "",
   });
 
   // New state for smart features
@@ -92,6 +98,7 @@ const ParentDashboard = () => {
   const [depositInfo, setDepositInfo] = useState(null);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   // Refresh parent wallet balance and transactions (used after successful funding)
+
   const fetchParentBalance = async () => {
     try {
       if (!userInfo) return;
@@ -152,7 +159,6 @@ const ParentDashboard = () => {
   // New color scheme
   const primaryColor = "#00aae8";
 
-  // Add this useEffect hook at the top of your component hooks
   useEffect(() => {
     const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (storedUserInfo) {
@@ -171,6 +177,15 @@ const ParentDashboard = () => {
           );
           if (profileResponse.data) {
             const profileData = profileResponse.data;
+            const mergedUserInfo = {
+              ...storedUserInfo,
+              full_name: profileData.full_name || storedUserInfo.full_name,
+              birth_date: profileData.birth_date || storedUserInfo.birth_date,
+              profile_picture:
+                profileData.profile_picture || storedUserInfo.profile_picture,
+            };
+            localStorage.setItem("userInfo", JSON.stringify(mergedUserInfo));
+            setUserInfo(mergedUserInfo);
             // Check if profile has required fields
             const isComplete = !!(
               profileData.profile_picture &&
@@ -215,77 +230,70 @@ const ParentDashboard = () => {
     return () => window.removeEventListener("profile-updated", onProfileUpdate);
   }, []);
 
-  // Fetch wallet data when userInfo changes
-  useEffect(() => {
-    if (userInfo?.id) {
-      fetchParentBalance();
-    }
-  }, [userInfo?.id]);
-
   // Fetch data on component mount
   useEffect(() => {
-    const fetchData = async () => {
+    const loadInitialData = async () => {
       try {
-        if (!userInfo) return;
+        const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
+        if (!storedUserInfo) return;
 
         setIsLoading(true);
 
-        // Use userInfo.id from state
-        const balanceRes = await axios.get(
-          `${FHOST}/payments/wallet/${userInfo.id}`,
-        );
-        setWalletBalance(balanceRes.data.balance || 0);
+        const token = await refreshAccessToken();
+        if (!token) {
+          window.location.href = "/";
+        }
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        };
 
-        // Use userInfo.id from state
-        const childrenRes = await axios.get(
-          `${FHOST}/users/parent/${userInfo.id}/students`,
-        );
+        //fetch student and wallet balance in parallel
+        const [studentsRes, walletRes, transactionsRes] =
+          await Promise.allSettled([
+            axios.get(`${FHOST}/users/parent/${storedUserInfo.id}/students`, {
+              headers,
+            }),
+            axios.get(`${FHOST}/api/wallet/`, { headers }),
+            axios.get(`${FHOST}/api/transactions/`, { headers }),
+          ]);
 
-        console.log(childrenRes.data);
-        setStudents(childrenRes.data.students || []);
+        // Students
+        if (studentsRes.status === "fulfilled") {
+          const data = studentsRes.value.data;
+          setStudents(data.students || data.results || []);
+        }
 
-        // Set mock data for now - replace with actual API calls
-        // setTransactions(mockTransactions);
-        // setUpcomingPayments(mockUpcomingPayments);
+        //wallet balance
+        if (walletRes.status === "fulfilled") {
+          const results = walletRes.value.data?.results;
+          if (results?.length > 0) {
+            setWalletBalance(parseFloat(results[0].balance) || 0);
+          }
+        }
 
-        // If no students from API, use mock data for demonstration
-        if (
-          !childrenRes.data.students ||
-          childrenRes.data.students.length === 0
-        ) {
-          // setStudents(mockStudentsWithBalances);
+        if (transactionsRes.status === "fulfilled") {
+          const txData = transactionsRes.value.data?.results || [];
+          setTransactions(
+            txData.map((tx) => ({
+              id: tx.id,
+              date: new Date(tx.timestamp || tx.created_at),
+              description: tx.description || "Transaction",
+              type: tx.transaction_type,
+              amount: parseFloat(tx.amount || 0),
+              status: tx.status,
+              payment_method: tx.payment_method,
+            })),
+          );
         }
       } catch (error) {
-        console.error("Failed to fetch data:", error);
+        console.error("Failed to load initial data:", error);
       } finally {
         setIsLoading(false);
       }
     };
-
-    const fetchAll = async () => {
-      try {
-        const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
-        const res = await axios.get(
-          `${FHOST}/users/parent/${storedUserInfo.id}/students`,
-        );
-        setStudents(res.data.students || []);
-
-        // If no students from API, use mock data for demonstration
-        if (!res.data.students || res.data.students.length === 0) {
-          // setStudents(mockStudentsWithBalances);
-        }
-      } catch (error) {
-        console.error("Failed to fetch students:", error);
-        // Use mock data if API fails
-        //setStudents(mockStudentsWithBalances);
-      }
-    };
-
-    fetchAll();
-    if (userInfo) {
-      fetchData();
-    }
-  }, [userInfo]);
+    loadInitialData();
+  }, []);
 
   // Handle student form changes
   const handleStudentFormChange = (e) => {
@@ -313,36 +321,50 @@ const ParentDashboard = () => {
       email: `${username}@studybuddy.com`,
       full_name: studentForm.fullName,
       birth_date: studentForm.dateOfBirth,
+      grade: studentForm.grade,
+      school: studentForm.School,
       password: "defaultPassword123#",
       confirm_password: "defaultPassword123#",
       username: username,
     };
 
     try {
+      const token = await refreshAccessToken();
+      if (!token) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+
       const response = await axios.post(
         `${FHOST}/users/parent/register-student`,
         payload,
+        { headers },
       );
 
       const res = await axios.get(
         `${FHOST}/users/parent/${userInfo.id}/students`,
+        { headers },
       );
 
-      setStudents(res.data.students || []);
+      setStudents(res.data.students || res.data.results || []);
       console.log("New student added:", response.data);
       setShowAddStudentModal(false);
-      setStudentForm({ fullName: "", dateOfBirth: "", className: "" });
-      alert("Student registered successfully!");
-    } catch (error) {
-      if (error.response) {
-        console.error("Backend error:", error.response.data);
-        alert(
-          `Error: ${error.response.data.message || "Check console for details"}`,
-        );
-      } else {
-        console.error("Request failed:", error.message);
-        alert("Network error. Please try again.");
-      }
+      setStudentForm({ fullName: "", dateOfBirth: "", grade: "", school: "" });
+      success(
+        "Student Added!",
+        `${studentForm.fullName} was registered successfully.`,
+      );
+    } catch (err) {
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Something went wrong. Please try again.";
+      error("Failed to add student.", msg);
     }
   };
 
@@ -350,10 +372,20 @@ const ParentDashboard = () => {
   const handleEditStudent = async (e) => {
     e.preventDefault();
     try {
+      const token = await refreshAccessToken();
+      if (!token) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
       // API call to update student
       await axios.put(
         `${FHOST}/users/student/${editingStudent.id}`,
         editStudentForm,
+        { headers },
       );
 
       // Update local state
@@ -375,10 +407,13 @@ const ParentDashboard = () => {
 
       setShowStudentDetailsModal(false);
       setEditingStudent(null);
-      alert("Student updated successfully!");
-    } catch (error) {
-      console.error("Failed to update student:", error);
-      alert("Failed to update student. Please try again.");
+      success(
+        "Student Updated!",
+        `${editStudentForm.fullName} was updated successfully.`,
+      );
+    } catch (err) {
+      console.error("Failed to update student:", err);
+      error("Failed to update student.", "Please try again.");
     }
   };
 
@@ -1483,6 +1518,8 @@ const ParentDashboard = () => {
       className={`${
         darkMode ? "dark" : ""
       } flex min-h-screen bg-gray-50 dark:bg-gray-900 font-josefin`}>
+      <Toast toasts={toasts} removeToast={removeToast} />
+
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 z-50 transform lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-xl w-64 ${
@@ -1748,18 +1785,34 @@ const ParentDashboard = () => {
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Class
+                  Grade
                 </label>
                 <input
                   type="text"
-                  name="className"
-                  value={studentForm.className}
+                  name="grade"
+                  value={studentForm.grade}
                   onChange={handleStudentFormChange}
                   className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
-                  placeholder="Class/Grade"
+                  placeholder="Grade"
                   required
                 />
               </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  School
+                </label>
+                <input
+                  type="text"
+                  name="school"
+                  value={studentForm.school}
+                  onChange={handleStudentFormChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
+                  placeholder="School name"
+                  required
+                />
+              </div>
+
               <button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition duration-200">

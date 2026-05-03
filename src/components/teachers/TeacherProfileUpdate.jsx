@@ -29,8 +29,8 @@ const TeacherProfileUpdate = () => {
     teacher_license_number: "",
     national_identity_number: "",
     gender: "",
-    national_identity_card: null,   // Holds the ID/Passport file
-    professional_documents: null,   // Holds the combined Cert/License/CV file
+    national_identity_card: null, // Holds the ID/Passport file
+    professional_documents: null, // Holds the combined Cert/License/CV file
   });
 
   const getSubjectNameById = (id) => {
@@ -71,7 +71,7 @@ const TeacherProfileUpdate = () => {
             Authorization: `Bearer ${localStorage.getItem("access_token")}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
       return response.data.id;
     } catch (error) {
@@ -90,7 +90,7 @@ const TeacherProfileUpdate = () => {
           nextUrl = getResponse.data.next;
         }
         const existing = allSubjects.find(
-          (s) => s.name.toLowerCase() === name.trim().toLowerCase()
+          (s) => s.name.toLowerCase() === name.trim().toLowerCase(),
         );
         if (existing) return existing.id;
       } catch (getError) {
@@ -116,7 +116,7 @@ const TeacherProfileUpdate = () => {
         nextUrl = getResponse.data.next;
       }
       const existing = allGrades.find(
-        (g) => g.level.toLowerCase() === level.trim().toLowerCase()
+        (g) => g.level.toLowerCase() === level.trim().toLowerCase(),
       );
       return existing?.id || null;
     } catch (getError) {
@@ -271,8 +271,9 @@ const TeacherProfileUpdate = () => {
     if (!file) return;
     const isImage = file.type?.startsWith("image/");
     if (!isImage) return displayError("Please select a valid image file.");
-    if (file.size > 5 * 1024 * 1024) return displayError("Image max size is 5MB.");
-    
+    if (file.size > 5 * 1024 * 1024)
+      return displayError("Image max size is 5MB.");
+
     setProfilePhotoPreview(URL.createObjectURL(file));
     setProfilePhoto(file);
   };
@@ -294,7 +295,7 @@ const TeacherProfileUpdate = () => {
   const handleGradeChange = (e) => {
     const value = e.target.value;
     const selectedGrade = availableGrades.find(
-      (g) => g.id === value || g.level === value
+      (g) => g.id === value || g.level === value,
     );
     setGradeInput(value);
     setFormData({
@@ -330,25 +331,33 @@ const TeacherProfileUpdate = () => {
 
     try {
       if (!profilePhotoPreview && !profilePhoto) {
-        return displayError("A professional profile photo is required to teach.");
+        return displayError(
+          "A professional profile photo is required to teach.",
+        );
       }
-      if (!formData.phone) return displayError("Please provide a valid WhatsApp / Phone number.");
+      if (!formData.phone)
+        return displayError("Please provide a valid WhatsApp / Phone number.");
       if (!formData.hourly_rate || parseFloat(formData.hourly_rate) <= 0) {
         return displayError("Hourly rate must be greater than zero.");
       }
-      if (!formData.subject.trim()) return displayError("Please specify a subject.");
-      if (!formData.grade.trim()) return displayError("Please specify a grade.");
+      if (!formData.subject.trim())
+        return displayError("Please specify a subject.");
+      if (!formData.grade.trim())
+        return displayError("Please specify a grade.");
 
       let subjectId = null;
       if (formData.subject.trim()) {
         subjectId = await createSubject(formData.subject.trim());
-        if (!subjectId) return displayError("Failed to create or find the specified subject.");
+        if (!subjectId)
+          return displayError(
+            "Failed to create or find the specified subject.",
+          );
       }
 
       let gradeId = formData.grade_id;
       if (!gradeId && formData.grade.trim()) {
         const selectedGrade = availableGrades.find(
-          (g) => (g.level || g.name || g.id) === formData.grade.trim()
+          (g) => (g.level || g.name || g.id) === formData.grade.trim(),
         );
         if (selectedGrade) gradeId = selectedGrade.id;
       }
@@ -359,11 +368,22 @@ const TeacherProfileUpdate = () => {
       const formDataToSend = new FormData();
       if (formData.bio) formDataToSend.append("bio", formData.bio);
       if (formData.phone) formDataToSend.append("phone", formData.phone);
-      if (formData.hourly_rate) formDataToSend.append("hourly_rate", formData.hourly_rate);
-      if (formData.experience) formDataToSend.append("experience", formData.experience);
-      if (formData.birth_date) formDataToSend.append("birth_date", formData.birth_date);
-      if (formData.teacher_license_number) formDataToSend.append("teacher_license_number", formData.teacher_license_number);
-      if (formData.national_identity_number) formDataToSend.append("national_identity_number", formData.national_identity_number);
+      if (formData.hourly_rate)
+        formDataToSend.append("hourly_rate", formData.hourly_rate);
+      if (formData.experience)
+        formDataToSend.append("experience", formData.experience);
+      if (formData.birth_date)
+        formDataToSend.append("birth_date", formData.birth_date);
+      if (formData.teacher_license_number)
+        formDataToSend.append(
+          "teacher_license_number",
+          formData.teacher_license_number,
+        );
+      if (formData.national_identity_number)
+        formDataToSend.append(
+          "national_identity_number",
+          formData.national_identity_number,
+        );
       if (formData.gender) formDataToSend.append("gender", formData.gender);
       if (subjectId) formDataToSend.append("subjects", subjectId);
       if (gradeId) formDataToSend.append("grade", gradeId);
@@ -371,7 +391,10 @@ const TeacherProfileUpdate = () => {
 
       // --- Append the consolidated files to Django ---
       if (formData.national_identity_card) {
-        formDataToSend.append("national_identity_card", formData.national_identity_card);
+        formDataToSend.append(
+          "national_identity_card",
+          formData.national_identity_card,
+        );
       }
       if (formData.professional_documents) {
         // We map the combined professional doc to the CV database field
@@ -386,11 +409,13 @@ const TeacherProfileUpdate = () => {
             "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${localStorage.getItem("access_token")}`,
           },
-        }
+        },
       );
 
       if (response.status === 200 || response.status === 201) {
-        setSuccessMessage("Profile updated successfully! Awaiting verification.");
+        setSuccessMessage(
+          "Profile updated successfully! Awaiting verification.",
+        );
         window.scrollTo({ top: 0, behavior: "smooth" });
 
         const currentUserInfo = JSON.parse(localStorage.getItem("userInfo"));
@@ -412,8 +437,8 @@ const TeacherProfileUpdate = () => {
       console.error("Error updating profile:", error);
       displayError(
         error.response?.data?.message ||
-        error.response?.data?.error ||
-        "Profile update failed. Please try again."
+          error.response?.data?.error ||
+          "Profile update failed. Please try again.",
       );
     }
   };
@@ -436,8 +461,9 @@ const TeacherProfileUpdate = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
-          
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
           <div className="mb-8 bg-gray-50 rounded-xl p-6 border border-gray-100">
             <label className="block text-lg font-semibold text-[#015575] mb-2">
               Professional Photo <span className="text-red-500">*</span>
@@ -446,18 +472,45 @@ const TeacherProfileUpdate = () => {
               <div className="relative group">
                 <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#015575]/20 bg-white">
                   {profilePhotoPreview ? (
-                    <img src={profilePhotoPreview} alt="Profile" className="w-full h-full object-cover" />
+                    <img
+                      src={profilePhotoPreview}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Upload Photo</span>
+                      <span className="text-gray-400 text-sm">
+                        Upload Photo
+                      </span>
                     </div>
                   )}
                 </div>
                 <label className="absolute bottom-0 right-0 bg-[#015575] text-white p-2 rounded-full cursor-pointer shadow-md hover:bg-[#01415e] transition">
-                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={loading} />
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                    disabled={loading}
+                  />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
                   </svg>
                 </label>
               </div>
@@ -465,9 +518,10 @@ const TeacherProfileUpdate = () => {
           </div>
 
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Basic Information</h3>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">
+              Basic Information
+            </h3>
             <div className="grid gap-6 md:grid-cols-2">
-              
               {/* SMART PHONE INPUT */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -479,7 +533,7 @@ const TeacherProfileUpdate = () => {
                     value={formData.phone}
                     onChange={handlePhoneChange}
                     defaultCountry="KE"
-                    className="w-full px-4 py-3"
+                    className="w-full px-4 py-3 outline-none"
                     disabled={loading}
                   />
                 </div>
@@ -491,7 +545,9 @@ const TeacherProfileUpdate = () => {
                   Hourly Rate <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 font-medium">KES</span>
+                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 font-medium">
+                    KES
+                  </span>
                   <input
                     type="number"
                     min="1"
@@ -508,28 +564,74 @@ const TeacherProfileUpdate = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Birth Date</label>
-                <input type="date" name="birth_date" value={formData.birth_date} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]" disabled={loading} />
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Birth Date
+                </label>
+                <input
+                  type="date"
+                  name="birth_date"
+                  value={formData.birth_date}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]"
+                  disabled={loading}
+                />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Experience (years)</label>
-                <input type="number" name="experience" value={formData.experience} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]" placeholder="Years of experience" disabled={loading} />
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Experience (years)
+                </label>
+                <input
+                  type="number"
+                  name="experience"
+                  value={formData.experience}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]"
+                  placeholder="Years of experience"
+                  disabled={loading}
+                />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Teacher License Number</label>
-                <input type="text" name="teacher_license_number" value={formData.teacher_license_number} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]" placeholder="Enter license number" disabled={loading} />
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Teacher License Number
+                </label>
+                <input
+                  type="text"
+                  name="teacher_license_number"
+                  value={formData.teacher_license_number}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]"
+                  placeholder="Enter license number"
+                  disabled={loading}
+                />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">National Identity Number</label>
-                <input type="text" name="national_identity_number" value={formData.national_identity_number} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]" placeholder="Enter ID number" disabled={loading} />
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  National Identity Number
+                </label>
+                <input
+                  type="text"
+                  name="national_identity_number"
+                  value={formData.national_identity_number}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]"
+                  placeholder="Enter ID number"
+                  disabled={loading}
+                />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-                <select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] bg-white" disabled={loading}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Gender
+                </label>
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] bg-white"
+                  disabled={loading}>
                   <option value="">Select gender</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -540,30 +642,73 @@ const TeacherProfileUpdate = () => {
           </div>
 
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Subject <span className="text-red-500">*</span></h3>
-            <input type="text" value={subjectInput} onChange={handleSubjectChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]" placeholder="e.g. Mathematics" disabled={loading} required />
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">
+              Subject <span className="text-red-500">*</span>
+            </h3>
+            <input
+              type="text"
+              value={subjectInput}
+              onChange={handleSubjectChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]"
+              placeholder="e.g. Mathematics"
+              disabled={loading}
+              required
+            />
           </div>
 
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Grade <span className="text-red-500">*</span></h3>
-            <select value={gradeInput} onChange={handleGradeChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] bg-white mb-4" disabled={loading}>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">
+              Grade <span className="text-red-500">*</span>
+            </h3>
+            <select
+              value={gradeInput}
+              onChange={handleGradeChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] bg-white mb-4"
+              disabled={loading}>
               <option value="">Select a grade</option>
               {availableGrades.map((grade) => (
-                <option key={grade.id} value={grade.id}>{grade.level}</option>
+                <option key={grade.id} value={grade.id}>
+                  {grade.level}
+                </option>
               ))}
             </select>
-            <input type="text" value={formData.grade} onChange={(e) => { setFormData({ ...formData, grade: e.target.value, grade_id: "" }); setGradeInput(e.target.value); }} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]" placeholder="Enter custom grade name (e.g., Grade 6)" disabled={loading} />
+            <input
+              type="text"
+              value={formData.grade}
+              onChange={(e) => {
+                setFormData({
+                  ...formData,
+                  grade: e.target.value,
+                  grade_id: "",
+                });
+                setGradeInput(e.target.value);
+              }}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575]"
+              placeholder="Enter custom grade name (e.g., Grade 6)"
+              disabled={loading}
+            />
           </div>
 
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
             <h3 className="text-xl font-semibold text-[#015575] mb-6">Bio</h3>
-            <textarea name="bio" value={formData.bio} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] h-32" placeholder="Tell us about yourself..." disabled={loading} />
+            <textarea
+              name="bio"
+              value={formData.bio}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#015575] h-32"
+              placeholder="Tell us about yourself..."
+              disabled={loading}
+            />
           </div>
 
           {/* CONSOLIDATED UPLOAD 1: ID / Passport */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-2">Identity Verification</h3>
-            <label className="block text-sm font-medium text-gray-700 mb-4">National ID Card / Passport</label>
+            <h3 className="text-xl font-semibold text-[#015575] mb-2">
+              Identity Verification
+            </h3>
+            <label className="block text-sm font-medium text-gray-700 mb-4">
+              National ID Card / Passport
+            </label>
             <input
               type="file"
               accept=".pdf,.doc,.docx,image/*"
@@ -575,9 +720,16 @@ const TeacherProfileUpdate = () => {
 
           {/* CONSOLIDATED UPLOAD 2: Professional Documents */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-2">Professional Documents</h3>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Academic Cert / Teacher License / CV</label>
-            <p className="text-xs text-gray-500 mb-4">Please combine these into a single PDF if possible, or upload your primary document.</p>
+            <h3 className="text-xl font-semibold text-[#015575] mb-2">
+              Professional Documents
+            </h3>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Academic Cert / Teacher License / CV
+            </label>
+            <p className="text-xs text-gray-500 mb-4">
+              Please combine these into a single PDF if possible, or upload your
+              primary document.
+            </p>
             <input
               type="file"
               accept=".pdf,.doc,.docx,image/*"
@@ -587,7 +739,10 @@ const TeacherProfileUpdate = () => {
             />
           </div>
 
-          <button type="submit" disabled={loading} className="w-full bg-[#015575] text-white py-4 rounded-xl hover:bg-[#01415e] transition text-lg font-bold shadow-md disabled:opacity-70 disabled:cursor-not-allowed">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#015575] text-white py-4 rounded-xl hover:bg-[#01415e] transition text-lg font-bold shadow-md disabled:opacity-70 disabled:cursor-not-allowed">
             {loading ? "Saving Profile..." : "Submit for Verification"}
           </button>
         </form>

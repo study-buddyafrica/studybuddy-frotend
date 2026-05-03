@@ -20,7 +20,7 @@ import {
   FaSearch,
   FaBars,
 } from "react-icons/fa";
-import { FHOST } from "./constants/Functions";
+import { FHOST, refreshAccessToken } from "./constants/Functions";
 import MyLessons from "./teachers/MyLessons";
 import Liveclass from "./teachers/Liveclass";
 import MyAccount from "./teachers/MyAccount";
@@ -75,6 +75,16 @@ const TeacherDashboard = () => {
   };
 
   const fetchSubjects = async () => {
+    let token;
+    try {
+      token = await refreshAccessToken();
+    } catch (refreshError) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("userInfo");
+      window.location.href = "/";
+      return;
+    }
     try {
       let allSubjects = [];
       let nextUrl = `${FHOST}/api/subjects/`;
@@ -82,9 +92,10 @@ const TeacherDashboard = () => {
       while (nextUrl) {
         const response = await axios.get(nextUrl, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            Authorization: `Bearer ${token}`,
           },
         });
+        console.log("Fetched subjects page:", response.data);
         if (response.data && response.data.results) {
           allSubjects = allSubjects.concat(response.data.results);
         }
@@ -99,13 +110,14 @@ const TeacherDashboard = () => {
 
   const fetchGrades = async () => {
     try {
+      const token = await refreshAccessToken();
       let allGrades = [];
       let nextUrl = `${FHOST}/api/grades/`;
 
       while (nextUrl) {
         const response = await axios.get(nextUrl, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            Authorization: `Bearer ${token}`,
           },
         });
         if (response.data && response.data.results) {
@@ -206,11 +218,12 @@ const TeacherDashboard = () => {
       setUserInfo(userData);
 
       try {
+        const token = await refreshAccessToken();
         const profileResponse = await axios.get(
           `${FHOST}/api/teacher/profile/update/`,
           {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+              Authorization: `Bearer ${token}`,
             },
           },
         );
@@ -223,7 +236,7 @@ const TeacherDashboard = () => {
 
       let finalStatus = userData.verification_status || null;
       try {
-        const token = localStorage.getItem("access_token");
+        const token = await refreshAccessToken();
         if (token) {
           const teacherRecord = await fetchTeacherRecord(token, userData);
           if (teacherRecord) {
@@ -597,7 +610,7 @@ const TeacherDashboard = () => {
     <div className="flex min-h-screen bg-gray-50 font-josefin">
       {/* Sidebar - Fixed position */}
       <div
-        className={`fixed z-30 inset-y-0 left-0 w-64 bg-sky-500 text-white transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-xl`}
+        className={`fixed z-30 inset-y-0 left-0 w-64 bg-gradient-to-b from-[#e8f5ff] via-[#d0ecff] to-[#00abe8]  text-[#015474] transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-xl`}
         style={{ height: "100vh", overflowY: "auto" }}>
         <div className="flex flex-col h-full">
           <div className="p-6 flex items-center border-b border-white/30">
@@ -613,14 +626,14 @@ const TeacherDashboard = () => {
               )}
             </div>
             <div className="ml-4">
-              <h2 className="text-xl font-lilita text-white">
+              <h2 className="text-xl font-lilita text-[#015474]">
                 {getDisplayName()}
               </h2>
-              <p className="text-amber-100 text-sm">Teacher</p>
+              <p className="text-[#015474] text-sm">Teacher</p>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="ml-auto lg:hidden text-white">
+              className="ml-auto lg:hidden text-[#015474]">
               <FaTimes />
             </button>
           </div>
