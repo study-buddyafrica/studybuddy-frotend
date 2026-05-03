@@ -1,22 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { HiPlus, HiMinus } from "react-icons/hi";
 import axios from "axios";
-import { FHOST } from "../constants/Functions";
+import { FHOST, refreshAccessToken } from "../constants/Functions";
 
-const StudentLiveClass = ({userInfo}) => {
+const StudentLiveClass = ({ userInfo }) => {
   const [collapsed, setCollapsed] = useState({});
   const [sessions, setSessions] = useState([]);
- 
+
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const token = localStorage.getItem('access_token');
+        const token = await refreshAccessToken();
         const response = await axios.get(`${FHOST}/api/live-sessions/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        
+
         // Handle paginated response - students see sessions they booked
         const sessionsList = response.data?.results || response.data || [];
         setSessions(Array.isArray(sessionsList) ? sessionsList : []);
@@ -28,12 +28,11 @@ const StudentLiveClass = ({userInfo}) => {
     fetchSessions();
   }, []);
 
-
   const handleMarkAttended = async (session) => {
     try {
-      const token = localStorage.getItem('access_token');
+      const token = await refreshAccessToken();
       if (!token) {
-        alert('Authentication required. Please login again.');
+        alert("Authentication required. Please login again.");
         return;
       }
 
@@ -42,23 +41,28 @@ const StudentLiveClass = ({userInfo}) => {
         { attended: true },
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.status === 200) {
         // Update the session in the list
-        setSessions(prevSessions => prevSessions.map(s => s.id === session.id ? { ...s, attended: true } : s));
-        alert('Session marked as attended successfully!');
+        setSessions((prevSessions) =>
+          prevSessions.map((s) =>
+            s.id === session.id ? { ...s, attended: true } : s,
+          ),
+        );
+        alert("Session marked as attended successfully!");
       }
     } catch (error) {
       console.error("Error marking session as attended:", error);
-      const errorMsg = error.response?.data?.message ||
-                       error.response?.data?.error ||
-                       error.response?.data?.detail ||
-                       'Failed to mark session as attended. Please try again.';
+      const errorMsg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        "Failed to mark session as attended. Please try again.";
       alert(errorMsg);
     }
   };
@@ -75,30 +79,41 @@ const StudentLiveClass = ({userInfo}) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {sessions?.length > 0 ? (
           sessions.map((session) => (
-            <div key={session.id} className="bg-white rounded-lg shadow-md p-6 flex flex-col min-h-[300px]">
-
+            <div
+              key={session.id}
+              className="bg-white rounded-lg shadow-md p-6 flex flex-col min-h-[300px]">
               <div className="flex-1 mb-4">
                 <h3 className="text-lg font-semibold">{session.title}</h3>
                 <p className="text-gray-600 text-sm mt-1">
-                  Started: <strong>{session.started_at ? new Date(session.started_at).toLocaleString() : 'Not started'}</strong>
+                  Started:{" "}
+                  <strong>
+                    {session.started_at
+                      ? new Date(session.started_at).toLocaleString()
+                      : "Not started"}
+                  </strong>
                 </p>
                 <p className="text-gray-600 text-sm">
-                  Ended: <strong>{session.ended_at ? new Date(session.ended_at).toLocaleString() : 'Not ended'}</strong>
+                  Ended:{" "}
+                  <strong>
+                    {session.ended_at
+                      ? new Date(session.ended_at).toLocaleString()
+                      : "Not ended"}
+                  </strong>
                 </p>
                 <div className="text-gray-700 mt-2">
                   <p
                     className={`transition-all duration-300 ${
                       collapsed[session.id] ? "h-auto" : "h-20 overflow-hidden"
-                    }`}
-                  >
+                    }`}>
                     {session.description}
                   </p>
                   {session.description && session.description.length > 100 && (
                     <button
                       onClick={() => toggleDescription(session.id)}
-                      className="bg-blue-600 w-fit text-white mt-2 flex items-center space-x-1 px-2 py-1 rounded-md"
-                    >
-                      <span>{collapsed[session.id] ? "Read Less" : "Read More"}</span>
+                      className="bg-blue-600 w-fit text-white mt-2 flex items-center space-x-1 px-2 py-1 rounded-md">
+                      <span>
+                        {collapsed[session.id] ? "Read Less" : "Read More"}
+                      </span>
                       {collapsed[session.id] ? <HiMinus /> : <HiPlus />}
                     </button>
                   )}
@@ -111,8 +126,7 @@ const StudentLiveClass = ({userInfo}) => {
                     href={session.student_meeting_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center"
-                  >
+                    className="block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center">
                     Join Class
                   </a>
                 )}
@@ -121,15 +135,13 @@ const StudentLiveClass = ({userInfo}) => {
                     href={session.whiteboard_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-center mt-2"
-                  >
+                    className="block px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-center mt-2">
                     Open Whiteboard
                   </a>
                 )}
                 <button
                   onClick={() => handleMarkAttended(session)}
-                  className="block w-full px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-center mt-2"
-                >
+                  className="block w-full px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-center mt-2">
                   Mark as Attended
                 </button>
               </div>
@@ -139,7 +151,6 @@ const StudentLiveClass = ({userInfo}) => {
           <p>Loading sessions...</p>
         )}
       </div>
-
     </div>
   );
 };

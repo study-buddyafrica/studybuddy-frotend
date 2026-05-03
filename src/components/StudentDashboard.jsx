@@ -33,7 +33,7 @@ const DashboardHome = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeComponent, setActiveComponent] = useState("dashboard");
   const [profilePhoto, setProfilePhoto] = useState(
-    "https://via.placeholder.com/150"
+    "https://via.placeholder.com/150",
   );
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -52,7 +52,7 @@ const DashboardHome = () => {
     try {
       const token = localStorage.getItem("access_token");
       if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = JSON.parse(atob(token.split(".")[1]));
         return payload.profile_id || payload.user_id || user?.id;
       }
     } catch (error) {
@@ -70,7 +70,7 @@ const DashboardHome = () => {
 
     const initializeDarkMode = () => {
       const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)"
+        "(prefers-color-scheme: dark)",
       ).matches;
       setDarkMode(prefersDark);
     };
@@ -78,32 +78,51 @@ const DashboardHome = () => {
     const initializeFromImpersonation = async (studentId) => {
       try {
         // Try to fetch student profile if endpoint allows unauthenticated access; otherwise fall back
-        const response = await axios.get(`${FHOST}/users/student/${studentId}`).catch(() => null);
+        const response = await axios
+          .get(`${FHOST}/users/student/${studentId}`)
+          .catch(() => null);
         const studentData = response?.data?.student || response?.data || null;
         const nameFromStorage = localStorage.getItem("view_as_student_name");
         const emailFromStorage = localStorage.getItem("view_as_student_email");
-        const impersonatedUser = studentData ? {
-          ...studentData,
-          id: studentData.id || Number(studentId),
-          username: studentData.username || studentData.full_name || nameFromStorage || `Student ${studentId}`,
-          full_name: studentData.full_name || studentData.username || nameFromStorage || `Student ${studentId}`,
-          email: studentData.email || emailFromStorage || "",
-          role: studentData.role || "student",
-          impersonated: true,
-        } : {
+        const impersonatedUser = studentData
+          ? {
+              ...studentData,
+              id: studentData.id || Number(studentId),
+              username:
+                studentData.username ||
+                studentData.full_name ||
+                nameFromStorage ||
+                `Student ${studentId}`,
+              full_name:
+                studentData.full_name ||
+                studentData.username ||
+                nameFromStorage ||
+                `Student ${studentId}`,
+              email: studentData.email || emailFromStorage || "",
+              role: studentData.role || "student",
+              impersonated: true,
+            }
+          : {
+              id: Number(studentId),
+              username: nameFromStorage || `Student ${studentId}`,
+              full_name: nameFromStorage || `Student ${studentId}`,
+              email: emailFromStorage || "",
+              role: "student",
+              impersonated: true,
+            };
+        setUserInfo(impersonatedUser);
+      } catch (_err) {
+        // Fall back to minimal impersonation context
+        const nameFromStorage = localStorage.getItem("view_as_student_name");
+        const emailFromStorage = localStorage.getItem("view_as_student_email");
+        setUserInfo({
           id: Number(studentId),
           username: nameFromStorage || `Student ${studentId}`,
           full_name: nameFromStorage || `Student ${studentId}`,
           email: emailFromStorage || "",
           role: "student",
           impersonated: true,
-        };
-        setUserInfo(impersonatedUser);
-      } catch (_err) {
-        // Fall back to minimal impersonation context
-        const nameFromStorage = localStorage.getItem("view_as_student_name");
-        const emailFromStorage = localStorage.getItem("view_as_student_email");
-        setUserInfo({ id: Number(studentId), username: nameFromStorage || `Student ${studentId}`, full_name: nameFromStorage || `Student ${studentId}`, email: emailFromStorage || "", role: "student", impersonated: true });
+        });
       } finally {
         setIsLoading(false);
       }
@@ -121,22 +140,30 @@ const DashboardHome = () => {
       setUserInfo(storedUserInfo);
       setIsLoading(false);
       initializeDarkMode();
-      
+
       // Check profile completion
       const checkProfileCompletion = async () => {
         try {
           const profileId = getProfileId(storedUserInfo);
           console.log("Checking profile completion for ID:", profileId);
 
-          const profileResponse = await axios.get(`${FHOST}/api/student/profile/update/${profileId}/`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          const profileResponse = await axios.get(
+            `${FHOST}/api/student/profile/update/${profileId}/`,
+            {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+              },
             },
-          });
+          );
           if (profileResponse.data) {
             const profileData = profileResponse.data;
             // Check if profile has required fields
-            const isComplete = !!(profileData.profile_picture && profileData.birth_date && profileData.grade && profileData.school);
+            const isComplete = !!(
+              profileData.profile_picture &&
+              profileData.birth_date &&
+              profileData.grade &&
+              profileData.school
+            );
             setProfileComplete(isComplete);
             if (!isComplete && !localStorage.getItem("profilePromptShown")) {
               setShowProfileUpdateModal(true);
@@ -176,8 +203,8 @@ const DashboardHome = () => {
         setShowProfileUpdateModal(false);
       }
     };
-    window.addEventListener('profile-updated', onProfileUpdate);
-    return () => window.removeEventListener('profile-updated', onProfileUpdate);
+    window.addEventListener("profile-updated", onProfileUpdate);
+    return () => window.removeEventListener("profile-updated", onProfileUpdate);
   }, []);
 
   useEffect(() => {
@@ -209,7 +236,7 @@ const DashboardHome = () => {
                 "Content-Type": "multipart/form-data",
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
               },
-            }
+            },
           );
 
           if (response.status === 200) {
@@ -224,13 +251,13 @@ const DashboardHome = () => {
             setTimeout(() => setSuccessMessage(""), 3000);
           } else {
             setErrorMessage(
-              "Failed to update profile photo. Please try again."
+              "Failed to update profile photo. Please try again.",
             );
             setTimeout(() => setErrorMessage(""), 3000);
           }
         } catch (error) {
           setErrorMessage(
-            "An error occurred while updating your profile photo."
+            "An error occurred while updating your profile photo.",
           );
           setTimeout(() => setErrorMessage(""), 3000);
         }
@@ -249,7 +276,7 @@ const DashboardHome = () => {
   };
 
   const navigation = [
-     {
+    {
       name: "Dashboard",
       key: "dashboard",
       icon: <FaHome className="text-lg" />,
@@ -279,7 +306,6 @@ const DashboardHome = () => {
       key: "history",
       icon: <FaHistory className="text-lg" />,
     },
-
   ];
 
   const renderActiveComponent = () => {
@@ -303,9 +329,13 @@ const DashboardHome = () => {
                     <FaBookOpen className="text-xl" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs md:text-sm">Active Lessons</p>
+                    <p className="text-gray-500 text-xs md:text-sm">
+                      Active Lessons
+                    </p>
                     <div className="flex items-baseline">
-                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">0</h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">
+                        0
+                      </h3>
                     </div>
                   </div>
                 </div>
@@ -317,9 +347,13 @@ const DashboardHome = () => {
                     <FaGraduationCap className="text-xl" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs md:text-sm">Completed Lessons</p>
+                    <p className="text-gray-500 text-xs md:text-sm">
+                      Completed Lessons
+                    </p>
                     <div className="flex items-baseline">
-                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">0</h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">
+                        0
+                      </h3>
                     </div>
                   </div>
                 </div>
@@ -331,9 +365,13 @@ const DashboardHome = () => {
                     <FaWallet className="text-xl" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs md:text-sm">Wallet Balance</p>
+                    <p className="text-gray-500 text-xs md:text-sm">
+                      Wallet Balance
+                    </p>
                     <div className="flex items-baseline">
-                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">Ksh 0</h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">
+                        Ksh 0
+                      </h3>
                     </div>
                   </div>
                 </div>
@@ -345,9 +383,13 @@ const DashboardHome = () => {
                     <FaCalendarAlt className="text-xl" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs md:text-sm">Upcoming Sessions</p>
+                    <p className="text-gray-500 text-xs md:text-sm">
+                      Upcoming Sessions
+                    </p>
                     <div className="flex items-baseline">
-                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">0</h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">
+                        0
+                      </h3>
                     </div>
                   </div>
                 </div>
@@ -359,15 +401,16 @@ const DashboardHome = () => {
               {/* Book Lesson Card */}
               <div
                 className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-xl shadow-lg text-white p-6 cursor-pointer hover:shadow-xl transition-shadow"
-                onClick={() => setActiveComponent("lessons")}
-              >
+                onClick={() => setActiveComponent("lessons")}>
                 <div className="flex items-center mb-4">
                   <div className="bg-white/20 p-3 rounded-full mr-4">
                     <FaBookOpen className="text-xl" />
                   </div>
                   <h2 className="text-xl font-lilita">Book a Lesson</h2>
                 </div>
-                <p className="mb-6 text-blue-100">Schedule your next learning session</p>
+                <p className="mb-6 text-blue-100">
+                  Schedule your next learning session
+                </p>
                 <button className="bg-white text-sky-600 py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-gray-100 transition text-sm md:text-base">
                   Book Now
                 </button>
@@ -376,15 +419,18 @@ const DashboardHome = () => {
               {/* View Teachers Card */}
               <div
                 className="bg-white rounded-xl shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border border-gray-100"
-                onClick={() => setActiveComponent("teachers")}
-              >
+                onClick={() => setActiveComponent("teachers")}>
                 <div className="flex items-center mb-4">
                   <div className="bg-sky-500/10 p-3 rounded-full mr-4 text-sky-500">
                     <FaGraduationCap className="text-xl" />
                   </div>
-                  <h2 className="text-xl font-lilita text-gray-800">Browse Teachers</h2>
+                  <h2 className="text-xl font-lilita text-gray-800">
+                    Browse Teachers
+                  </h2>
                 </div>
-                <p className="mb-6 text-gray-600">Find and connect with qualified tutors</p>
+                <p className="mb-6 text-gray-600">
+                  Find and connect with qualified tutors
+                </p>
                 <button className="bg-sky-500 text-white py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-sky-600 transition text-sm md:text-base">
                   View Teachers
                 </button>
@@ -393,15 +439,18 @@ const DashboardHome = () => {
               {/* Make Payment Card */}
               <div
                 className="bg-white rounded-xl shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border border-gray-100"
-                onClick={() => setActiveComponent("mywallet")}
-              >
+                onClick={() => setActiveComponent("mywallet")}>
                 <div className="flex items-center mb-4">
                   <div className="bg-green-500/10 p-3 rounded-full mr-4 text-green-500">
                     <FaWallet className="text-xl" />
                   </div>
-                  <h2 className="text-xl font-lilita text-gray-800">Make Payment</h2>
+                  <h2 className="text-xl font-lilita text-gray-800">
+                    Make Payment
+                  </h2>
                 </div>
-                <p className="mb-6 text-gray-600">Add funds to your wallet for lessons</p>
+                <p className="mb-6 text-gray-600">
+                  Add funds to your wallet for lessons
+                </p>
                 <button className="bg-green-500 text-white py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-green-600 transition text-sm md:text-base">
                   Add Funds
                 </button>
@@ -419,12 +468,13 @@ const DashboardHome = () => {
                   </h2>
                 </div>
                 <div className="p-4 md:p-6">
-                  <div className="space-y-4 text-center text-gray-500 py-6">No recent teachers</div>
+                  <div className="space-y-4 text-center text-gray-500 py-6">
+                    No recent teachers
+                  </div>
                   <div className="mt-4 text-center">
                     <button
                       onClick={() => setActiveComponent("teachers")}
-                      className="text-sky-500 font-semibold hover:text-sky-600 transition-colors text-sm md:text-base"
-                    >
+                      className="text-sky-500 font-semibold hover:text-sky-600 transition-colors text-sm md:text-base">
                       View All Teachers
                     </button>
                   </div>
@@ -440,12 +490,13 @@ const DashboardHome = () => {
                   </h2>
                 </div>
                 <div className="p-4 md:p-6">
-                  <div className="space-y-4 text-center text-gray-500 py-6">No upcoming lessons</div>
+                  <div className="space-y-4 text-center text-gray-500 py-6">
+                    No upcoming lessons
+                  </div>
                   <div className="mt-4 text-center">
                     <button
                       onClick={() => setActiveComponent("lessons")}
-                      className="text-sky-500 font-semibold hover:text-sky-600 transition-colors text-sm md:text-base"
-                    >
+                      className="text-sky-500 font-semibold hover:text-sky-600 transition-colors text-sm md:text-base">
                       View All Lessons
                     </button>
                   </div>
@@ -465,18 +516,19 @@ const DashboardHome = () => {
       case "profileupdate":
         return <StudentProfileUpdate userInfo={userInfo} />;
       case "myaccount":
-        return <StudentViewProfile userInfo={userInfo} onEditProfile={() => setActiveComponent("profileupdate")} />;
+        return (
+          <StudentViewProfile
+            userInfo={userInfo}
+            onEditProfile={() => setActiveComponent("profileupdate")}
+          />
+        );
       case "performance":
         return <Performance userInfo={userInfo} darkMode={darkMode} />;
       case "history":
         return (
           <div className="max-w-4xl mx-auto">
-            <div
-              className="p-6 rounded-2xl shadow-lg bg-white transition-all duration-300"
-            >
-              <h2
-                className="text-2xl font-bold mb-6 text-gray-800 font-lilita"
-              >
+            <div className="p-6 rounded-2xl shadow-lg bg-white transition-all duration-300">
+              <h2 className="text-2xl font-bold mb-6 text-gray-800 font-lilita">
                 Activity History
               </h2>
               <div className="py-10 text-center text-gray-500">
@@ -488,33 +540,26 @@ const DashboardHome = () => {
       case "settings":
         return (
           <div className="max-w-3xl mx-auto space-y-6">
-            <div
-              className="p-6 rounded-2xl shadow-lg flex justify-between items-center bg-white transition-all duration-300"
-            >
+            <div className="p-6 rounded-2xl shadow-lg flex justify-between items-center bg-white transition-all duration-300">
               <span
                 className={`flex items-center ${
                   darkMode ? "text-white" : "text-gray-800"
-                }`}
-              >
+                }`}>
                 <FaUserCircle className="mr-3 text-indigo-500 text-xl" /> Edit
                 Profile
               </span>
               <button
                 onClick={() => setActiveComponent("myaccount")}
-                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all"
-              >
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all">
                 Edit
               </button>
             </div>
 
-            <div
-              className="p-6 rounded-2xl shadow-lg flex justify-between items-center bg-white transition-all duration-300"
-            >
+            <div className="p-6 rounded-2xl shadow-lg flex justify-between items-center bg-white transition-all duration-300">
               <span
                 className={`flex items-center ${
                   darkMode ? "text-white" : "text-gray-800"
-                }`}
-              >
+                }`}>
                 <div className="mr-3 flex items-center justify-center w-6 h-6">
                   <FaSun
                     className={`mr-2 ${
@@ -533,8 +578,7 @@ const DashboardHome = () => {
                 onClick={() => setDarkMode(!darkMode)}
                 className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${
                   darkMode ? "bg-indigo-600" : "bg-gray-300"
-                }`}
-              >
+                }`}>
                 <span
                   className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
                     darkMode ? "translate-x-6" : "translate-x-1"
@@ -568,17 +612,18 @@ const DashboardHome = () => {
     <div
       className={`${
         darkMode ? "dark" : ""
-      } flex min-h-screen bg-gray-50 dark:bg-gray-900 font-josefin transition-colors duration-300`}
-    >
+      } flex min-h-screen bg-gray-50 dark:bg-gray-900 font-josefin transition-colors duration-300`}>
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 z-50 transform lg:translate-x-0 transition-transform duration-300 ease-in-out w-64 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } bg-sky-500 shadow-xl`}
-      >
+        }  shadow-xl`}
+        style={{
+          background: "linear-gradient(to bottom, #e8f5ff, #d0ecff, #00abe8)",
+        }}>
         <div className="px-6 py-8 lg:py-12">
-          <h2 className="text-2xl font-lilita text-white text-center mb-8">
-            Student<span className="text-amber-100"> Dashboard</span>
+          <h2 className="text-2xl font-lilita text-[#00abe8] text-center mb-8">
+            Student<span className="text-amber-600"> Dashboard</span>
           </h2>
           <nav className="mt-8 space-y-1">
             {navigation.map((item) => (
@@ -590,10 +635,9 @@ const DashboardHome = () => {
                 }}
                 className={`flex items-center w-full px-4 py-3 rounded-xl transition-all text-left ${
                   activeComponent === item.key
-                    ? "bg-white/20 text-white"
-                    : "text-indigo-100 dark:text-gray-300 hover:bg-white/10"
-                }`}
-              >
+                    ? "bg-white text-blue-600"
+                    : "text-indigo-100 dark:text-[#015575] hover:bg-white/10"
+                }`}>
                 <span className="w-6 h-6 mr-3 flex-shrink-0">{item.icon}</span>
                 <span className="truncate">{item.name}</span>
               </button>
@@ -601,15 +645,15 @@ const DashboardHome = () => {
             {/* My Account Button */}
             <button
               className={`flex items-center w-full px-4 py-3 rounded-xl transition-all text-left ${
-                activeComponent === "myaccount" || activeComponent === "profileupdate"
-                  ? "bg-white/20 text-white"
-                  : "text-indigo-100 dark:text-gray-300 hover:bg-white/10"
+                activeComponent === "myaccount" ||
+                activeComponent === "profileupdate"
+                  ? "bg-white/20 text-blue-600"
+                  : "text-indigo-100 dark:text-[#015575] hover:bg-white/10"
               }`}
               onClick={() => {
                 setActiveComponent("myaccount");
                 setSidebarOpen(false);
-              }}
-            >
+              }}>
               <span className="w-6 h-6 mr-3 flex-shrink-0">
                 <FaUserCircle />
               </span>
@@ -639,15 +683,15 @@ const DashboardHome = () => {
                 Complete Your Profile
               </h2>
               <p className="text-gray-600 font-josefin text-lg mb-6">
-                Before you can continue, please complete your profile information.
+                Before you can continue, please complete your profile
+                information.
               </p>
               <div className="flex gap-4 justify-center">
                 <button
                   onClick={() => {
                     setShowProfileUpdateModal(false);
                   }}
-                  className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all"
-                >
+                  className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all">
                   Update Profile
                 </button>
               </div>
@@ -659,7 +703,10 @@ const DashboardHome = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:pl-64">
         <DashboardHeader
-          title={navigation.find((n) => n.key === activeComponent)?.name || "Dashboard"}
+          title={
+            navigation.find((n) => n.key === activeComponent)?.name ||
+            "Dashboard"
+          }
           userInfo={userInfo}
           onLogout={handleLogout}
           onToggleSidebar={() => setSidebarOpen(true)}

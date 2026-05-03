@@ -35,7 +35,11 @@ const LiveClass = ({ userInfo }) => {
 
         // Handle paginated response
         const data = response.data;
-        const allBookings = Array.isArray(data?.results) ? data.results : [];
+        const allBookings = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data)
+            ? data
+            : [];
 
         // Filter for bookings that are allowed and not attended yet
         const availableBookings = allBookings.filter(
@@ -64,7 +68,11 @@ const LiveClass = ({ userInfo }) => {
 
         // Handle paginated response
         const data = response.data;
-        const sessions = Array.isArray(data?.results) ? data.results : [];
+        const sessions = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data)
+            ? data
+            : [];
         setLiveSessions(sessions);
       } catch (err) {
         console.error("Error fetching live sessions:", err);
@@ -127,7 +135,7 @@ const LiveClass = ({ userInfo }) => {
     setError(null);
     try {
       // Check if user is authenticated
-      const token = localStorage.getItem("access_token");
+      const token = await refreshAccessToken();
       if (!token) {
         throw new Error("You are not authenticated. Please login again.");
       }

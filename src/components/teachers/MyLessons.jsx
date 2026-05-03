@@ -362,25 +362,6 @@ const MyLessons = ({ userInfo }) => {
       formData.append("country", newCourse.country);
       formData.append("is_universal", newCourse.is_universal);
 
-      // const coverImageBase64 = newCourse.cover_image
-      //   ? await toBase64(newCourse.cover_image)
-      //   : null;
-
-      // const payload = {
-      //   title: newCourse.title.trim(),
-      //   description: newCourse.description.trim(),
-      //   subject: newCourse.subject,
-      //   grade: newCourse.grade,
-      //   education_level: newCourse.education_level,
-      //   price: newCourse.price || "0",
-      //   is_active: newCourse.is_active,
-      //   cover_image: coverImageBase64,
-      //   topics: newCourse.topics,
-      //   teacher: teacherId,
-      //   country: newCourse.country,
-      //   is_universal: newCourse.is_universal,
-      // };
-
       const response = await axios.post(`${FHOST}/api/courses/`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
