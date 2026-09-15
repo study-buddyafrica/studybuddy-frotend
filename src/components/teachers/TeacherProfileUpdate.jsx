@@ -3,6 +3,7 @@ import axios from "axios";
 import { FHOST } from "../constants/Functions";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
+import { authStorage } from "../../services/authStorage";
 
 const TeacherProfileUpdate = () => {
   const [profilePhoto, setProfilePhoto] = useState(null);
@@ -68,10 +69,10 @@ const TeacherProfileUpdate = () => {
         { name: name.trim(), description: "" },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            Authorization: `Bearer ${authStorage.getAccessToken()}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
       return response.data.id;
     } catch (error) {
@@ -81,7 +82,7 @@ const TeacherProfileUpdate = () => {
         while (nextUrl) {
           const getResponse = await axios.get(nextUrl, {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+              Authorization: `Bearer ${authStorage.getAccessToken()}`,
             },
           });
           if (getResponse.data && getResponse.data.results) {
@@ -100,90 +101,69 @@ const TeacherProfileUpdate = () => {
     }
   };
 
-  const findGradeByName = async (level) => {
-    try {
-      let allGrades = [];
-      let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
-      while (nextUrl) {
-        const getResponse = await axios.get(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-        if (getResponse.data && getResponse.data.results) {
-          allGrades = allGrades.concat(getResponse.data.results);
-        }
-        nextUrl = getResponse.data.next;
+const findGradeByName = async (level) => {
+  try {
+    let allGrades = [];
+    let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
+    while (nextUrl) {
+      const getResponse = await axios.get(nextUrl, {
+        headers: {
+          Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+        },
+      });
+      if (getResponse.data && getResponse.data.results) {
+        allGrades = allGrades.concat(getResponse.data.results);
       }
-      const existing = allGrades.find(
-        (g) => g.level.toLowerCase() === level.trim().toLowerCase()
-      );
-      return existing?.id || null;
-    } catch (getError) {
-      return null;
+      nextUrl = getResponse.data.next;
     }
-  };
+    const existing = allGrades.find(
+      (g) => g.level.toLowerCase() === level.trim().toLowerCase(),
+    );
+    return existing?.id || null;
+  } catch (getError) {
+    return null;
+  }
+};
 
-  const fetchSubjects = async () => {
-    try {
-      let allSubjects = [];
-      let nextUrl = `${FHOST}/api/subjects/`;
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-        if (response.data && response.data.results) {
-          allSubjects = allSubjects.concat(response.data.results);
-        }
-        nextUrl = response.data.next;
+const fetchSubjects = async () => {
+  try {
+    let allSubjects = [];
+    let nextUrl = `${FHOST}/api/subjects/`;
+    while (nextUrl) {
+      const response = await axios.get(nextUrl, {
+        headers: {
+          Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+        },
+      });
+      if (response.data && response.data.results) {
+        allSubjects = allSubjects.concat(response.data.results);
       }
-      setAvailableSubjects(allSubjects);
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
+      nextUrl = response.data.next;
     }
-  };
+    setAvailableSubjects(allSubjects);
+  } catch (error) {
+    console.error("Error fetching subjects:", error);
+  }
+};
 
-  const fetchGrades = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      let allGrades = [];
-      let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
+const fetchGrades = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    let allGrades = [];
+    let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
 
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.data && response.data.results) {
-          allGrades = allGrades.concat(response.data.results);
-        }
-        nextUrl = response.data.next;
+    while (nextUrl) {
+      const response = await axios.get(nextUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.data && response.data.results) {
+        allGrades = allGrades.concat(response.data.results);
       }
+      nextUrl = response.data.next;
+    }
 
-      if (allGrades.length === 0) {
-        allGrades = [
-          { id: "824bf1f9-e196-4087-aa8d-954f406b8aba", level: "Grade 1" },
-          { id: "fc6d6e0f-5b53-4d13-b1c8-004f70093eb4", level: "Grade 2" },
-          { id: "39f8db4e-b3b3-4558-be5a-ec986a907591", level: "Grade 3" },
-          { id: "7f7eeeb1-3c84-47d8-85cf-e426c3cb2113", level: "Grade 4" },
-          { id: "9a1f03be-82f2-4813-9158-952cb323a03f", level: "Grade 5" },
-          { id: "7746e508-28f7-4040-9a2c-9abd087564e4", level: "Grade 6" },
-          { id: "136479a9-a34e-458b-92c0-094f0faf0163", level: "Grade 7" },
-          { id: "c0c81820-3b85-43b2-a86f-7193e33a5ce7", level: "Grade 8" },
-          { id: "6e651414-242a-46fa-91b7-5a377a62f18a", level: "Grade 9" },
-          { id: "8642c0cc-4055-4b93-bb26-40771925b1b2", level: "Grade 10" },
-          { id: "600a3a4a-60e7-40c6-ba8a-39ce19c9b49b", level: "Grade 11" },
-          { id: "0a9a87bc-2d6e-4e30-9f80-568cccfede16", level: "Grade 12" },
-          { id: "fadbbecc-8cd1-44e9-90c2-c577fa6ad7eb", level: "College" },
-          { id: "a2cac0a4-cf17-4211-97c3-df5dad51a947", level: "General" },
-          { id: "d94b8c0d-1236-4481-8782-279418b7f376", level: "Professional" },
-          { id: "70768a4a-5ee4-44fb-b9ac-bfd82ed1ff38", level: "University" },
-        ];
-      }
-      setAvailableGrades(allGrades);
-    } catch (error) {
-      setAvailableGrades([
+    if (allGrades.length === 0) {
+      allGrades = [
         { id: "824bf1f9-e196-4087-aa8d-954f406b8aba", level: "Grade 1" },
         { id: "fc6d6e0f-5b53-4d13-b1c8-004f70093eb4", level: "Grade 2" },
         { id: "39f8db4e-b3b3-4558-be5a-ec986a907591", level: "Grade 3" },
@@ -200,9 +180,30 @@ const TeacherProfileUpdate = () => {
         { id: "a2cac0a4-cf17-4211-97c3-df5dad51a947", level: "General" },
         { id: "d94b8c0d-1236-4481-8782-279418b7f376", level: "Professional" },
         { id: "70768a4a-5ee4-44fb-b9ac-bfd82ed1ff38", level: "University" },
-      ]);
+      ];
     }
-  };
+    setAvailableGrades(allGrades);
+  } catch (error) {
+    setAvailableGrades([
+      { id: "824bf1f9-e196-4087-aa8d-954f406b8aba", level: "Grade 1" },
+      { id: "fc6d6e0f-5b53-4d13-b1c8-004f70093eb4", level: "Grade 2" },
+      { id: "39f8db4e-b3b3-4558-be5a-ec986a907591", level: "Grade 3" },
+      { id: "7f7eeeb1-3c84-47d8-85cf-e426c3cb2113", level: "Grade 4" },
+      { id: "9a1f03be-82f2-4813-9158-952cb323a03f", level: "Grade 5" },
+      { id: "7746e508-28f7-4040-9a2c-9abd087564e4", level: "Grade 6" },
+      { id: "136479a9-a34e-458b-92c0-094f0faf0163", level: "Grade 7" },
+      { id: "c0c81820-3b85-43b2-a86f-7193e33a5ce7", level: "Grade 8" },
+      { id: "6e651414-242a-46fa-91b7-5a377a62f18a", level: "Grade 9" },
+      { id: "8642c0cc-4055-4b93-bb26-40771925b1b2", level: "Grade 10" },
+      { id: "600a3a4a-60e7-40c6-ba8a-39ce19c9b49b", level: "Grade 11" },
+      { id: "0a9a87bc-2d6e-4e30-9f80-568cccfede16", level: "Grade 12" },
+      { id: "fadbbecc-8cd1-44e9-90c2-c577fa6ad7eb", level: "College" },
+      { id: "a2cac0a4-cf17-4211-97c3-df5dad51a947", level: "General" },
+      { id: "d94b8c0d-1236-4481-8782-279418b7f376", level: "Professional" },
+      { id: "70768a4a-5ee4-44fb-b9ac-bfd82ed1ff38", level: "University" },
+    ]);
+  }
+};
 
   useEffect(() => {
     const UserInfo = JSON.parse(localStorage.getItem("userInfo"));
@@ -216,55 +217,55 @@ const TeacherProfileUpdate = () => {
     }
   }, []);
 
-  const fetchProfile = async () => {
-    try {
-      const response = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data) {
-        const rawSubjects = response.data.subjects || [];
-        const rawGrades = response.data.grade || [];
+const fetchProfile = async () => {
+  try {
+    const response = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
+      headers: {
+        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+      },
+    });
+    if (response.data) {
+      const rawSubjects = response.data.subjects || [];
+      const rawGrades = response.data.grade || [];
 
-        const resolvedSubjects = resolveSubjectNames(rawSubjects);
-        const resolvedGrades = resolveGradeNames(rawGrades);
+      const resolvedSubjects = resolveSubjectNames(rawSubjects);
+      const resolvedGrades = resolveGradeNames(rawGrades);
 
-        const gradeId =
-          typeof rawGrades[0] === "object" ? rawGrades[0].id : rawGrades[0];
-        const gradeName = resolvedGrades[0] || "";
+      const gradeId =
+        typeof rawGrades[0] === "object" ? rawGrades[0].id : rawGrades[0];
+      const gradeName = resolvedGrades[0] || "";
 
-        setFormData((prev) => ({
-          ...prev,
-          bio: response.data.bio || "",
-          phone: response.data.phone || "",
-          hourly_rate: response.data.hourly_rate || "",
-          subject: resolvedSubjects[0] || "",
-          grade: gradeName,
-          grade_id: gradeId || "",
-          experience: response.data.experience || "",
-          birth_date: response.data.birth_date || "",
-          teacher_license_number:
-            response.data.teacher_license_number ||
-            response.data.tsc_number ||
-            "",
-          national_identity_number:
-            response.data.national_identity_number ||
-            response.data.id_number ||
-            "",
-          gender: response.data.gender || "",
-        }));
+      setFormData((prev) => ({
+        ...prev,
+        bio: response.data.bio || "",
+        phone: response.data.phone || "",
+        hourly_rate: response.data.hourly_rate || "",
+        subject: resolvedSubjects[0] || "",
+        grade: gradeName,
+        grade_id: gradeId || "",
+        experience: response.data.experience || "",
+        birth_date: response.data.birth_date || "",
+        teacher_license_number:
+          response.data.teacher_license_number ||
+          response.data.tsc_number ||
+          "",
+        national_identity_number:
+          response.data.national_identity_number ||
+          response.data.id_number ||
+          "",
+        gender: response.data.gender || "",
+      }));
 
-        if (response.data.profile_picture) {
-          setProfilePhotoPreview(response.data.profile_picture);
-        }
-        setSubjectInput(resolvedSubjects[0] || "");
-        setGradeInput(gradeName);
+      if (response.data.profile_picture) {
+        setProfilePhotoPreview(response.data.profile_picture);
       }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
+      setSubjectInput(resolvedSubjects[0] || "");
+      setGradeInput(gradeName);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+  }
+};
 
   const handlePhotoChange = (event) => {
     const file = event.target.files[0];
@@ -378,16 +379,16 @@ const TeacherProfileUpdate = () => {
         formDataToSend.append("cv", formData.professional_documents);
       }
 
-      const response = await axios.patch(
-        `${FHOST}/api/teacher/profile/update/`,
-        formDataToSend,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        }
-      );
+const response = await axios.patch(
+  `${FHOST}/api/teacher/profile/update/`,
+  formDataToSend,
+  {
+    headers: {
+      "Content-Type": "multipart/form-data",
+      Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+    },
+  },
+);
 
       if (response.status === 200 || response.status === 201) {
         setSuccessMessage("Profile updated successfully! Awaiting verification.");
