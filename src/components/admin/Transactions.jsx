@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { DollarSign, Send } from "lucide-react";
 import axios from "axios";
 import { FHOST } from "../constants/Functions.jsx";
+import { authStorage } from "../../services/authStorage";
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
@@ -10,84 +11,93 @@ const Transactions = () => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        };
+useEffect(() => {
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const token = authStorage.getAccessToken(); // ← changed
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
 
-        // Fetch all transactions
-        const transactionsRes = await axios.get(`${FHOST}/api/transactions/`, { headers });
-        const transactionsData = transactionsRes.data?.results || [];
-        setTransactions(transactionsData);
+      // Fetch all transactions
+      const transactionsRes = await axios.get(`${FHOST}/api/transactions/`, {
+        headers,
+      });
+      const transactionsData = transactionsRes.data?.results || [];
+      setTransactions(transactionsData);
 
-        // Fetch all wallets
-        const walletsRes = await axios.get(`${FHOST}/api/wallet/`, { headers });
-        const walletsData = walletsRes.data?.results || [];
-        setWallets(walletsData);
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-        setTransactions([]);
-        setWallets([]);
-      } finally {
-        setLoading(false);
-      }
+      // Fetch all wallets
+      const walletsRes = await axios.get(`${FHOST}/api/wallet/`, { headers });
+      const walletsData = walletsRes.data?.results || [];
+      setWallets(walletsData);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      setTransactions([]);
+      setWallets([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, []);
+
+const fetchTransactionDetails = async (id) => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     };
-    fetchData();
-  }, []);
+    const response = await axios.get(`${FHOST}/api/transactions/${id}/`, {
+      headers,
+    });
+    setSelectedTransaction(response.data);
+    setShowTransactionModal(true);
+  } catch (error) {
+    console.error("Error fetching transaction details:", error);
+  }
+};
 
-  const fetchTransactionDetails = async (id) => {
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
-      const response = await axios.get(`${FHOST}/api/transactions/${id}/`, { headers });
-      setSelectedTransaction(response.data);
-      setShowTransactionModal(true);
-    } catch (error) {
-      console.error('Error fetching transaction details:', error);
-    }
-  };
+const handleUpdateTransaction = async (id, data) => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+    await axios.patch(`${FHOST}/api/transactions/${id}/`, data, { headers });
+    // Refresh transactions
+    const transactionsRes = await axios.get(`${FHOST}/api/transactions/`, {
+      headers,
+    });
+    setTransactions(transactionsRes.data?.results || []);
+    setShowTransactionModal(false);
+  } catch (error) {
+    console.error("Error updating transaction:", error);
+  }
+};
 
-  const handleUpdateTransaction = async (id, data) => {
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
-      await axios.patch(`${FHOST}/api/transactions/${id}/`, data, { headers });
-      // Refresh transactions
-      const transactionsRes = await axios.get(`${FHOST}/api/transactions/`, { headers });
-      setTransactions(transactionsRes.data?.results || []);
-      setShowTransactionModal(false);
-    } catch (error) {
-      console.error('Error updating transaction:', error);
-    }
-  };
-
-  const handleDeleteTransaction = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this transaction?')) return;
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
-      await axios.delete(`${FHOST}/api/transactions/${id}/`, { headers });
-      // Refresh transactions
-      const transactionsRes = await axios.get(`${FHOST}/api/transactions/`, { headers });
-      setTransactions(transactionsRes.data?.results || []);
-    } catch (error) {
-      console.error('Error deleting transaction:', error);
-    }
-  };
+const handleDeleteTransaction = async (id) => {
+  if (!window.confirm("Are you sure you want to delete this transaction?"))
+    return;
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+    await axios.delete(`${FHOST}/api/transactions/${id}/`, { headers });
+    // Refresh transactions
+    const transactionsRes = await axios.get(`${FHOST}/api/transactions/`, {
+      headers,
+    });
+    setTransactions(transactionsRes.data?.results || []);
+  } catch (error) {
+    console.error("Error deleting transaction:", error);
+  }
+};
 
   // Calculate Revenue, Payouts & Profit
   const totalRevenue = transactions
