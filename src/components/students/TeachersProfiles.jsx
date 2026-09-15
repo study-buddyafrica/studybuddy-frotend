@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaSearch, FaStar, FaTimes, FaFilter, FaGraduationCap, FaBookOpen, FaClock, FaMapMarkerAlt } from "react-icons/fa";
 import { FHOST } from "../constants/Functions";
 import axios from "axios";
+import { authStorage } from "../../services/authStorage";
 
 const TeacherProfiles = ({userInfo, darkMode}) => {
   const [teachers, setTeachers] = useState([]);
@@ -41,104 +42,116 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
   // Get student's grade/class from userInfo (currently not used for backend filtering)
   const studentGrade = userInfo?.grade || userInfo?.class || "All Grades";
 
-  useEffect(() => {
-    let isMounted = true;
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    const fetchWithRetry = async (attempts = 3, params = {}) => {
-      const token = localStorage.getItem('access_token');
-      const headers = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-      
-      for (let i = 0; i < attempts; i++) {
-        try {
-          // New teachers list endpoint (paginated)
-          return await axios.get(`${FHOST}/api/teachers/list`, { headers, params });
-        } catch (err) {
-          const status = err?.response?.status;
-          const retryAfter = Number(err?.response?.headers?.['retry-after']);
-          if (status === 429 && i < attempts - 1) {
-            const delay = Number.isFinite(retryAfter) ? retryAfter * 1000 : 1000 * Math.pow(2, i);
-            await sleep(delay);
-            continue;
-          }
-          throw err;
-        }
-      }
+useEffect(() => {
+  let isMounted = true;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const fetchWithRetry = async (attempts = 3, params = {}) => {
+    const token = authStorage.getAccessToken(); // ← changed
+    const headers = {
+      "Content-Type": "application/json",
     };
-    
-    // Fetch teachers data from the backend
-    const fetchTeachers = async () => {
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    for (let i = 0; i < attempts; i++) {
       try {
-        const params = {
-          subject: selectedSubject || undefined,
-          search: searchTerm ? searchTerm.trim() : undefined,
-          limit: 100, // Fetch all teachers
-        };
-        const response = await fetchWithRetry(3, params);
-        // New API returns: { count, next, previous, results: [...] }
-        const results = response?.data?.results || [];
-
-        if (isMounted && Array.isArray(results) && results.length > 0) {
-          const formattedTeachers = results.map((teacher) => {
-            // New list schema: id, full_name, bio, hourly_rate, subjects, is_verified
-            const name = teacher.full_name || teacher.name || "Teacher";
-            const subjects = Array.isArray(teacher.subjects) ? teacher.subjects : [];
-            const hourlyRate = teacher.hourly_rate ? Number(teacher.hourly_rate) : 0;
-
-            return {
-              id: teacher.id,
-              name,
-              bio: teacher.bio || "",
-              subjects,
-              is_verified: teacher.is_verified,
-              // Map to fields used in UI
-              profile_picture: teacher.profile_picture || 'https://via.placeholder.com/150',
-              registered_on: teacher.registered_on
-                ? new Date(teacher.registered_on).toLocaleDateString()
-                : 'Not Registered',
-              rating: teacher.rating || 4.5,
-              totalStudents: teacher.totalStudents || 0,
-              experience: teacher.experience || '5+ years',
-              cost: hourlyRate,
-              grade: teacher.grade || null,
-              current_school: teacher.current_school || null,
-              availability: teacher.availability || [
-                {
-                  date: '2024-11-27',
-                  time: '9:00 AM - 11:00 AM',
-                  isAvailable: true,
-                },
-                {
-                  date: '2024-11-27',
-                  time: '3:00 PM - 5:00 PM',
-                  isAvailable: true,
-                },
-              ],
-            };
-          });
-
-          setTeachers(formattedTeachers);
-          setError(null);
-        } else {
-          setTeachers([]);
-          setError('No teachers found.');
-        }
+        // New teachers list endpoint (paginated)
+        return await axios.get(`${FHOST}/api/teachers/list`, {
+          headers,
+          params,
+        });
       } catch (err) {
-        console.error("Error fetching teachers:", err);
-        setTeachers([]);
-        setError('Failed to fetch teachers. Please try again later.');
-      } finally {
-        setLoading(false);
+        const status = err?.response?.status;
+        const retryAfter = Number(err?.response?.headers?.["retry-after"]);
+        if (status === 429 && i < attempts - 1) {
+          const delay = Number.isFinite(retryAfter)
+            ? retryAfter * 1000
+            : 1000 * Math.pow(2, i);
+          await sleep(delay);
+          continue;
+        }
+        throw err;
       }
-    };
+    }
+  };
 
-    fetchTeachers();
-    return () => { isMounted = false; };
-  }, [studentGrade, selectedSubject, searchTerm]);
+  // Fetch teachers data from the backend
+  const fetchTeachers = async () => {
+    try {
+      const params = {
+        subject: selectedSubject || undefined,
+        search: searchTerm ? searchTerm.trim() : undefined,
+        limit: 100, // Fetch all teachers
+      };
+      const response = await fetchWithRetry(3, params);
+      // New API returns: { count, next, previous, results: [...] }
+      const results = response?.data?.results || [];
+
+      if (isMounted && Array.isArray(results) && results.length > 0) {
+        const formattedTeachers = results.map((teacher) => {
+          // New list schema: id, full_name, bio, hourly_rate, subjects, is_verified
+          const name = teacher.full_name || teacher.name || "Teacher";
+          const subjects = Array.isArray(teacher.subjects)
+            ? teacher.subjects
+            : [];
+          const hourlyRate = teacher.hourly_rate
+            ? Number(teacher.hourly_rate)
+            : 0;
+
+          return {
+            id: teacher.id,
+            name,
+            bio: teacher.bio || "",
+            subjects,
+            is_verified: teacher.is_verified,
+            // Map to fields used in UI
+            profile_picture:
+              teacher.profile_picture || "https://via.placeholder.com/150",
+            registered_on: teacher.registered_on
+              ? new Date(teacher.registered_on).toLocaleDateString()
+              : "Not Registered",
+            rating: teacher.rating || 4.5,
+            totalStudents: teacher.totalStudents || 0,
+            experience: teacher.experience || "5+ years",
+            cost: hourlyRate,
+            grade: teacher.grade || null,
+            current_school: teacher.current_school || null,
+            availability: teacher.availability || [
+              {
+                date: "2024-11-27",
+                time: "9:00 AM - 11:00 AM",
+                isAvailable: true,
+              },
+              {
+                date: "2024-11-27",
+                time: "3:00 PM - 5:00 PM",
+                isAvailable: true,
+              },
+            ],
+          };
+        });
+
+        setTeachers(formattedTeachers);
+        setError(null);
+      } else {
+        setTeachers([]);
+        setError("No teachers found.");
+      }
+    } catch (err) {
+      console.error("Error fetching teachers:", err);
+      setTeachers([]);
+      setError("Failed to fetch teachers. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchTeachers();
+  return () => {
+    isMounted = false;
+  };
+}, [studentGrade, selectedSubject, searchTerm]);
 
   const handleTeacherClick = (teacher) => {
     setSelectedTeacher(teacher);
@@ -170,31 +183,29 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
         setVideos([]);
       }
     };
-    const fetchCourses = async () => {
-      if (!selectedTeacher) return;
-      try {
-        console.log('Fetching courses for teacher:', selectedTeacher.id);
-        console.log('User info country:', userInfo?.country);
-        const params = new URLSearchParams({ teacher: selectedTeacher.id });
-        if (userInfo?.country) {
-          params.append('country', userInfo.country);
-        }
-        const res = await axios.get(`${FHOST}/api/courses/?${params.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-          },
-        });
-        console.log('Courses response:', res.data);
-        if (res.status === 200 && Array.isArray(res.data?.results)) {
-          setCourses(res.data.results);
-        } else {
-          setCourses([]);
-        }
-      } catch (e) {
-        console.error('Error fetching courses:', e.response?.data || e.message);
-        setCourses([]);
-      }
-    };
+const fetchCourses = async () => {
+  if (!selectedTeacher) return;
+  try {
+    const params = new URLSearchParams({ teacher: selectedTeacher.id });
+    if (userInfo?.country) {
+      params.append("country", userInfo.country);
+    }
+    const res = await axios.get(`${FHOST}/api/courses/?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+      },
+    });
+    console.log("Courses response:", res.data);
+    if (res.status === 200 && Array.isArray(res.data?.results)) {
+      setCourses(res.data.results);
+    } else {
+      setCourses([]);
+    }
+  } catch (e) {
+    console.error("Error fetching courses:", e.response?.data || e.message);
+    setCourses([]);
+  }
+};
     fetchVideos();
     fetchCourses();
   }, [selectedTeacher]);
@@ -207,72 +218,75 @@ const TeacherProfiles = ({userInfo, darkMode}) => {
       return;
     }
 
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        alert("Authentication required. Please login again.");
-        return;
-      }
+try {
+  const token = authStorage.getAccessToken(); // ← changed
+  if (!token) {
+    alert("Authentication required. Please login again.");
+    return;
+  }
 
-      // Convert date and time to ISO format for scheduled_start
-      const scheduledStart = new Date(`${formData.date}T${formData.time}:00`).toISOString();
-      
-      // Calculate duration_hours (default to 1 hour if not specified)
-      const durationHours = 1; // You can make this configurable if needed
+  // Convert date and time to ISO format for scheduled_start
+  const scheduledStart = new Date(
+    `${formData.date}T${formData.time}:00`,
+  ).toISOString();
 
-      // Get course ID: require at least one course
-      if (courses.length === 0) {
-        alert("No courses available for this teacher. Cannot schedule lesson.");
-        return;
-      }
-      const courseId = courses[0].id;
-      console.log('Selected teacher:', selectedTeacher);
-      console.log('Available courses:', courses);
-      console.log('Using courseId:', courseId);
+  // Calculate duration_hours (default to 1 hour if not specified)
+  const durationHours = 1; // You can make this configurable if needed
 
-      const bookingData = {
-        teacher_id: selectedTeacher.id,
-        scheduled_start: scheduledStart,
-        duration_hours: durationHours,
-        course: courseId,
-      };
-      console.log('Booking data:', bookingData);
+  // Get course ID: require at least one course
+  if (courses.length === 0) {
+    alert("No courses available for this teacher. Cannot schedule lesson.");
+    return;
+  }
+  const courseId = courses[0].id;
+  console.log("Selected teacher:", selectedTeacher);
+  console.log("Available courses:", courses);
+  console.log("Using courseId:", courseId);
 
-      const response = await axios.post(
-        `${FHOST}/api/student/session-bookings/`,
-        bookingData,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+  const bookingData = {
+    teacher_id: selectedTeacher.id,
+    scheduled_start: scheduledStart,
+    duration_hours: durationHours,
+    course: courseId,
+  };
+  console.log("Booking data:", bookingData);
 
-      if (response.status === 201 || response.status === 200) {
-        const booking = response.data;
-        const cost = booking.cost || booking.amount || 0;
-        const status = booking.status || 'pending';
-        setSuccessMessage(
-          `Session booked successfully! Cost: ${Math.abs(parseFloat(cost))}. Status: ${status}. Waiting for teacher confirmation.`
-        );
-        setIsScheduling(false);
-        setFormData({ date: "", time: "", student_id: userInfo?.id });
-        setSelectedTeacher(null); // Go back to teacher list
-        setTimeout(() => {
-          setSuccessMessage("");
-        }, 5000);
-      } else {
-        alert("Failed to book session. Try again.");
-      }
-    } catch (error) {
-      console.error("Error booking session:", error);
-      const errorMsg = error.response?.data?.message || 
-                      error.response?.data?.error || 
-                      error.response?.data?.detail ||
-                      "Error booking session. Please try again.";
-      alert(errorMsg);
-    }
+  const response = await axios.post(
+    `${FHOST}/api/student/session-bookings/`,
+    bookingData,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (response.status === 201 || response.status === 200) {
+    const booking = response.data;
+    const cost = booking.cost || booking.amount || 0;
+    const status = booking.status || "pending";
+    setSuccessMessage(
+      `Session booked successfully! Cost: ${Math.abs(parseFloat(cost))}. Status: ${status}. Waiting for teacher confirmation.`,
+    );
+    setIsScheduling(false);
+    setFormData({ date: "", time: "", student_id: userInfo?.id });
+    setSelectedTeacher(null); // Go back to teacher list
+    setTimeout(() => {
+      setSuccessMessage("");
+    }, 5000);
+  } else {
+    alert("Failed to book session. Try again.");
+  }
+} catch (error) {
+  console.error("Error booking session:", error);
+  const errorMsg =
+    error.response?.data?.message ||
+    error.response?.data?.error ||
+    error.response?.data?.detail ||
+    "Error booking session. Please try again.";
+  alert(errorMsg);
+}
   };
 
   // Filter teachers based on search, subject and grade (client-only)
