@@ -16,6 +16,7 @@ import BlankLayout from "./components/layouts/BlankLayout";
 import AdminLayout from "./components/layout/AdminLayout";
 
 // Components
+import { authStorage } from "./services/authStorage";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import RoleSelection from "./components/RoleSelection";
@@ -86,29 +87,27 @@ const ParentDashboard = lazy(() => import("./components/ParentDashboard"));
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const isAuthenticated = localStorage.getItem("access_token") !== null;
+  const isAuthenticated = authStorage.isAuthenticated();
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
 // Admin Protected Route Component - checks authentication and is_superuser
 const AdminProtectedRoute = ({ children }) => {
-  const isAuthenticated = localStorage.getItem("access_token") !== null;
+  const isAuthenticated = authStorage.isAuthenticated();
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-  
+
   // Check if user is superuser (admin)
   const userInfo = localStorage.getItem("userInfo");
   if (userInfo) {
     try {
       const user = JSON.parse(userInfo);
-      // Only allow access if is_superuser is explicitly true
       if (user.is_superuser !== true) {
-        // Redirect non-admin users to their appropriate dashboard
         const role = user.role;
-        if (role === 'teacher') return <Navigate to="/teacher-dashboard" />;
-        if (role === 'student') return <Navigate to="/student-dashboard/" />;
-        if (role === 'parent') return <Navigate to="/parent-dashboard/home" />;
+        if (role === "teacher") return <Navigate to="/teacher-dashboard" />;
+        if (role === "student") return <Navigate to="/student-dashboard/" />;
+        if (role === "parent") return <Navigate to="/parent-dashboard/home" />;
         return <Navigate to="/login" />;
       }
     } catch (e) {
@@ -118,7 +117,7 @@ const AdminProtectedRoute = ({ children }) => {
   } else {
     return <Navigate to="/login" />;
   }
-  
+
   return children;
 };
 
