@@ -13,6 +13,7 @@ import {
   FaUsers,
   FaTimes
 } from 'react-icons/fa';
+import { authStorage } from "../../services/authStorage";
 
 const Scheduler = ({ userInfo }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -148,47 +149,47 @@ const Scheduler = ({ userInfo }) => {
     fetchCourses();
   }, [userInfo?.id]);
 
-  const fetchCourses = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) return;
+const fetchCourses = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) return;
 
-      const response = await axios.get(`${FHOST}/api/courses/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const response = await axios.get(`${FHOST}/api/courses/`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      const coursesList = response.data?.results || response.data || [];
-      if (Array.isArray(coursesList)) {
-        setCourses(coursesList);
-      }
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-      setCourses([]);
+    const coursesList = response.data?.results || response.data || [];
+    if (Array.isArray(coursesList)) {
+      setCourses(coursesList);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    setCourses([]);
+  }
+};
 
-  const fetchPeerToPeerSessions = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) return;
+const fetchPeerToPeerSessions = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) return;
 
-      const response = await axios.get(`${FHOST}/api/peer-to-peer-sessions/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const response = await axios.get(`${FHOST}/api/peer-to-peer-sessions/`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      const sessionsList = response.data?.results || response.data || [];
-      if (Array.isArray(sessionsList)) {
-        setPeerToPeerSessions(sessionsList);
-      }
-    } catch (error) {
-      console.error('Error fetching peer-to-peer sessions:', error);
-      setPeerToPeerSessions([]);
+    const sessionsList = response.data?.results || response.data || [];
+    if (Array.isArray(sessionsList)) {
+      setPeerToPeerSessions(sessionsList);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching peer-to-peer sessions:", error);
+    setPeerToPeerSessions([]);
+  }
+};
 
   const handleDayClick = (day) => {
     setSelectedDay(day);
@@ -243,243 +244,248 @@ const Scheduler = ({ userInfo }) => {
     }
   };
 
-  const fetchSubjects = async () => {
-    setLoadingSubjects(true);
-    try {
-      let allSubjects = [];
-      let nextUrl = `${FHOST}/api/subjects/`;
+ const fetchSubjects = async () => {
+   setLoadingSubjects(true);
+   try {
+     let allSubjects = [];
+     let nextUrl = `${FHOST}/api/subjects/`;
 
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-        if (response.data && response.data.results) {
-          allSubjects = allSubjects.concat(response.data.results);
-        }
-        nextUrl = response.data.next;
-      }
+     while (nextUrl) {
+       const response = await axios.get(nextUrl, {
+         headers: {
+           Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+         },
+       });
+       if (response.data && response.data.results) {
+         allSubjects = allSubjects.concat(response.data.results);
+       }
+       nextUrl = response.data.next;
+     }
 
-      console.log("Fetched subjects:", allSubjects);
-      setAvailableSubjects(allSubjects);
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
-    } finally {
-      setLoadingSubjects(false);
-    }
-  };
+     console.log("Fetched subjects:", allSubjects);
+     setAvailableSubjects(allSubjects);
+   } catch (error) {
+     console.error("Error fetching subjects:", error);
+   } finally {
+     setLoadingSubjects(false);
+   }
+ };
 
-  const fetchGrades = async () => {
-    setLoadingGrades(true);
-    try {
-      let allGrades = [];
-      let nextUrl = `${FHOST}/api/grades/`;
+const fetchGrades = async () => {
+  setLoadingGrades(true);
+  try {
+    let allGrades = [];
+    let nextUrl = `${FHOST}/api/grades/`;
 
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-        if (response.data && response.data.results) {
-          allGrades = allGrades.concat(response.data.results);
-        }
-        nextUrl = response.data.next;
-      }
-
-      console.log("Fetched grades:", allGrades);
-      setAvailableGrades(allGrades);
-    } catch (error) {
-      console.error("Error fetching grades:", error);
-    } finally {
-      setLoadingGrades(false);
-    }
-  };
-
-  const handleCreateLesson = async (e) => {
-    e.preventDefault();
-    try {
-      const teacherIdentifier =
-        userInfo?.teacher_profile_id ||
-        userInfo?.teacher_profile?.id ||
-        userInfo?.id;
-
-      const payload = {
-        title: newLesson.title.trim(),
-        description: newLesson.description.trim(),
-        subject: newLesson.subject,
-        grade: newLesson.grade,
-        price: newLesson.price || "0",
-        is_active: newLesson.is_active,
-        code: newLesson.code || undefined,
-        cover_image: newLesson.cover_image || undefined,
-        topics: newLesson.topics,
-        teacher: teacherIdentifier,
-        country: newLesson.country,
-        is_universal: newLesson.is_universal,
-      };
-
-      const response = await axios.post(`${FHOST}/api/courses/`, payload, {
+    while (nextUrl) {
+      const response = await axios.get(nextUrl, {
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
         },
       });
-
-      if (response.status === 200 || response.status === 201) {
-        setSuccessMessage("Course created successfully!");
-        setShowLessonModal(false);
-        setNewLesson({
-          title: '',
-          description: '',
-          subject: '',
-          grade: '',
-          price: '',
-          code: '',
-          cover_image: '',
-          topics: '',
-          is_active: true,
-          country: 'Kenya',
-          is_universal: false
-        });
-        fetchData();
-        setTimeout(() => setSuccessMessage(""), 4000);
+      if (response.data && response.data.results) {
+        allGrades = allGrades.concat(response.data.results);
       }
-    } catch (error) {
-      const errorMsg =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.response?.data?.detail ||
-        "Failed to create course. Please try again.";
-      console.error('Error creating course:', error);
-      setErrorMessage(errorMsg);
+      nextUrl = response.data.next;
     }
-  };
+
+    console.log("Fetched grades:", allGrades);
+    setAvailableGrades(allGrades);
+  } catch (error) {
+    console.error("Error fetching grades:", error);
+  } finally {
+    setLoadingGrades(false);
+  }
+};
+
+const handleCreateLesson = async (e) => {
+  e.preventDefault();
+  try {
+    const teacherIdentifier =
+      userInfo?.teacher_profile_id ||
+      userInfo?.teacher_profile?.id ||
+      userInfo?.id;
+
+    const payload = {
+      title: newLesson.title.trim(),
+      description: newLesson.description.trim(),
+      subject: newLesson.subject,
+      grade: newLesson.grade,
+      price: newLesson.price || "0",
+      is_active: newLesson.is_active,
+      code: newLesson.code || undefined,
+      cover_image: newLesson.cover_image || undefined,
+      topics: newLesson.topics,
+      teacher: teacherIdentifier,
+      country: newLesson.country,
+      is_universal: newLesson.is_universal,
+    };
+
+    const response = await axios.post(`${FHOST}/api/courses/`, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+      },
+    });
+
+    if (response.status === 200 || response.status === 201) {
+      setSuccessMessage("Course created successfully!");
+      setShowLessonModal(false);
+      setNewLesson({
+        title: "",
+        description: "",
+        subject: "",
+        grade: "",
+        price: "",
+        code: "",
+        cover_image: "",
+        topics: "",
+        is_active: true,
+        country: "Kenya",
+        is_universal: false,
+      });
+      fetchData();
+      setTimeout(() => setSuccessMessage(""), 4000);
+    }
+  } catch (error) {
+    const errorMsg =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.response?.data?.detail ||
+      "Failed to create course. Please try again.";
+    console.error("Error creating course:", error);
+    setErrorMessage(errorMsg);
+  }
+};
 
   const changeMonth = (direction) => {
     setCurrentDate(direction === "prev" ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
     setSelectedDay(null);
   };
 
-  const handleCreatePeerSession = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    setLoading(true);
-    setErrorMessage(null);
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
-      }
+const handleCreatePeerSession = async (e) => {
+  if (e && e.preventDefault) e.preventDefault();
+  setLoading(true);
+  setErrorMessage(null);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      throw new Error("You are not authenticated. Please login again.");
+    }
 
+    const teacherIdentifier =
+      userInfo?.teacher_profile_id ||
+      userInfo?.teacher_profile?.id ||
+      userInfo?.id;
+
+    const payload = {
+      course: newPeerSession.course,
+      teacher: teacherIdentifier,
+      title: newPeerSession.title,
+      description: newPeerSession.description,
+      started_at: newPeerSession.started_at,
+      duration_hours: newPeerSession.duration_hours,
+    };
+
+    const response = await axios.post(
+      `${FHOST}/api/peer-to-peer-sessions/`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (response.status === 201 || response.status === 200) {
+      setSuccessMessage("Peer-to-peer session created successfully!");
+      setShowCreatePeerModal(false);
       const teacherIdentifier =
         userInfo?.teacher_profile_id ||
         userInfo?.teacher_profile?.id ||
         userInfo?.id;
 
-      const payload = {
-        course: newPeerSession.course,
+      setNewPeerSession({
+        course: "",
         teacher: teacherIdentifier,
-        title: newPeerSession.title,
-        description: newPeerSession.description,
-        started_at: newPeerSession.started_at,
-        duration_hours: newPeerSession.duration_hours,
-      };
-
-      const response = await axios.post(
-        `${FHOST}/api/peer-to-peer-sessions/`,
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status === 201 || response.status === 200) {
-        setSuccessMessage('Peer-to-peer session created successfully!');
-        setShowCreatePeerModal(false);
-        const teacherIdentifier =
-          userInfo?.teacher_profile_id ||
-          userInfo?.teacher_profile?.id ||
-          userInfo?.id;
-
-        setNewPeerSession({
-          course: '',
-          teacher: teacherIdentifier,
-          title: '',
-          description: '',
-          started_at: '',
-          duration_hours: 1,
-        });
-        fetchPeerToPeerSessions();
-      } else {
-        setErrorMessage('Unexpected response from server.');
-      }
-    } catch (err) {
-      const status = err?.response?.status;
-      const data = err?.response?.data;
-      const details = typeof data === 'string'
-        ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error creating peer-to-peer session. Please check your inputs.';
-      setErrorMessage(String(msg));
-    } finally {
-      setLoading(false);
+        title: "",
+        description: "",
+        started_at: "",
+        duration_hours: 1,
+      });
+      fetchPeerToPeerSessions();
+    } else {
+      setErrorMessage("Unexpected response from server.");
     }
-  };
-
-  const handleUpdatePeerSession = async (sessionId, updateData) => {
-    setLoading(true);
-    setErrorMessage(null);
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
-      }
-
-      const response = await axios.patch(
-        `${FHOST}/api/peer-to-peer-sessions/${sessionId}/`,
-        updateData,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status === 200) {
-        setPeerToPeerSessions(prev => prev.map(s => s.id === sessionId ? response.data : s));
-        setSuccessMessage('Session updated successfully!');
-        setEditingSession(null);
-      } else {
-        setErrorMessage('Unexpected response from server.');
-      }
-    } catch (err) {
-      const status = err?.response?.status;
-      const data = err?.response?.data;
-      const details = typeof data === 'string'
+  } catch (err) {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+    const details =
+      typeof data === "string"
         ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error updating session.';
-      setErrorMessage(String(msg));
-    } finally {
-      setLoading(false);
-    }
-  };
+        : data?.error || data?.message || data?.details;
+    const msg =
+      details ||
+      (status ? `Request failed with status ${status}` : err?.message) ||
+      "Error creating peer-to-peer session. Please check your inputs.";
+    setErrorMessage(String(msg));
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleDeletePeerSession = async (sessionId) => {
+const handleUpdatePeerSession = async (sessionId, updateData) => {
+  setLoading(true);
+  setErrorMessage(null);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      throw new Error("You are not authenticated. Please login again.");
+    }
+    const response = await axios.patch(
+      `${FHOST}/api/peer-to-peer-sessions/${sessionId}/`,
+      updateData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (response.status === 200) {
+      setPeerToPeerSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? response.data : s)),
+      );
+      setSuccessMessage("Session updated successfully!");
+      setEditingSession(null);
+    } else {
+      setErrorMessage("Unexpected response from server.");
+    }
+  } catch (err) {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+    const details =
+      typeof data === "string"
+        ? data
+        : data?.error || data?.message || data?.details;
+    const msg =
+      details ||
+      (status ? `Request failed with status ${status}` : err?.message) ||
+      "Error updating session.";
+    setErrorMessage(String(msg));
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleDeletePeerSession = async (sessionId) => {
     if (!window.confirm('Are you sure you want to delete this session?')) return;
     setLoading(true);
     setErrorMessage(null);
     try {
-      const token = localStorage.getItem('access_token');
+      const token = authStorage.getAccessToken();   // ← changed
       if (!token) {
         throw new Error('You are not authenticated. Please login again.');
       }
