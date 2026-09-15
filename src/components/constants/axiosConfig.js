@@ -1,40 +1,53 @@
-import axios from 'axios';
-import { FHOST } from './Functions';
+import axios from "axios";
+import { FHOST } from "./Functions";
+import { authStorage } from "../../services/authStorage";
+import { authService } from "../../services/authService";
 
 const apiClient = axios.create({
-    baseURL: FHOST,
+  baseURL: FHOST,
 });
 
-// Automatically attach the Bearer token to every single request
+// Attach access token from memory
 apiClient.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+  (config) => {
+    const token = authStorage.getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    return config;
+  },
+  (error) => Promise.reject(error),
 );
 
-// Automatically log the user out if their token expires (401 Unauthorized)
+// On 401 → try one silent refresh, then retry. If refresh fails → clear and redirect.
 apiClient.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response && error.response.status === 401) {
-            // Destroy session data to prevent ghost bugs
-            localStorage.removeItem("access_token");
-            localStorage.removeItem("refresh_token");
-            localStorage.removeItem("userInfo");
-            sessionStorage.clear();
-            
-            // Redirect to login
-            window.location.href = '/login';
-        }
-        return Promise.reject(error);
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Attempt refresh
+        const newAccessToken = await authService.refreshToken();
+
+        // Update the original request with the new token
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+        // Retry the original request
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed → clean everything and force login
+        authStorage.clearTokens();
+        localStorage.removeItem("userInfo");
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      }
     }
+
+    return Promise.reject(error);
+  },
 );
 
 export default apiClient;
