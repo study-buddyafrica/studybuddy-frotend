@@ -12,6 +12,7 @@ import {
   UserCircle,
   LogOut
 } from 'lucide-react';
+import { authStorage } from "../../services/authStorage";
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -31,11 +32,7 @@ const AdminLayout = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // Clear all authentication data
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('userInfo');
-    
+    authStorage.clearTokens();
     // Redirect to login page
     navigate('/login');
   };
