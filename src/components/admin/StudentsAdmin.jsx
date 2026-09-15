@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { FHOST } from "../constants/Functions.jsx";
 import { Search, Filter } from "lucide-react";
+import { authStorage } from "../../services/authStorage";
 
 const gradeOptions = [
   "All",
@@ -14,37 +15,41 @@ const StudentsAdmin = () => {
   const [grade, setGrade] = useState("All");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStudents = async () => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        // Fetch students using the new user endpoint with role filter
-        const res = await axios.get(`${FHOST}/api/users/users-list?role=student`, {
+useEffect(() => {
+  const fetchStudents = async () => {
+    setLoading(true);
+    try {
+      const token = authStorage.getAccessToken(); // ← changed
+      const res = await axios
+        .get(`${FHOST}/api/users/users-list?role=student`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }).catch(() => null);
-        
-        if (res?.data?.results && Array.isArray(res.data.results)) {
-          setStudents(res.data.results.map(s => ({
+        })
+        .catch(() => null);
+
+      if (res?.data?.results && Array.isArray(res.data.results)) {
+        setStudents(
+          res.data.results.map((s) => ({
             id: s.id,
-            full_name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.username,
+            full_name:
+              `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.username,
             username: s.username,
             email: s.email,
-            grade: s.grade || '-',
+            grade: s.grade || "-",
             balance: s.balance || 0,
-          })));
-        } else {
-          setStudents([]);
-        }
-      } catch (err) {
-        console.error('Failed to fetch students:', err);
+          })),
+        );
+      } else {
         setStudents([]);
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchStudents();
-  }, []);
+    } catch (err) {
+      console.error("Failed to fetch students:", err);
+      setStudents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchStudents();
+}, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
