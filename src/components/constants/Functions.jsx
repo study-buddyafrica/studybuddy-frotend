@@ -1,5 +1,6 @@
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
+import { authStorage } from "../../services/authStorage";
 
 export const FHOST = process.env.REACT_APP_API_URL;
 
@@ -39,7 +40,7 @@ export const decodeJwtToken = (token) => {
 };
 
 export const refreshAccessToken = async () => {
-  const refreshToken = localStorage.getItem("refresh_token");
+  const refreshToken = authStorage.getRefreshToken();
   if (!refreshToken) throw new Error("No refresh token, Please login again");
 
   const response = await axios.post(`${FHOST}/api/token/refresh/`, {
@@ -49,6 +50,6 @@ export const refreshAccessToken = async () => {
   console.log("response", response);
 
   const newAccessToken = response.data.access;
-  localStorage.setItem("access_token", newAccessToken);
+  authStorage.setTokens(newAccessToken, refreshToken);
   return newAccessToken;
 };
