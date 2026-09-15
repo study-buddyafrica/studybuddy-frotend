@@ -2,43 +2,52 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { FHOST } from "../constants/Functions.jsx";
 import { Search } from "lucide-react";
+import { authStorage } from "../../services/authStorage";
 
 const ParentsAdmin = () => {
   const [parents, setParents] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchParents = async () => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        // Fetch parents using the new user endpoint with role filter
-        const res = await axios.get(`${FHOST}/api/users/users-list?role=parent`, {
+useEffect(() => {
+  const fetchParents = async () => {
+    setLoading(true);
+    try {
+      const token = authStorage.getAccessToken(); // ← changed
+      const res = await axios
+        .get(`${FHOST}/api/users/users-list?role=parent`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }).catch(() => null);
-        
-        if (res?.data?.results && Array.isArray(res.data.results)) {
-          setParents(res.data.results.map(p => ({
+        })
+        .catch(() => null);
+
+      if (res?.data?.results && Array.isArray(res.data.results)) {
+        setParents(
+          res.data.results.map((p) => ({
             id: p.id,
-            full_name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.username,
+            full_name:
+              `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.username,
             username: p.username,
             email: p.email,
-            num_students: p.num_students ?? (Array.isArray(p.students) ? p.students.length : p.children_count || 0),
+            num_students:
+              p.num_students ??
+              (Array.isArray(p.students)
+                ? p.students.length
+                : p.children_count || 0),
             balance: p.balance || 0,
-          })));
-        } else {
-          setParents([]);
-        }
-      } catch (err) {
-        console.error('Failed to fetch parents:', err);
+          })),
+        );
+      } else {
         setParents([]);
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchParents();
-  }, []);
+    } catch (err) {
+      console.error("Failed to fetch parents:", err);
+      setParents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchParents();
+}, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
