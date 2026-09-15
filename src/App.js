@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -9,14 +9,16 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import { motion } from "framer-motion";
 import { ToastContainer } from "react-toastify";
+import "./components/constants/axiosConfig";
 
 // Layouts
 import MainLayout from "./components/layouts/MainLayout";
 import BlankLayout from "./components/layouts/BlankLayout";
 import AdminLayout from "./components/layout/AdminLayout";
 
-// Components
+// Services & Components
 import { authStorage } from "./services/authStorage";
+import { authService } from "./services/authService";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import RoleSelection from "./components/RoleSelection";
@@ -103,7 +105,7 @@ const AdminProtectedRoute = ({ children }) => {
   if (userInfo) {
     try {
       const user = JSON.parse(userInfo);
-      if (user.is_superuser !== true) {
+      if (user.is_superuser !== true && user.role !== "admin") {
         const role = user.role;
         if (role === "teacher") return <Navigate to="/teacher-dashboard" />;
         if (role === "student") return <Navigate to="/student-dashboard/" />;
@@ -122,6 +124,43 @@ const AdminProtectedRoute = ({ children }) => {
 };
 
 const App = () => {
+  const [isHydrating, setIsHydrating] = useState(
+    Boolean(authStorage.getRefreshToken() && !authStorage.getAccessToken()),
+  );
+
+  useEffect(() => {
+    if (authStorage.getRefreshToken() && !authStorage.getAccessToken()) {
+      authService
+        .refreshToken()
+        .catch((err) => {
+          console.warn("Startup session hydration failed:", err);
+        })
+        .finally(() => {
+          setIsHydrating(false);
+        });
+    }
+  }, []);
+
+  if (isHydrating) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff]">
+        <div className="relative flex flex-col items-center justify-center space-y-6">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="relative h-24 w-24"
+          >
+            <div className="absolute inset-0 border-4 border-blue-200 rounded-full animate-pulse"></div>
+            <div className="absolute inset-2 border-4 border-t-[#01B0F1] border-r-transparent border-b-transparent border-l-transparent rounded-full"></div>
+          </motion.div>
+          <p className="text-gray-600 font-medium animate-pulse">
+            Restoring session...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Router>
       <CookieConsent />

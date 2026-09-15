@@ -88,7 +88,10 @@ export const authService = {
         "Token refresh failed:",
         error.response?.data || error.message,
       );
-      authStorage.clearTokens(); // force clean state on failure
+      const status = error.response?.status;
+      if (status === 400 || status === 401 || status === 403) {
+        authStorage.clearTokens();
+      }
       throw error;
     }
   },

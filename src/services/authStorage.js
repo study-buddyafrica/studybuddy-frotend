@@ -56,6 +56,10 @@ export const authStorage = {
   },
 
   isAuthenticated() {
-    return Boolean(accessToken || sessionStorage.getItem("refresh_token"));
+    return Boolean(accessToken);
+  },
+
+  hasStoredSession() {
+    return Boolean(sessionStorage.getItem("refresh_token"));
   },
 };

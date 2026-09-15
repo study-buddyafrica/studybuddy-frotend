@@ -7,47 +7,57 @@ const apiClient = axios.create({
   baseURL: FHOST,
 });
 
-// Attach access token from memory
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = authStorage.getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
-
-// On 401 → try one silent refresh, then retry. If refresh fails → clear and redirect.
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        // Attempt refresh
-        const newAccessToken = await authService.refreshToken();
-
-        // Update the original request with the new token
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-
-        // Retry the original request
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        // Refresh failed → clean everything and force login
-        authStorage.clearTokens();
-        localStorage.removeItem("userInfo");
-        window.location.href = "/login";
-        return Promise.reject(refreshError);
+const attachInterceptors = (client) => {
+  // Attach access token from memory
+  client.interceptors.request.use(
+    (config) => {
+      const token = authStorage.getAccessToken();
+      if (token && !config.headers.Authorization && !config.url?.includes("/api/token/refresh/")) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
-    }
+      return config;
+    },
+    (error) => Promise.reject(error),
+  );
 
-    return Promise.reject(error);
-  },
-);
+  // On 401 → try one silent refresh, then retry. If refresh fails → reject.
+  client.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const originalRequest = error.config;
+
+      if (
+        error.response?.status === 401 &&
+        originalRequest &&
+        !originalRequest._retry &&
+        !originalRequest.url?.includes("/api/token/refresh/") &&
+        !originalRequest.url?.includes("/api/token/request/") &&
+        !originalRequest.url?.includes("/api/login/")
+      ) {
+        originalRequest._retry = true;
+
+        try {
+          // Attempt silent refresh
+          const newAccessToken = await authService.refreshToken();
+
+          // Update the original request with the new token
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+          // Retry the original request
+          return client(originalRequest);
+        } catch (refreshError) {
+          // Refresh failed
+          return Promise.reject(refreshError);
+        }
+      }
+
+      return Promise.reject(error);
+    },
+  );
+};
+
+// Attach to both apiClient and default axios instance used across the app
+attachInterceptors(apiClient);
+attachInterceptors(axios);
 
 export default apiClient;

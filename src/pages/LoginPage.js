@@ -33,7 +33,12 @@ const getUserFromToken = (accessToken) => {
 // Centralised redirect – no more hardcoded admin@gmail.com
 const redirectByRole = ({ userInfo, navigate, setErrorMessage }) => {
   // Keep userInfo in localStorage for now (non-token data)
-  localStorage.setItem("userInfo", JSON.stringify(userInfo));
+  const safeUserInfo = { ...userInfo };
+  delete safeUserInfo.access;
+  delete safeUserInfo.refresh;
+  delete safeUserInfo.access_token;
+  delete safeUserInfo.refresh_token;
+  localStorage.setItem("userInfo", JSON.stringify(safeUserInfo));
 
   if (userInfo.is_superuser || userInfo.role === "admin") {
     navigate("/admin");

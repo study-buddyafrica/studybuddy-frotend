@@ -54,6 +54,34 @@ const StudentLiveClass = () => {
   const [cameraOn, setCameraOn] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(true);
   const [shareOn, setShareOn] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleShareScreen = async () => {
+    if (!shareOn) {
+      if (navigator.mediaDevices?.getDisplayMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          setShareOn(true);
+          const track = stream.getVideoTracks()[0];
+          if (track) {
+            track.onended = () => setShareOn(false);
+          }
+        } catch (err) {
+          console.warn("Screen share cancelled or not allowed:", err);
+          setShareOn(false);
+        }
+      } else {
+        setShareOn(true);
+      }
+    } else {
+      setShareOn(false);
+    }
+  };
 
   const loadSessions = async () => {
     setLoading(true);
@@ -110,7 +138,7 @@ const StudentLiveClass = () => {
       },
       { live: [], upcoming: [], ended: [] },
     );
-  }, [sessions]);
+  }, [sessions, currentTime]);
 
   const selectSession = (session) => {
     setSelectedSession(session);
@@ -143,6 +171,11 @@ const StudentLiveClass = () => {
         previous.map((item) =>
           item.id === session.id ? { ...item, attended: true } : item,
         ),
+      );
+      setSelectedSession((previous) =>
+        previous && previous.id === session.id
+          ? { ...previous, attended: true }
+          : previous,
       );
     } catch (requestError) {
       setError(
@@ -400,7 +433,7 @@ const StudentLiveClass = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setShareOn((value) => !value)}
+                          onClick={handleShareScreen}
                           aria-label={shareOn ? "Stop sharing" : "Share screen"}
                           className={`rounded-full p-3 ${shareOn ? "bg-[#01B0F1]" : "bg-white/15"}`}
                         >
