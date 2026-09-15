@@ -6,6 +6,7 @@ import UpcomingLessons from "./UpcomingLessons";
 import { FaCalendarAlt, FaCreditCard, FaClock, FaVideo, FaBookOpen, FaDollarSign, FaUsers, FaPlus } from "react-icons/fa";
 import { FHOST } from "../constants/Functions";
 import axios from "axios";
+import { authStorage } from "../../services/authStorage";
 
 const MyLessons = ({userInfo, darkMode}) => {
   const [activeTab, setActiveComponent] = useState("liveClasses");
@@ -36,157 +37,145 @@ const MyLessons = ({userInfo, darkMode}) => {
     fetchPeerToPeerSessions();
   }, []);
 
-  const fetchScheduledLessons = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        console.error('No access token available');
-        return;
-      }
-
-      // Try new endpoint first, fallback to old one
-      let response;
-      try {
-        response = await axios.get(`${FHOST}/api/student/session-bookings/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      } catch (newError) {
-        // Fallback to old endpoint
-        response = await axios.get(`${FHOST}/api/student/session-bookings/${userInfo?.id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
-
-      const bookingsList = response.data?.results || response.data || [];
-      if (Array.isArray(bookingsList)) {
-        // Map bookings into the expected UI shape
-        const mapped = bookingsList.map(b => ({
-          id: b.id,
-          teacher_id: b.teacher_id,
-          teacher_name: b.teacher_name || b.teacher_id,
-          subject: b.subject || 'Lesson',
-          date: b.scheduled_start || b.session_datetime,
-          time: b.scheduled_start ? new Date(b.scheduled_start).toLocaleTimeString() : (b.session_datetime || ''),
-          scheduled_start: b.scheduled_start,
-          scheduled_end: b.scheduled_end,
-          status: b.status,
-          cost: Math.abs(parseFloat(b.cost || 0)),
-          payment_status: b.status === 'accepted' || b.status === 'confirmed' ? 'pending' : 'n/a',
-          is_allowed: b.is_allowed,
-          attended: b.attended,
-          duration_hours: b.duration_hours,
-          course: b.course,
-        }));
-        setScheduledLessons(mapped);
-      }
-    } catch (error) {
-      console.error('Error fetching lessons:', error);
-      setScheduledLessons([]);
+const fetchScheduledLessons = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      console.error("No access token available");
+      return;
     }
-  };
 
-  const fetchEnrolledCourses = async () => {
+    let response;
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      const response = await axios.get(`${FHOST}/api/student/enrolled/courses/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      response = await axios.get(`${FHOST}/api/student/session-bookings/`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
+    } catch (newError) {
+      response = await axios.get(
+        `${FHOST}/api/student/session-bookings/${userInfo?.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+    }
 
-      const coursesList = response.data?.results || response.data || [];
-      if (Array.isArray(coursesList)) {
-        setEnrolledCourses(coursesList);
-      }
-    } catch (error) {
-      console.error('Error fetching enrolled courses:', error);
-      setEnrolledCourses([]);
-    } finally {
+    const bookingsList = response.data?.results || response.data || [];
+    if (Array.isArray(bookingsList)) {
+      // Map bookings into the expected UI shape
+      const mapped = bookingsList.map((b) => ({
+        id: b.id,
+        teacher_id: b.teacher_id,
+        teacher_name: b.teacher_name || b.teacher_id,
+        subject: b.subject || "Lesson",
+        date: b.scheduled_start || b.session_datetime,
+        time: b.scheduled_start
+          ? new Date(b.scheduled_start).toLocaleTimeString()
+          : b.session_datetime || "",
+        scheduled_start: b.scheduled_start,
+        scheduled_end: b.scheduled_end,
+        status: b.status,
+        cost: Math.abs(parseFloat(b.cost || 0)),
+        payment_status:
+          b.status === "accepted" || b.status === "confirmed"
+            ? "pending"
+            : "n/a",
+        is_allowed: b.is_allowed,
+        attended: b.attended,
+        duration_hours: b.duration_hours,
+        course: b.course,
+      }));
+      setScheduledLessons(mapped);
+    }
+  } catch (error) {
+    console.error("Error fetching lessons:", error);
+    setScheduledLessons([]);
+  }
+};
+
+const fetchEnrolledCourses = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
       setLoading(false);
+      return;
     }
-  };
 
-  const fetchAvailableCourses = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        return;
-      }
+    const response = await axios.get(`${FHOST}/api/student/enrolled/courses/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-      const response = await axios.get(`${FHOST}/api/courses/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const coursesList = response.data?.results || response.data || [];
-      if (Array.isArray(coursesList)) {
-        setAvailableCourses(coursesList);
-      }
-    } catch (error) {
-      console.error('Error fetching available courses:', error);
-      setAvailableCourses([]);
-    } finally {
-      setLoading(false);
+    const coursesList = response.data?.results || response.data || [];
+    if (Array.isArray(coursesList)) {
+      setEnrolledCourses(coursesList);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching enrolled courses:", error);
+    setEnrolledCourses([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const fetchCourses = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        return;
-      }
+const fetchAvailableCourses = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) return;
 
-      const response = await axios.get(`${FHOST}/api/courses/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const response = await axios.get(`${FHOST}/api/courses/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-      const coursesList = response.data?.results || response.data || [];
-      if (Array.isArray(coursesList)) {
-        setCourses(coursesList);
-      }
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-      setCourses([]);
+    const coursesList = response.data?.results || response.data || [];
+    if (Array.isArray(coursesList)) {
+      setAvailableCourses(coursesList);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching available courses:", error);
+    setAvailableCourses([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const fetchPeerToPeerSessions = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        return;
-      }
+const fetchCourses = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) return;
 
-      const response = await axios.get(`${FHOST}/api/peer-to-peer-sessions/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const response = await axios.get(`${FHOST}/api/courses/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-      const sessionsList = response.data?.results || response.data || [];
-      if (Array.isArray(sessionsList)) {
-        setPeerToPeerSessions(sessionsList);
-      }
-    } catch (error) {
-      console.error('Error fetching peer-to-peer sessions:', error);
-      setPeerToPeerSessions([]);
-    } finally {
-      setLoading(false);
+    const coursesList = response.data?.results || response.data || [];
+    if (Array.isArray(coursesList)) {
+      setCourses(coursesList);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    setCourses([]);
+  }
+};
+
+const fetchPeerToPeerSessions = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) return;
+
+    const response = await axios.get(`${FHOST}/api/peer-to-peer-sessions/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const sessionsList = response.data?.results || response.data || [];
+    if (Array.isArray(sessionsList)) {
+      setPeerToPeerSessions(sessionsList);
+    }
+  } catch (error) {
+    console.error("Error fetching peer-to-peer sessions:", error);
+    setPeerToPeerSessions([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handlePayment = async (lessonId, amount) => {
     try {
@@ -206,240 +195,260 @@ const MyLessons = ({userInfo, darkMode}) => {
     }
   };
 
-  const handleRescheduleBooking = async (bookingId, booking) => {
-    // This would open a modal/form to reschedule
-    // For now, we'll show an alert - you can implement a proper modal later
-    const newDate = prompt('Enter new date and time (YYYY-MM-DDTHH:MM format):');
-    if (!newDate) return;
+const handleRescheduleBooking = async (bookingId, booking) => {
+  const newDate = prompt("Enter new date and time (YYYY-MM-DDTHH:MM format):");
+  if (!newDate) return;
 
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        alert('Authentication required. Please login again.');
-        return;
-      }
-
-      const scheduledStart = new Date(newDate).toISOString();
-      const durationHours = booking.duration_hours || 1;
-
-      const payload = {
-        teacher_id: booking.teacher_id,
-        scheduled_start: scheduledStart,
-        duration_hours: durationHours,
-        course: booking.course,
-      };
-
-      const response = await axios.patch(
-        `${FHOST}/api/student/session-bookings/${bookingId}/`,
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status === 200 || response.status === 201) {
-        alert('Booking rescheduled successfully!');
-        fetchScheduledLessons();
-      }
-    } catch (error) {
-      console.error('Error rescheduling booking:', error);
-      const errorMsg = error.response?.data?.message || 
-                      error.response?.data?.error || 
-                      error.response?.data?.detail ||
-                      'Failed to reschedule booking. Please try again.';
-      alert(errorMsg);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      alert("Authentication required. Please login again.");
+      return;
     }
-  };
 
-  const handleMarkAttended = async (bookingId, booking) => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        alert('Authentication required. Please login again.');
-        return;
-      }
+    const scheduledStart = new Date(newDate).toISOString();
+    const durationHours = booking.duration_hours || 1;
 
-      const scheduledStart = booking.scheduled_start ? new Date(booking.scheduled_start).toISOString() : new Date().toISOString();
-      const durationHours = booking.duration_hours || 1;
+    const payload = {
+      teacher_id: booking.teacher_id,
+      scheduled_start: scheduledStart,
+      duration_hours: durationHours,
+      course: booking.course,
+    };
 
-      const payload = {
-        teacher_id: booking.teacher_id,
-        scheduled_start: scheduledStart,
-        duration_hours: durationHours,
-        course: booking.course,
-      };
+    const response = await axios.patch(
+      `${FHOST}/api/student/session-bookings/${bookingId}/`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
 
-      const response = await axios.patch(
-        `${FHOST}/api/student/session-bookings/${bookingId}/`,
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status === 200 || response.status === 201) {
-        alert('Booking marked as attended! Teacher payment has been processed.');
-        fetchScheduledLessons();
-      }
-    } catch (error) {
-      console.error('Error marking booking as attended:', error);
-      const errorMsg = error.response?.data?.message ||
-                       error.response?.data?.error ||
-                       error.response?.data?.detail ||
-                       'Failed to mark as attended. Please try again.';
-      alert(errorMsg);
+    if (response.status === 200 || response.status === 201) {
+      alert("Booking rescheduled successfully!");
+      fetchScheduledLessons();
     }
-  };
+  } catch (error) {
+    console.error("Error rescheduling booking:", error);
+    const errorMsg =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.response?.data?.detail ||
+      "Failed to reschedule booking. Please try again.";
+    alert(errorMsg);
+  }
+};
 
-  const handleJoinLiveSession = async (bookingId) => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        alert('Authentication required. Please login again.');
-        return;
-      }
-
-      const response = await axios.get(
-        `${FHOST}/api/student/live-session/${bookingId}/join/`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status === 200) {
-        // Assuming the response contains a join_url or similar
-        const joinUrl = response.data?.join_url || response.data?.url;
-        if (joinUrl) {
-          window.open(joinUrl, '_blank');
-        } else {
-          alert('Session join URL not available.');
-        }
-      }
-    } catch (error) {
-      console.error('Error joining live session:', error);
-      const errorMsg = error.response?.data?.message ||
-                        error.response?.data?.error ||
-                        error.response?.data?.detail ||
-                        'Failed to join live session. Please try again.';
-      alert(errorMsg);
+const handleMarkAttended = async (bookingId, booking) => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      alert("Authentication required. Please login again.");
+      return;
     }
-  };
 
-  const handleEnroll = async (courseId) => {
-    setEnrolling(true);
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        alert('Authentication required. Please login again.');
-        return;
-      }
+    const scheduledStart = booking.scheduled_start
+      ? new Date(booking.scheduled_start).toISOString()
+      : new Date().toISOString();
+    const durationHours = booking.duration_hours || 1;
 
-      const response = await axios.post(
-        `${FHOST}/api/courses/enrollments/`,
-        { course_id: courseId },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+    const payload = {
+      teacher_id: booking.teacher_id,
+      scheduled_start: scheduledStart,
+      duration_hours: durationHours,
+      course: booking.course,
+    };
 
-      if (response.status === 201 || response.status === 200) {
-        alert('Enrolled successfully!');
-        fetchEnrolledCourses();
-        fetchAvailableCourses(); // Refresh available courses if needed
-      }
-    } catch (error) {
-      console.error('Error enrolling in course:', error);
-      const errorData = error.response?.data;
-      let errorMsg = 'Failed to enroll in course. Please try again.';
-      if (errorData?.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
-        errorMsg = errorData.errors[0].detail;
-      } else if (errorData?.message) {
-        errorMsg = errorData.message;
-      } else if (errorData?.error) {
-        errorMsg = errorData.error;
-      } else if (errorData?.detail) {
-        errorMsg = errorData.detail;
-      }
-      alert(errorMsg);
-    } finally {
-      setEnrolling(false);
+    const response = await axios.patch(
+      `${FHOST}/api/student/session-bookings/${bookingId}/`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (response.status === 200 || response.status === 201) {
+      alert("Booking marked as attended! Teacher payment has been processed.");
+      fetchScheduledLessons();
     }
-  };
+  } catch (error) {
+    console.error("Error marking booking as attended:", error);
+    const errorMsg =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.response?.data?.detail ||
+      "Failed to mark as attended. Please try again.";
+    alert(errorMsg);
+  }
+};
 
-  const handleAccessCourse = async (enrollmentId) => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        alert('Authentication required. Please login again.');
-        return;
-      }
+const handleJoinLiveSession = async (bookingId) => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      alert("Authentication required. Please login again.");
+      return;
+    }
 
-      const response = await axios.get(`${FHOST}/api/student/enrolled/course/${enrollmentId}/`, {
+    const response = await axios.get(
+      `${FHOST}/api/student/live-session/${bookingId}/join/`,
+      {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      });
+      },
+    );
 
-      setSelectedEnrolledCourse(response.data);
-      setShowCourseDetailsTab(true);
-      setActiveComponent("courseDetails");
-    } catch (error) {
-      console.error('Error fetching enrolled course:', error);
-      alert('Failed to access course. Please try again.');
+    if (response.status === 200) {
+      // Assuming the response contains a join_url or similar
+      const joinUrl = response.data?.join_url || response.data?.url;
+      if (joinUrl) {
+        window.open(joinUrl, "_blank");
+      } else {
+        alert("Session join URL not available.");
+      }
     }
-  };
+  } catch (error) {
+    console.error("Error joining live session:", error);
+    const errorMsg =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.response?.data?.detail ||
+      "Failed to join live session. Please try again.";
+    alert(errorMsg);
+  }
+};
 
-  const handleCreatePeerToPeer = async (event) => {
-    event.preventDefault();
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        alert('Authentication required. Please login again.');
-        return;
-      }
+const handleEnroll = async (courseId) => {
+  setEnrolling(true);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      alert("Authentication required. Please login again.");
+      return;
+    }
 
-      let startedAt = newPeerToPeer.started_at;
-      if (startedAt && startedAt.length === 16) {
-        startedAt += ':00';
-      }
-
-      const payload = {
-        title: newPeerToPeer.title.trim(),
-        description: newPeerToPeer.description.trim(),
-        course: newPeerToPeer.course,
-        started_at: startedAt,
-        duration_hours: parseInt(newPeerToPeer.duration_hours),
-      };
-
-      const response = await axios.post(`${FHOST}/api/peer-to-peer-sessions/`, payload, {
+    const response = await axios.post(
+      `${FHOST}/api/courses/enrollments/`,
+      { course_id: courseId },
+      {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      });
+      },
+    );
 
-      if (response.status === 201 || response.status === 200) {
-        alert('Peer-to-peer session created successfully!');
-        setShowCreatePeerToPeerModal(false);
-        setNewPeerToPeer({ title: '', description: '', course: '', started_at: '', duration_hours: '' });
-        fetchPeerToPeerSessions();
-      }
-    } catch (error) {
-      console.error('Error creating peer-to-peer session:', error);
-      alert('Failed to create session. Please try again.');
+    if (response.status === 201 || response.status === 200) {
+      alert("Enrolled successfully!");
+      fetchEnrolledCourses();
+      fetchAvailableCourses(); // Refresh available courses if needed
     }
-  };
+  } catch (error) {
+    console.error("Error enrolling in course:", error);
+    const errorData = error.response?.data;
+    let errorMsg = "Failed to enroll in course. Please try again.";
+    if (
+      errorData?.errors &&
+      Array.isArray(errorData.errors) &&
+      errorData.errors.length > 0
+    ) {
+      errorMsg = errorData.errors[0].detail;
+    } else if (errorData?.message) {
+      errorMsg = errorData.message;
+    } else if (errorData?.error) {
+      errorMsg = errorData.error;
+    } else if (errorData?.detail) {
+      errorMsg = errorData.detail;
+    }
+    alert(errorMsg);
+  } finally {
+    setEnrolling(false);
+  }
+};
+
+const handleAccessCourse = async (enrollmentId) => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      alert("Authentication required. Please login again.");
+      return;
+    }
+
+    const response = await axios.get(
+      `${FHOST}/api/student/enrolled/course/${enrollmentId}/`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    setSelectedEnrolledCourse(response.data);
+    setShowCourseDetailsTab(true);
+    setActiveComponent("courseDetails");
+  } catch (error) {
+    console.error("Error fetching enrolled course:", error);
+    alert("Failed to access course. Please try again.");
+  }
+};
+
+const handleCreatePeerToPeer = async (event) => {
+  event.preventDefault();
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      alert("Authentication required. Please login again.");
+      return;
+    }
+
+    let startedAt = newPeerToPeer.started_at;
+    if (startedAt && startedAt.length === 16) {
+      startedAt += ":00";
+    }
+
+    const payload = {
+      title: newPeerToPeer.title.trim(),
+      description: newPeerToPeer.description.trim(),
+      course: newPeerToPeer.course,
+      started_at: startedAt,
+      duration_hours: parseInt(newPeerToPeer.duration_hours),
+    };
+
+    const response = await axios.post(
+      `${FHOST}/api/peer-to-peer-sessions/`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (response.status === 201 || response.status === 200) {
+      alert("Peer-to-peer session created successfully!");
+      setShowCreatePeerToPeerModal(false);
+      setNewPeerToPeer({
+        title: "",
+        description: "",
+        course: "",
+        started_at: "",
+        duration_hours: "",
+      });
+      fetchPeerToPeerSessions();
+    }
+  } catch (error) {
+    console.error("Error creating peer-to-peer session:", error);
+    alert("Failed to create session. Please try again.");
+  }
+};
 
   return (
     <div className="min-h-screen bg-white text-gray-800">
