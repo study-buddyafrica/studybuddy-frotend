@@ -14,6 +14,7 @@ import {
   FaChevronDown,
 } from "react-icons/fa";
 import { AnimatePresence, motion } from "framer-motion";
+import { authStorage } from "../services/authStorage";
 
 const navItems = [
   { title: "Home", icon: <FaHome />, path: "/home" },
@@ -80,27 +81,14 @@ const Navbar = () => {
   // 1. Put authentication into React State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // 2. The Bulletproof Check: Force Navbar to re-check localStorage EVERY time the URL changes
+  // 2. Re-check the in-memory authentication state whenever the URL changes.
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    
-    // Explicitly reject the literal strings "undefined", "null", and empty strings
-    const isActuallyAuthenticated = 
-        token !== null && 
-        token !== "undefined" && 
-        token !== "null" && 
-        token !== "";
-        
-    setIsAuthenticated(isActuallyAuthenticated);
+    setIsAuthenticated(authStorage.isAuthenticated());
   }, [location.pathname]);
 
-  // Scorched Earth Logout
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("userInfo");
-    sessionStorage.clear();
-    window.location.href = "/login"; 
+    authStorage.clearTokens();
+    window.location.href = "/login";
   };
 
   useEffect(() => {
@@ -134,13 +122,15 @@ const Navbar = () => {
         scrolled
           ? "bg-white/95 backdrop-blur-md shadow-md"
           : "bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff]"
-      } font-lilita`}>
+      } font-lilita`}
+    >
       <div className="container mx-auto px-6 py-1">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link
             to="/home"
-            className="flex-shrink-0 transform transition-transform duration-300 hover:scale-105">
+            className="flex-shrink-0 transform transition-transform duration-300 hover:scale-105"
+          >
             <img
               src="/images/logo.png"
               alt="Logo"
@@ -157,11 +147,13 @@ const Navbar = () => {
                 onMouseEnter={() =>
                   item.dropdown && setOpenDropdown(item.title)
                 }
-                onMouseLeave={() => item.dropdown && setOpenDropdown(null)}>
+                onMouseLeave={() => item.dropdown && setOpenDropdown(null)}
+              >
                 {!item.dropdown ? (
                   <Link
                     to={item.path}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-full text-[#015575] hover:bg-[#01B0F1]/10 transition-all relative group">
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-full text-[#015575] hover:bg-[#01B0F1]/10 transition-all relative group"
+                  >
                     <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-[#01B0F1] transition-all duration-300 group-hover:w-full" />
                     {item.icon}
                     <span>{item.title}</span>
@@ -186,14 +178,16 @@ const Navbar = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
-                        className="absolute top-full mt-0.5 w-56 bg-white rounded-xl shadow-2xl z-50 ">
+                        className="absolute top-full mt-0.5 w-56 bg-white rounded-xl shadow-2xl z-50 "
+                      >
                         <div className="p-2 space-y-1 font-josefin">
                           {item.dropdown.map((sub) => (
                             <Link
                               key={sub.title}
                               to={sub.path}
                               state={sub.state || undefined}
-                              className="flex items-center gap-3 px-4 py-3 text-sm text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
+                              className="flex items-center gap-3 px-4 py-3 text-sm text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
+                            >
                               {sub.icon}
                               <span>{sub.title}</span>
                             </Link>
@@ -210,14 +204,16 @@ const Navbar = () => {
             {isAuthenticated ? (
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-6 py-2.5 ml-2 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all focus:outline-none">
+                className="flex items-center gap-2 px-6 py-2.5 ml-2 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all focus:outline-none"
+              >
                 <FaSignOutAlt className="text-lg shrink-0" />
                 <span>Logout</span>
               </button>
             ) : (
               <Link
                 to="/login"
-                className="flex items-center gap-2 px-6 py-2.5 ml-2 rounded-full bg-gradient-to-r from-[#01B0F1] to-[#027fad] hover:from-[#027fad] hover:to-[#01B0F1] text-white shadow-lg hover:shadow-xl transition-all focus:outline-none focus:ring-0">
+                className="flex items-center gap-2 px-6 py-2.5 ml-2 rounded-full bg-gradient-to-r from-[#01B0F1] to-[#027fad] hover:from-[#027fad] hover:to-[#01B0F1] text-white shadow-lg hover:shadow-xl transition-all focus:outline-none focus:ring-0"
+              >
                 <FaSignInAlt className="text-lg shrink-0" />
                 <span>Login</span>
               </Link>
@@ -228,7 +224,8 @@ const Navbar = () => {
           <div className="md:hidden">
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="text-2xl p-2.5 rounded-lg bg-white/10 backdrop-blur-sm focus:outline-none focus:ring-0">
+              className="text-2xl p-2.5 rounded-lg bg-white/10 backdrop-blur-sm focus:outline-none focus:ring-0"
+            >
               {mobileMenuOpen ? (
                 <FaTimes className="text-[#015575]" />
               ) : (
@@ -248,7 +245,8 @@ const Navbar = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="md:hidden absolute w-full bg-white/95 backdrop-blur-lg shadow-xl">
+            className="md:hidden absolute w-full bg-white/95 backdrop-blur-lg shadow-xl"
+          >
             <div className="px-6 py-5">
               <ul className="flex flex-col space-y-5">
                 {[
@@ -258,7 +256,8 @@ const Navbar = () => {
                   <li key={item.title}>
                     <Link
                       to={item.path}
-                      className="flex items-center gap-3 text-[#015575] hover:text-[#01B0F1] p-3 rounded-xl transition-colors">
+                      className="flex items-center gap-3 text-[#015575] hover:text-[#01B0F1] p-3 rounded-xl transition-colors"
+                    >
                       {item.icon}
                       <span className="text-lg font-medium">{item.title}</span>
                     </Link>
@@ -270,7 +269,8 @@ const Navbar = () => {
                     <button
                       type="button"
                       onClick={() => setMobileProgramsOpen((prev) => !prev)}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-[#015575] transition-colors focus:outline-none focus:ring-0">
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-[#015575] transition-colors focus:outline-none focus:ring-0"
+                    >
                       <div className="flex items-center gap-3">
                         <FaGraduationCap className="text-lg" />
                         <span className="text-lg font-medium">Programs</span>
@@ -288,11 +288,13 @@ const Navbar = () => {
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
                           transition={{ duration: 0.2 }}
-                          className="space-y-6 px-4 pb-4 pt-2 border-t shadow-md border-[#e1f3ff]">
+                          className="space-y-6 px-4 pb-4 pt-2 border-t shadow-md border-[#e1f3ff]"
+                        >
                           <Link
                             to="/signup"
                             state={{ role: "student", education_level: "k-12" }}
-                            className="block text-[#015575] hover:text-[#01B0F1] transition-colors">
+                            className="block text-[#015575] hover:text-[#01B0F1] transition-colors"
+                          >
                             Primary and Secondary
                           </Link>
                           <Link
@@ -301,7 +303,8 @@ const Navbar = () => {
                               role: "student",
                               education_level: "university",
                             }}
-                            className="block text-[#015575] hover:text-[#01B0F1] transition-colors">
+                            className="block text-[#015575] hover:text-[#01B0F1] transition-colors"
+                          >
                             University and Higher Ed
                           </Link>
                           <Link
@@ -310,7 +313,8 @@ const Navbar = () => {
                               role: "student",
                               education_level: "continuous",
                             }}
-                            className="block text-[#015575] hover:text-[#01B0F1] transition-colors">
+                            className="block text-[#015575] hover:text-[#01B0F1] transition-colors"
+                          >
                             Continuous Learning
                           </Link>
                         </motion.div>
@@ -329,21 +333,24 @@ const Navbar = () => {
                     <Link
                       to="/signup"
                       state={{ role: "parent" }}
-                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
+                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
+                    >
                       <FaUsers className="text-lg shrink-0" />
                       <span>Parent</span>
                     </Link>
                     <Link
                       to="/signup"
                       state={{ role: "student" }}
-                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
+                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
+                    >
                       <FaGraduationCap className="text-lg shrink-0" />
                       <span>Student</span>
                     </Link>
                     <Link
                       to="/signup"
                       state={{ role: "teacher" }}
-                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors">
+                      className="flex items-center gap-3 px-4 py-3 text-[#015575] hover:bg-[#01B0F1]/10 rounded-lg transition-colors"
+                    >
                       <FaChalkboardTeacher className="text-lg shrink-0" />
                       <span>Teacher</span>
                     </Link>
@@ -354,14 +361,16 @@ const Navbar = () => {
                 {isAuthenticated ? (
                   <button
                     onClick={handleLogout}
-                    className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-red-500 text-white rounded-xl shadow-lg hover:shadow-xl transition-all">
+                    className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-red-500 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+                  >
                     <FaSignOutAlt className="text-lg" />
                     <span className="font-medium">Logout</span>
                   </button>
                 ) : (
                   <Link
                     to="/login"
-                    className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-gradient-to-r from-[#01B0F1] to-[#027fad] text-white rounded-xl shadow-lg hover:shadow-xl transition-all">
+                    className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-gradient-to-r from-[#01B0F1] to-[#027fad] text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+                  >
                     <FaSignInAlt className="text-lg" />
                     <span className="font-medium">Login to Account</span>
                   </Link>

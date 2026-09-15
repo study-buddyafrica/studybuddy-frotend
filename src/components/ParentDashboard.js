@@ -39,6 +39,7 @@ import { FHOST, refreshAccessToken } from "./constants/Functions.jsx";
 import ParentFeedback from "./parents/ParentFeedback.jsx";
 import ParentProfileUpdate from "./parents/ParentProfileUpdate";
 import DashboardHeader from "./layout/DashboardHeader.jsx";
+import { authStorage } from "../services/authStorage";
 
 ChartJS.register(
   CategoryScale,
@@ -100,9 +101,7 @@ const ParentDashboard = () => {
       try {
         token = await refreshAccessToken();
       } catch (refreshError) {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("userInfo");
+        authStorage.clearTokens();
         window.location.href = "/";
         return;
       }
@@ -165,7 +164,7 @@ const ParentDashboard = () => {
             `${FHOST}/api/parent/profile/update/`,
             {
               headers: {
-                Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+                Authorization: `Bearer ${authStorage.getAccessToken()}`,
               },
             },
           );
@@ -516,7 +515,7 @@ const ParentDashboard = () => {
 
   // Handle logout
   const handleLogout = () => {
-    localStorage.removeItem("userInfo");
+    authStorage.clearTokens();
     window.location.href = "/";
   };
 

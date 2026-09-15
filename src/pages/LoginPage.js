@@ -7,6 +7,7 @@ import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { jwtDecode } from "jwt-decode";
 import { checkUser, FHOST } from "../components/constants/Functions";
 import { firebaseAuth } from "../firebaseConfig";
+import { authStorage } from "../services/authStorage"; // ← added
 
 const getUserFromToken = (accessToken) => {
   try {
@@ -19,7 +20,7 @@ const getUserFromToken = (accessToken) => {
       String(rawIsSuperUser).toLowerCase() === "true";
 
     return {
-      ...decoded, // spread all JWT claims
+      ...decoded,
       is_superuser: isSuperUser,
       role: decoded?.role || null,
     };
@@ -29,19 +30,20 @@ const getUserFromToken = (accessToken) => {
   }
 };
 
-// Centralised redirect logic – works for both email and Google flows
-const redirectByRole = ({ userInfo, email, navigate, setErrorMessage }) => {
-  const isAdminEmail = email?.toLowerCase() === "admin@gmail.com";
+// Centralised redirect – no more hardcoded admin@gmail.com
+const redirectByRole = ({ userInfo, navigate, setErrorMessage }) => {
+  // Keep userInfo in localStorage for now (non-token data)
+  const safeUserInfo = { ...userInfo };
+  delete safeUserInfo.access;
+  delete safeUserInfo.refresh;
+  delete safeUserInfo.access_token;
+  delete safeUserInfo.refresh_token;
+  localStorage.setItem("userInfo", JSON.stringify(safeUserInfo));
 
-  if (userInfo.is_superuser || isAdminEmail) {
-    userInfo.is_superuser = true;
-    userInfo.role = "admin";
-    localStorage.setItem("userInfo", JSON.stringify(userInfo));
+  if (userInfo.is_superuser || userInfo.role === "admin") {
     navigate("/admin");
     return;
   }
-
-  localStorage.setItem("userInfo", JSON.stringify(userInfo));
 
   switch (userInfo.role) {
     case "student":
@@ -53,11 +55,8 @@ const redirectByRole = ({ userInfo, email, navigate, setErrorMessage }) => {
     case "teacher":
       navigate("/teacher-dashboard");
       break;
-    case "admin":
-      navigate("/admin");
-      break;
     default:
-      setErrorMessage("Unexpected role: " + userInfo.role);
+      setErrorMessage("Unexpected role: " + (userInfo.role || "unknown"));
   }
 };
 
@@ -116,11 +115,9 @@ const LoginPage = () => {
         return;
       }
 
-      // Persist tokens
-      localStorage.setItem("access_token", accessToken);
-      if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
+      // ← changed: use authStorage instead of localStorage
+      authStorage.setTokens(accessToken, refreshToken);
 
-      // Decode JWT
       const userInfo = getUserFromToken(accessToken);
 
       if (!userInfo) {
@@ -128,7 +125,7 @@ const LoginPage = () => {
         return;
       }
 
-      redirectByRole({ userInfo, email, navigate, setErrorMessage });
+      redirectByRole({ userInfo, navigate, setErrorMessage });
     } catch (error) {
       console.error("Login error:", error);
       setErrorMessage(
@@ -172,9 +169,8 @@ const LoginPage = () => {
       const accessToken = UserInfo.access;
       const refreshToken = UserInfo.refresh;
 
-      localStorage.removeItem("userInfo");
-      if (accessToken) localStorage.setItem("access_token", accessToken);
-      if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
+      // ← changed
+      authStorage.setTokens(accessToken, refreshToken);
 
       let fullUserData = null;
 
@@ -198,7 +194,6 @@ const LoginPage = () => {
           console.warn("users-list fetch failed, trying /me/", err);
         }
 
-        // Fallback to /me/ if users-list didn't return data
         if (!fullUserData) {
           try {
             const meResp = await fetch(`${FHOST}/api/users/me/`, {
@@ -233,7 +228,6 @@ const LoginPage = () => {
 
       redirectByRole({
         userInfo: mergedUser,
-        email: user.email,
         navigate,
         setErrorMessage,
       });
@@ -250,7 +244,8 @@ const LoginPage = () => {
       className={`animate-spin h-5 w-5 ${color}`}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
-      viewBox="0 0 24 24">
+      viewBox="0 0 24 24"
+    >
       <circle
         className="opacity-25"
         cx="12"
@@ -270,7 +265,6 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff] flex items-center justify-center p-4">
       <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl flex flex-col md:flex-row">
-        {/* Illustration Section */}
         <div className="md:w-1/2 bg-gradient-to-br from-[#01B0F1] to-[#015575] rounded-l-2xl p-8 hidden md:flex items-center justify-center">
           <div className="text-white text-center space-y-6">
             <h2 className="text-4xl font-lilita mb-4">Welcome Back!</h2>
@@ -280,7 +274,6 @@ const LoginPage = () => {
           </div>
         </div>
 
-        {/* Form Section */}
         <div className="md:w-1/2 p-8 lg:p-12">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-[#015575] font-lilita mb-2">
@@ -292,7 +285,6 @@ const LoginPage = () => {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
-            {/* Email */}
             <motion.div whileHover={{ scale: 1.02 }}>
               <div className="relative">
                 <FaEnvelope className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -308,7 +300,6 @@ const LoginPage = () => {
               </div>
             </motion.div>
 
-            {/* Password */}
             <motion.div whileHover={{ scale: 1.02 }}>
               <div className="relative">
                 <FaLock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -325,38 +316,40 @@ const LoginPage = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-[#015575]"
-                  disabled={isEmailLoading || isGoogleLoading}>
+                  disabled={isEmailLoading || isGoogleLoading}
+                >
                   {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
                 </button>
               </div>
               <div className="mt-2 text-right">
                 <Link
                   to="/forgot-password"
-                  className="text-sm text-[#015575] hover:text-[#01B0F1] font-semibold font-josefin">
+                  className="text-sm text-[#015575] hover:text-[#01B0F1] font-semibold font-josefin"
+                >
                   Forgot Password?
                 </Link>
               </div>
             </motion.div>
 
-            {/* Error */}
             {errorMessage && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">
+                className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl"
+              >
                 <p className="font-josefin text-sm text-center">
                   {errorMessage}
                 </p>
               </motion.div>
             )}
 
-            {/* Submit */}
             <motion.button
               whileHover={!isEmailLoading ? { scale: 1.02 } : undefined}
               whileTap={!isEmailLoading ? { scale: 0.98 } : undefined}
               type="submit"
               disabled={isEmailLoading || isGoogleLoading}
-              className="w-full bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 rounded-xl font-lilita hover:shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed">
+              className="w-full bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 rounded-xl font-lilita hover:shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed"
+            >
               {isEmailLoading ? (
                 <div className="flex items-center justify-center gap-2">
                   <Spinner /> Signing In...
@@ -366,7 +359,6 @@ const LoginPage = () => {
               )}
             </motion.button>
 
-            {/* Google */}
             <div className="my-6">
               <div className="flex items-center my-6">
                 <div className="flex-1 border-t border-gray-300" />
@@ -381,7 +373,8 @@ const LoginPage = () => {
                 type="button"
                 onClick={handleLoginGoogle}
                 disabled={isGoogleLoading || isEmailLoading}
-                className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-75 disabled:cursor-not-allowed">
+                className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-75 disabled:cursor-not-allowed"
+              >
                 {isGoogleLoading ? (
                   <div className="flex items-center justify-center gap-2">
                     <Spinner color="text-gray-700" /> Signing In...
@@ -400,7 +393,8 @@ const LoginPage = () => {
                 Don't have an account?{" "}
                 <Link
                   to="/signup"
-                  className="text-[#015575] hover:text-[#01B0F1] font-semibold">
+                  className="text-[#015575] hover:text-[#01B0F1] font-semibold"
+                >
                   Sign Up
                 </Link>
               </p>

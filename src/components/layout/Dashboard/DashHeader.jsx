@@ -7,6 +7,7 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import MenuIcon from "@mui/icons-material/Menu";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { navigation } from "./Sidebar";
+import { authStorage } from "../../../services/authStorage";
 
 const Header = ({ onMenuClick, user }) => {
     const location = useLocation();
@@ -19,8 +20,7 @@ const Header = ({ onMenuClick, user }) => {
     
     const handleLogout = () => {
         setAnchorEl(null);
-        // Implement logout logic here
-        console.log("User logged out");
+        authStorage.clearTokens();
         navigate("/login");
     };
 

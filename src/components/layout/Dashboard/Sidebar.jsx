@@ -24,6 +24,7 @@ import {
     GraduationCap,
     LogOut,
 } from "lucide-react";
+import { authStorage } from "../../../services/authStorage";
 
 const navigation = [
     { name: "Dashboard", href: "/student-dashboard/home", icon: <LayoutDashboard size={20} /> },
@@ -70,7 +71,7 @@ const SidebarContent = ({ onClose, userInfo }) => {
     const navigate = useNavigate();
 
     const handleLogout = () => {
-        localStorage.removeItem("userInfo"); // Clear user data
+        authStorage.clearTokens();
         navigate("/login"); // Redirect to login page
     };
 

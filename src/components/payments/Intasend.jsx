@@ -2,6 +2,7 @@ import axios from 'axios';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FHOST } from '../constants/Functions';
+import { authStorage } from "../../services/authStorage";
 import 'intasend-inlinejs-sdk';
 
 const Intasend = ({ fetchTransactionHistory, userInfo }) => {
@@ -49,7 +50,7 @@ const Intasend = ({ fetchTransactionHistory, userInfo }) => {
         // Also try to create transaction directly in new API if deposit endpoint doesn't
         // This is a fallback to ensure transaction is created
         try {
-          const token = localStorage.getItem('access_token');
+          const token = authStorage.getAccessToken();
           if (token && depositResponse.data) {
             // Try to create transaction in new API structure
             await axios.post(`${FHOST}/api/transactions/`, {

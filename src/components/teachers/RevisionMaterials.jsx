@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FHOST } from '../constants/Functions';
 import { FaPlus, FaEdit, FaTrash, FaFileAlt, FaDownload, FaSearch } from 'react-icons/fa';
+import { authStorage } from "../../services/authStorage";
 
 const RevisionMaterials = ({ userInfo }) => {
   const [materials, setMaterials] = useState([]);
@@ -27,88 +28,92 @@ const RevisionMaterials = ({ userInfo }) => {
     fetchCourses();
   }, [currentPage]);
 
-  const fetchMaterials = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(`${FHOST}/api/revision-materials/`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page: currentPage, page_size: 10 },
-      });
+const fetchMaterials = async () => {
+  setLoading(true);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.get(`${FHOST}/api/revision-materials/`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { page: currentPage, page_size: 10 },
+    });
 
-      const data = response.data;
-      setMaterials(data.results || []);
-      setTotalPages(Math.ceil((data.count || 0) / 10));
-    } catch (err) {
-      console.error('Error fetching materials:', err);
-      setError('Failed to load revision materials');
-    } finally {
-      setLoading(false);
+    const data = response.data;
+    setMaterials(data.results || []);
+    setTotalPages(Math.ceil((data.count || 0) / 10));
+  } catch (err) {
+    console.error("Error fetching materials:", err);
+    setError("Failed to load revision materials");
+  } finally {
+    setLoading(false);
+  }
+};
+
+const fetchCourses = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.get(`${FHOST}/api/courses/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setCourses(response.data.results || []);
+  } catch (err) {
+    console.error("Error fetching courses:", err);
+  }
+};
+
+const handleCreateMaterial = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const formData = new FormData();
+    formData.append("title", newMaterial.title);
+    formData.append("description", newMaterial.description);
+    if (newMaterial.file) {
+      formData.append("file", newMaterial.file);
     }
-  };
+    formData.append("course", newMaterial.course);
 
-  const fetchCourses = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(`${FHOST}/api/courses/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCourses(response.data.results || []);
-    } catch (err) {
-      console.error('Error fetching courses:', err);
-    }
-  };
-
-  const handleCreateMaterial = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('access_token');
-      const formData = new FormData();
-      formData.append('title', newMaterial.title);
-      formData.append('description', newMaterial.description);
-      if (newMaterial.file) {
-        formData.append('file', newMaterial.file);
-      }
-      formData.append('course', newMaterial.course);
-
-      const response = await axios.post(`${FHOST}/api/revision-materials/`, formData, {
+    const response = await axios.post(
+      `${FHOST}/api/revision-materials/`,
+      formData,
+      {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
-      });
+      },
+    );
 
-      setSuccess('Revision material created successfully!');
-      setShowCreateModal(false);
-      setNewMaterial({ title: '', description: '', file: null, course: '' });
-      fetchMaterials();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create material');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setSuccess("Revision material created successfully!");
+    setShowCreateModal(false);
+    setNewMaterial({ title: "", description: "", file: null, course: "" });
+    fetchMaterials();
+  } catch (err) {
+    setError(err.response?.data?.message || "Failed to create material");
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleDeleteMaterial = async (materialId) => {
-    if (!window.confirm('Are you sure you want to delete this material?')) return;
-    setLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('access_token');
-      await axios.delete(`${FHOST}/api/revision-materials/${materialId}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+const handleDeleteMaterial = async (materialId) => {
+  if (!window.confirm("Are you sure you want to delete this material?")) return;
+  setLoading(true);
+  setError("");
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    await axios.delete(`${FHOST}/api/revision-materials/${materialId}/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-      setSuccess('Material deleted successfully!');
-      fetchMaterials();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete material');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setSuccess("Material deleted successfully!");
+    fetchMaterials();
+  } catch (err) {
+    setError(err.response?.data?.message || "Failed to delete material");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const filteredMaterials = materials.filter(material =>
     material.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||

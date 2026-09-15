@@ -26,6 +26,7 @@ import {
     Wallet,
     User,
 } from "lucide-react";
+import { authStorage } from "../../../services/authStorage";
 
 const navigation = [
     { name: "Home", href: "/teacher-dashboard", icon: <LayoutDashboard size={20} /> },
@@ -84,7 +85,7 @@ const SidebarContent = ({ onClose }) => {
     const navigate = useNavigate();
 
     const handleLogout = () => {
-        localStorage.removeItem("userInfo");
+        authStorage.clearTokens();
         navigate("/login");
     };
 

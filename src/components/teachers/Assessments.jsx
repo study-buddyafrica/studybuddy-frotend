@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FHOST } from '../constants/Functions';
 import { FaPlus, FaEdit, FaTrash, FaQuestionCircle, FaSearch, FaClock, FaArrowLeft } from 'react-icons/fa';
+import { authStorage } from "../../services/authStorage";
 
 const Assessments = ({ userInfo }) => {
   const [assessments, setAssessments] = useState([]);
@@ -33,44 +34,46 @@ const Assessments = ({ userInfo }) => {
     fetchCourses();
   }, [currentPage]);
 
-  const fetchAssessments = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('access_token');
-      
-      const response = await axios.get(`${FHOST}/api/assessments/`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page: currentPage, page_size: 10 },
-      });
+const fetchAssessments = async () => {
+  setLoading(true);
+  setError("");
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
 
-      const data = response.data;
-      const assessmentsList = data.results || data || [];
-      
-      setAssessments(assessmentsList);
-      setTotalPages(Math.ceil((data.count || assessmentsList.length || 0) / 10));
-    } catch (err) {
-      console.error('Error fetching assessments:', err);
-      setError(`Failed to load assessments: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const response = await axios.get(`${FHOST}/api/assessments/`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { page: currentPage, page_size: 10 },
+    });
 
-  const fetchCourses = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      
-      const response = await axios.get(`${FHOST}/api/courses/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      const coursesList = response.data.results || response.data || [];
-      setCourses(coursesList);
-    } catch (err) {
-      console.error('Error fetching courses:', err);
-    }
-  };
+    const data = response.data;
+    const assessmentsList = data.results || data || [];
+
+    setAssessments(assessmentsList);
+    setTotalPages(Math.ceil((data.count || assessmentsList.length || 0) / 10));
+  } catch (err) {
+    console.error("Error fetching assessments:", err);
+    setError(
+      `Failed to load assessments: ${err.response?.data?.detail || err.message}`,
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+const fetchCourses = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+
+    const response = await axios.get(`${FHOST}/api/courses/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const coursesList = response.data.results || response.data || [];
+    setCourses(coursesList);
+  } catch (err) {
+    console.error("Error fetching courses:", err);
+  }
+};
 
 
 
@@ -147,53 +150,58 @@ const Assessments = ({ userInfo }) => {
     });
   };
 
-  const handleCreateAssessment = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.post(`${FHOST}/api/assessments/`, newAssessment, {
+const handleCreateAssessment = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.post(
+      `${FHOST}/api/assessments/`,
+      newAssessment,
+      {
         headers: { Authorization: `Bearer ${token}` },
-      });
+      },
+    );
 
-      setSuccess('Assessment created successfully!');
-      setShowCreateModal(false);
-      setNewAssessment({
-        title: '',
-        description: '',
-        course: '',
-        assessment_type: 'mcq',
-        due_date: '',
-        max_score: 100,
-        questions: []
-      });
-      fetchAssessments();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create assessment');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setSuccess("Assessment created successfully!");
+    setShowCreateModal(false);
+    setNewAssessment({
+      title: "",
+      description: "",
+      course: "",
+      assessment_type: "mcq",
+      due_date: "",
+      max_score: 100,
+      questions: [],
+    });
+    fetchAssessments();
+  } catch (err) {
+    setError(err.response?.data?.message || "Failed to create assessment");
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleDeleteAssessment = async (assessmentId) => {
-    if (!window.confirm('Are you sure you want to delete this assessment?')) return;
-    setLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('access_token');
-      await axios.delete(`${FHOST}/api/assessments/${assessmentId}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+const handleDeleteAssessment = async (assessmentId) => {
+  if (!window.confirm("Are you sure you want to delete this assessment?"))
+    return;
+  setLoading(true);
+  setError("");
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    await axios.delete(`${FHOST}/api/assessments/${assessmentId}/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-      setSuccess('Assessment deleted successfully!');
-      fetchAssessments();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete assessment');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setSuccess("Assessment deleted successfully!");
+    fetchAssessments();
+  } catch (err) {
+    setError(err.response?.data?.message || "Failed to delete assessment");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleViewAssessment = (assessment) => {
     setViewingAssessment(assessment);
@@ -229,35 +237,39 @@ const Assessments = ({ userInfo }) => {
     setShowEditModal(true);
   };
 
-  const handleUpdateAssessment = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.patch(`${FHOST}/api/assessments/${editingAssessment.id}/`, newAssessment, {
+const handleUpdateAssessment = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.patch(
+      `${FHOST}/api/assessments/${editingAssessment.id}/`,
+      newAssessment,
+      {
         headers: { Authorization: `Bearer ${token}` },
-      });
+      },
+    );
 
-      setSuccess('Assessment updated successfully!');
-      setShowEditModal(false);
-      setEditingAssessment(null);
-      setNewAssessment({
-        title: '',
-        description: '',
-        course: '',
-        assessment_type: 'mcq',
-        due_date: '',
-        max_score: 100,
-        questions: []
-      });
-      fetchAssessments();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update assessment');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setSuccess("Assessment updated successfully!");
+    setShowEditModal(false);
+    setEditingAssessment(null);
+    setNewAssessment({
+      title: "",
+      description: "",
+      course: "",
+      assessment_type: "mcq",
+      due_date: "",
+      max_score: 100,
+      questions: [],
+    });
+    fetchAssessments();
+  } catch (err) {
+    setError(err.response?.data?.message || "Failed to update assessment");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const filteredAssessments = assessments.filter(assessment =>
     assessment.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -33,6 +33,7 @@ import Assessments from "./teachers/Assessments";
 import { useLocation, useNavigate } from "react-router-dom";
 import MyWallet from "./teachers/mywallet";
 import DashboardHeader from "./layout/DashboardHeader";
+import { authStorage } from "../services/authStorage";
 
 const TeacherDashboard = () => {
   const [isLive, setIsLive] = useState(false);
@@ -82,7 +83,7 @@ const TeacherDashboard = () => {
       while (nextUrl) {
         const response = await axios.get(nextUrl, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            Authorization: `Bearer ${authStorage.getAccessToken()}`,
           },
         });
         if (response.data && response.data.results) {
@@ -105,7 +106,7 @@ const TeacherDashboard = () => {
       while (nextUrl) {
         const response = await axios.get(nextUrl, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            Authorization: `Bearer ${authStorage.getAccessToken()}`,
           },
         });
         if (response.data && response.data.results) {
@@ -210,7 +211,7 @@ const TeacherDashboard = () => {
           `${FHOST}/api/teacher/profile/update/`,
           {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+              Authorization: `Bearer ${authStorage.getAccessToken()}`,
             },
           },
         );
@@ -223,7 +224,7 @@ const TeacherDashboard = () => {
 
       let finalStatus = userData.verification_status || null;
       try {
-        const token = localStorage.getItem("access_token");
+        const token = authStorage.getAccessToken();
         if (token) {
           const teacherRecord = await fetchTeacherRecord(token, userData);
           if (teacherRecord) {
@@ -330,6 +331,7 @@ const TeacherDashboard = () => {
         localStorage.removeItem(`verification_submitted_${prev.id || prev.user_id}`);
       }
     } catch (e) {}
+    authStorage.clearTokens();
     localStorage.removeItem("userInfo");
     setUserInfo(null);
     navigate("/");
@@ -398,7 +400,7 @@ const TeacherDashboard = () => {
   useEffect(() => {
     const fetchLiveSessions = async () => {
       try {
-        const token = localStorage.getItem("access_token");
+        const token = authStorage.getAccessToken();
         if (!token) {
           setError("Authentication required. Please login again.");
           setLoading(false);

@@ -9,6 +9,7 @@ import {
   FaUnlock,
 } from "react-icons/fa";
 import { FHOST } from "../constants/Functions";
+import { authStorage } from "../../services/authStorage";
 
 const CourseDetails = ({ course, onBack, userInfo }) => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -33,119 +34,118 @@ const CourseDetails = ({ course, onBack, userInfo }) => {
     else if (activeTab === "materials") fetchRevisionMaterials();
   }, [activeTab, course.id]);
 
-  const fetchTopics = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("access_token");
-      const response = await axios.get(`${FHOST}/api/topics/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        params: { course: course.id }
-      });
-      setTopics(response.data?.results || []);
-    } catch (error) {
-      console.error("Error fetching topics:", error);
-    } finally {
-      setLoading(false);
+ const fetchTopics = async () => {
+   setLoading(true);
+   try {
+     const token = authStorage.getAccessToken(); // ← changed
+     const response = await axios.get(`${FHOST}/api/topics/`, {
+       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+       params: { course: course.id },
+     });
+     setTopics(response.data?.results || []);
+   } catch (error) {
+     console.error("Error fetching topics:", error);
+   } finally {
+     setLoading(false);
+   }
+ };
+
+const fetchSubtopics = async () => {
+  setLoading(true);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.get(`${FHOST}/api/subtopics/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    const courseSubtopics = (response.data?.results || []).filter((subtopic) =>
+      topics.some((topic) => topic.id === subtopic.topic),
+    );
+    setSubtopics(courseSubtopics);
+  } catch (error) {
+    console.error("Error fetching subtopics:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const fetchRevisionMaterials = async () => {
+  setLoading(true);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.get(`${FHOST}/api/revision-materials/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      params: { course: course.id },
+    });
+    setRevisionMaterials(response.data?.results || []);
+  } catch (error) {
+    console.error("Error fetching revision materials:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleCreate = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    let payload = {};
+    let url = "";
+
+    if (modalType === "topic") {
+      payload = {
+        course: course.id,
+        title: formData.title,
+        description: formData.description,
+        order: formData.order,
+        is_locked: formData.is_locked,
+      };
+      url = `${FHOST}/api/topics/`;
+    } else if (modalType === "subtopic") {
+      payload = {
+        topic: formData.topic,
+        title: formData.title,
+        content: formData.description,
+        order: formData.order,
+        is_locked: formData.is_locked,
+      };
+      url = `${FHOST}/api/subtopics/`;
+    } else if (modalType === "material") {
+      payload = {
+        course: course.id,
+        title: formData.title,
+        description: formData.description,
+        file: formData.file || undefined,
+      };
+      url = `${FHOST}/api/revision-materials/`;
     }
-  };
 
-  const fetchSubtopics = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("access_token");
-      const response = await axios.get(`${FHOST}/api/subtopics/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const courseSubtopics = (response.data?.results || []).filter(
-        subtopic => topics.some(topic => topic.id === subtopic.topic)
-      );
-      setSubtopics(courseSubtopics);
-    } catch (error) {
-      console.error("Error fetching subtopics:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    await axios.post(url, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  const fetchRevisionMaterials = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("access_token");
-      const response = await axios.get(`${FHOST}/api/revision-materials/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        params: { course: course.id }
-      });
-      setRevisionMaterials(response.data?.results || []);
-    } catch (error) {
-      console.error("Error fetching revision materials:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setShowCreateModal(false);
+    setFormData({
+      title: "",
+      description: "",
+      order: 1,
+      is_locked: false,
+      topic: "",
+      file: "",
+    });
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("access_token");
-      let payload = {};
-      let url = "";
-
-      if (modalType === "topic") {
-        payload = {
-          course: course.id,
-          title: formData.title,
-          description: formData.description,
-          order: formData.order,
-          is_locked: formData.is_locked,
-        };
-        url = `${FHOST}/api/topics/`;
-      } else if (modalType === "subtopic") {
-        payload = {
-          topic: formData.topic,
-          title: formData.title,
-          content: formData.description,
-          order: formData.order,
-          is_locked: formData.is_locked,
-        };
-        url = `${FHOST}/api/subtopics/`;
-      } else if (modalType === "material") {
-        payload = {
-          course: course.id,
-          title: formData.title,
-          description: formData.description,
-          file: formData.file || undefined,
-        };
-        url = `${FHOST}/api/revision-materials/`;
-      }
-
-      await axios.post(url, payload, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      setShowCreateModal(false);
-      setFormData({
-        title: "",
-        description: "",
-        order: 1,
-        is_locked: false,
-        topic: "",
-        file: "",
-      });
-
-      if (modalType === "topic") fetchTopics();
-      else if (modalType === "subtopic") fetchSubtopics();
-      else if (modalType === "material") fetchRevisionMaterials();
-
-    } catch (error) {
-      console.error(`Error creating ${modalType}:`, error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (modalType === "topic") fetchTopics();
+    else if (modalType === "subtopic") fetchSubtopics();
+    else if (modalType === "material") fetchRevisionMaterials();
+  } catch (error) {
+    console.error(`Error creating ${modalType}:`, error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const openCreateModal = (type, topicId = null) => {
     setModalType(type);
