@@ -1,30 +1,27 @@
-
 import axios from "axios";
 import { mockUsers } from "./mockData";
 import { FHOST } from "../components/constants/Functions";
+import { authStorage } from "./authStorage";
 
-const API_SERVICE_URL = `${FHOST}/auth`;
-
-// 🧩 Toggle mock mode ON/OFF
-const USE_MOCK = false; // change to false when backend is ready
+const USE_MOCK = false;
 
 export const authService = {
-  // Login function to authenticate user using new token endpoint
-  login: async (email, password, rememberMe = false) => {
+  login: async (email, password) => {
     if (USE_MOCK) {
-      // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 700));
 
       const user = mockUsers.find(
-        (u) => u.email === email && u.password === password
+        (u) => u.email === email && u.password === password,
       );
 
       if (!user) {
         throw new Error("Invalid credentials");
       }
 
-      // Simulate real backend structure
-      const response = {
+      // Use the new storage instead of localStorage
+      authStorage.setTokens(user.auth.access_token, user.auth.refresh_token);
+
+      return {
         status: 200,
         data: {
           data: {
@@ -37,37 +34,25 @@ export const authService = {
           },
         },
       };
-
-      // Save tokens
-      localStorage.setItem("access_token", user.auth.access_token);
-      localStorage.setItem("refresh_token", user.auth.refresh_token);
-
-      console.log("Mock login successful:", user);
-      return response;
     }
 
-    // 🌐 Real API call - using new token endpoint
+    // Real API
     try {
-      const response = await axios.post(
-        `${FHOST}/api/token/request/`,
-        {
-          email: email,
-          password: password,
-        }
-      );
+      const response = await axios.post(`${FHOST}/api/token/request/`, {
+        email,
+        password,
+      });
 
-      const data = await response.data;
-      console.log("Login Successful (real API):", data);
+      const data = response.data;
+      const access = data.access || data["access"];
+      const refresh = data.refresh || data["refresh"];
 
-      let access_token = data["access"];
-      let refresh_token = data["refresh"];
-
-      if (access_token) {
-        localStorage.setItem("access_token", access_token);
+      if (!access) {
+        throw new Error("No access token received");
       }
-      if (refresh_token) {
-        localStorage.setItem("refresh_token", refresh_token);
-      }
+
+      // Store tokens correctly
+      authStorage.setTokens(access, refresh);
 
       return response;
     } catch (error) {
@@ -76,60 +61,44 @@ export const authService = {
     }
   },
 
-  // Refresh access token using refresh token
   refreshToken: async () => {
-    const refreshToken = localStorage.getItem("refresh_token");
-    
+    const refreshToken = authStorage.getRefreshToken();
+
     if (!refreshToken) {
       throw new Error("No refresh token available");
     }
 
     try {
-      // Try standard JWT refresh format first (refresh field)
-      let response;
-      try {
-        response = await axios.post(
-          `${FHOST}/api/token/refresh/`,
-          {
-            refresh: refreshToken,
-          }
-        );
-      } catch (firstError) {
-        // If that fails, try with "access" field (as per some API specs)
-        if (firstError.response?.status === 400) {
-          response = await axios.post(
-            `${FHOST}/api/token/refresh/`,
-            {
-              access: refreshToken,
-            }
-          );
-        } else {
-          throw firstError;
-        }
+      const response = await axios.post(`${FHOST}/api/token/refresh/`, {
+        refresh: refreshToken,
+      });
+
+      const newAccessToken = response.data.access || response.data["access"];
+
+      if (!newAccessToken) {
+        throw new Error("No access token in refresh response");
       }
 
-      const data = await response.data;
-      const newAccessToken = data["access"];
+      // Update only the access token in memory (keep the same refresh)
+      authStorage.setTokens(newAccessToken, refreshToken);
 
-      if (newAccessToken) {
-        localStorage.setItem("access_token", newAccessToken);
-        return newAccessToken;
-      }
-
-      throw new Error("No access token in refresh response");
+      return newAccessToken;
     } catch (error) {
-      console.error("Token refresh failed:", error.response?.data || error.message);
-      // Don't clear tokens - let the user stay logged in
+      console.error(
+        "Token refresh failed:",
+        error.response?.data || error.message,
+      );
+      authStorage.clearTokens(); // force clean state on failure
       throw error;
     }
   },
 
   logout: () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("userInfo");
+    authStorage.clearTokens();
+    localStorage.removeItem("userInfo"); // still clear userInfo for now
   },
 
-  getAccessToken: () => localStorage.getItem("access_token"),
-  getRefreshToken: () => localStorage.getItem("refresh_token"),
+  getAccessToken: () => authStorage.getAccessToken(),
+  getRefreshToken: () => authStorage.getRefreshToken(),
+  isAuthenticated: () => authStorage.isAuthenticated(),
 };
