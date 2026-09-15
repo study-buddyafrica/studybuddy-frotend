@@ -4,6 +4,7 @@ import { FHOST } from "../constants/Functions";
 // Import the smart phone input
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import { authStorage } from "../../services/authStorage";
 
 const MyAccount = () => {
   const [profilePhoto, setProfilePhoto] = useState(null);
@@ -61,59 +62,67 @@ const MyAccount = () => {
     });
   };
 
-  const createSubject = async (name) => {
-    try {
-      const response = await axios.post(`${FHOST}/api/subjects/`, {
+const createSubject = async (name) => {
+  try {
+    const response = await axios.post(
+      `${FHOST}/api/subjects/`,
+      {
         name: name.trim(),
-        description: ""
-      }, {
+        description: "",
+      },
+      {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
           "Content-Type": "application/json",
         },
-      });
-      return response.data.id;
-    } catch (error) {
-      try {
-        let allSubjects = [];
-        let nextUrl = `${FHOST}/api/subjects/?page_size=100`;
-        while (nextUrl) {
-          const getResponse = await axios.get(nextUrl, {
-            headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-          });
-          if (getResponse.data && getResponse.data.results) {
-            allSubjects = allSubjects.concat(getResponse.data.results);
-          }
-          nextUrl = getResponse.data.next;
-        }
-        const existing = allSubjects.find(s => s.name.toLowerCase() === name.trim().toLowerCase());
-        if (existing) return existing.id;
-      } catch (getError) {
-        console.error("Error finding existing subject:", getError);
-      }
-      return null;
-    }
-  };
-
-  const findGradeByName = async (level) => {
+      },
+    );
+    return response.data.id;
+  } catch (error) {
     try {
-      let allGrades = [];
-      let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
+      let allSubjects = [];
+      let nextUrl = `${FHOST}/api/subjects/?page_size=100`;
       while (nextUrl) {
         const getResponse = await axios.get(nextUrl, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+          headers: { Authorization: `Bearer ${authStorage.getAccessToken()}` }, // ← changed
         });
         if (getResponse.data && getResponse.data.results) {
-          allGrades = allGrades.concat(getResponse.data.results);
+          allSubjects = allSubjects.concat(getResponse.data.results);
         }
         nextUrl = getResponse.data.next;
       }
-      const existing = allGrades.find(g => g.level.toLowerCase() === level.trim().toLowerCase());
-      return existing?.id || null;
+      const existing = allSubjects.find(
+        (s) => s.name.toLowerCase() === name.trim().toLowerCase(),
+      );
+      if (existing) return existing.id;
     } catch (getError) {
-      return null;
+      console.error("Error finding existing subject:", getError);
     }
-  };
+    return null;
+  }
+};
+
+const findGradeByName = async (level) => {
+  try {
+    let allGrades = [];
+    let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
+    while (nextUrl) {
+      const getResponse = await axios.get(nextUrl, {
+        headers: { Authorization: `Bearer ${authStorage.getAccessToken()}` }, // ← changed
+      });
+      if (getResponse.data && getResponse.data.results) {
+        allGrades = allGrades.concat(getResponse.data.results);
+      }
+      nextUrl = getResponse.data.next;
+    }
+    const existing = allGrades.find(
+      (g) => g.level.toLowerCase() === level.trim().toLowerCase(),
+    );
+    return existing?.id || null;
+  } catch (getError) {
+    return null;
+  }
+};
 
   useEffect(() => {
     const UserInfo = JSON.parse(localStorage.getItem("userInfo"));
@@ -161,137 +170,152 @@ const MyAccount = () => {
     }
   }, [availableSubjects, availableGrades]);
 
-  const fetchProfile = async (gradesList = null) => {
-    try {
-      const currentUserInfo = JSON.parse(localStorage.getItem('userInfo')) || {};
-      const profileId = currentUserInfo.teacher_profile_id;
+const fetchProfile = async (gradesList = null) => {
+  try {
+    const currentUserInfo = JSON.parse(localStorage.getItem("userInfo")) || {};
+    const profileId = currentUserInfo.teacher_profile_id;
 
-      let response;
-      if (profileId) {
-        response = await axios.get(`${FHOST}/api/teachers/${profileId}/`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-        });
-      } else {
-        response = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-        });
-      }
+    let response;
+    if (profileId) {
+      response = await axios.get(`${FHOST}/api/teachers/${profileId}/`, {
+        headers: { Authorization: `Bearer ${authStorage.getAccessToken()}` }, // ← changed
+      });
+    } else {
+      response = await axios.get(`${FHOST}/api/teacher/profile/update/`, {
+        headers: { Authorization: `Bearer ${authStorage.getAccessToken()}` }, // ← changed
+      });
+    }
 
-      if (response.data) {
-        const rawSubjects = response.data.subjects || [];
-        const rawGrades = response.data.grade || [];
-        const resolvedSubjects = resolveSubjectNames(rawSubjects);
-        const resolvedGrades = resolveGradeNames(rawGrades);
-        const gradesToUse = gradesList || availableGrades;
-        
-        let gradeValue = "";
-        let gradeIdValue = "";
-        if (resolvedGrades[0] && gradesToUse.length > 0) {
-          const matchingGrade = gradesToUse.find(g => {
-            const gradeName = g.level || g.name || g.id;
-            return gradeName === resolvedGrades[0] || g.id === resolvedGrades[0] || String(g.id) === String(resolvedGrades[0]);
-          });
-          if (matchingGrade) {
-            gradeValue = matchingGrade.level || matchingGrade.name || matchingGrade.id;
-            gradeIdValue = matchingGrade.id;
-          } else {
-            gradeValue = resolvedGrades[0];
-          }
-        } else if (resolvedGrades[0]) {
+    if (response.data) {
+      const rawSubjects = response.data.subjects || [];
+      const rawGrades = response.data.grade || [];
+      const resolvedSubjects = resolveSubjectNames(rawSubjects);
+      const resolvedGrades = resolveGradeNames(rawGrades);
+      const gradesToUse = gradesList || availableGrades;
+
+      let gradeValue = "";
+      let gradeIdValue = "";
+      if (resolvedGrades[0] && gradesToUse.length > 0) {
+        const matchingGrade = gradesToUse.find((g) => {
+          const gradeName = g.level || g.name || g.id;
+          return (
+            gradeName === resolvedGrades[0] ||
+            g.id === resolvedGrades[0] ||
+            String(g.id) === String(resolvedGrades[0])
+          );
+        });
+        if (matchingGrade) {
+          gradeValue =
+            matchingGrade.level || matchingGrade.name || matchingGrade.id;
+          gradeIdValue = matchingGrade.id;
+        } else {
           gradeValue = resolvedGrades[0];
         }
-        
-        setFormData({
-          phone: response.data.phone || "",
-          national_identity_number: response.data.national_identity_number || response.data.id_number || "",
-          teacher_license_number: response.data.teacher_license_number || response.data.tsc_number || "",
-          gender: response.data.gender || "",
-          bio: response.data.bio || "",
-          hourly_rate: response.data.hourly_rate || "",
-          experience: response.data.experience || "",
-          birth_date: response.data.birth_date || "",
-          national_identity_card: null,
-          cv: null,
-          subjectInput: resolvedSubjects[0] || "",
-          gradeInput: gradeValue,
-          grade_id: gradeIdValue,
-        });
-        
-        if (response.data.profile_picture) {
-          setProfilePhotoPreview(response.data.profile_picture);
-        }
-
-        const derivedStatus =
-          response.data.verification_status ||
-          (response.data.is_verified ? "approved" : response.data.is_rejected ? "rejected" : "pending");
-
-        setUserInfo((prev) => {
-          const merged = {
-            ...(prev || {}),
-            ...response.data,
-            verification_status: derivedStatus,
-            teacher_profile_id: response.data.id || prev?.teacher_profile_id,
-          };
-          localStorage.setItem("userInfo", JSON.stringify(merged));
-          return merged;
-        });
-
-        window.dispatchEvent(new Event("verification-status-changed"));
+      } else if (resolvedGrades[0]) {
+        gradeValue = resolvedGrades[0];
       }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
+
+      setFormData({
+        phone: response.data.phone || "",
+        national_identity_number:
+          response.data.national_identity_number ||
+          response.data.id_number ||
+          "",
+        teacher_license_number:
+          response.data.teacher_license_number ||
+          response.data.tsc_number ||
+          "",
+        gender: response.data.gender || "",
+        bio: response.data.bio || "",
+        hourly_rate: response.data.hourly_rate || "",
+        experience: response.data.experience || "",
+        birth_date: response.data.birth_date || "",
+        national_identity_card: null,
+        cv: null,
+        subjectInput: resolvedSubjects[0] || "",
+        gradeInput: gradeValue,
+        grade_id: gradeIdValue,
+      });
+
+      if (response.data.profile_picture) {
+        setProfilePhotoPreview(response.data.profile_picture);
+      }
+
+      const derivedStatus =
+        response.data.verification_status ||
+        (response.data.is_verified
+          ? "approved"
+          : response.data.is_rejected
+            ? "rejected"
+            : "pending");
+
+      setUserInfo((prev) => {
+        const merged = {
+          ...(prev || {}),
+          ...response.data,
+          verification_status: derivedStatus,
+          teacher_profile_id: response.data.id || prev?.teacher_profile_id,
+        };
+        localStorage.setItem("userInfo", JSON.stringify(merged));
+        return merged;
+      });
+
+      window.dispatchEvent(new Event("verification-status-changed"));
     }
-  };
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+  }
+};
 
-  const fetchSubjects = async () => {
-    try {
-      let allSubjects = [];
-      let nextUrl = `${FHOST}/api/subjects/?page_size=100`;
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-        });
-        if (response.data && response.data.results) {
-          allSubjects = allSubjects.concat(response.data.results);
-        }
-        nextUrl = response.data.next;
+const fetchSubjects = async () => {
+  try {
+    let allSubjects = [];
+    let nextUrl = `${FHOST}/api/subjects/?page_size=100`;
+    while (nextUrl) {
+      const response = await axios.get(nextUrl, {
+        headers: { Authorization: `Bearer ${authStorage.getAccessToken()}` }, // ← changed
+      });
+      if (response.data && response.data.results) {
+        allSubjects = allSubjects.concat(response.data.results);
       }
-      setAvailableSubjects(allSubjects);
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
+      nextUrl = response.data.next;
     }
-  };
+    setAvailableSubjects(allSubjects);
+  } catch (error) {
+    console.error("Error fetching subjects:", error);
+  }
+};
 
-  const fetchGrades = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      let allGrades = [];
-      let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.data && response.data.results) {
-          allGrades = allGrades.concat(response.data.results);
-        }
-        nextUrl = response.data.next;
+const fetchGrades = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    let allGrades = [];
+    let nextUrl = `${FHOST}/api/grades/?page=1&page_size=100`;
+    while (nextUrl) {
+      const response = await axios.get(nextUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.data && response.data.results) {
+        allGrades = allGrades.concat(response.data.results);
       }
-      if (allGrades.length === 0) {
-        allGrades = [
-          { id: "824bf1f9-e196-4087-aa8d-954f406b8aba", level: "Grade 1" },
-          { id: "fc6d6e0f-5b53-4d13-b1c8-004f70093eb4", level: "Grade 2" },
-          { id: "70768a4a-5ee4-44fb-b9ac-bfd82ed1ff38", level: "University" },
-        ];
-      }
-      setAvailableGrades(allGrades);
-    } catch (error) {
-      setAvailableGrades([
+      nextUrl = response.data.next;
+    }
+    if (allGrades.length === 0) {
+      allGrades = [
         { id: "824bf1f9-e196-4087-aa8d-954f406b8aba", level: "Grade 1" },
         { id: "fc6d6e0f-5b53-4d13-b1c8-004f70093eb4", level: "Grade 2" },
         { id: "70768a4a-5ee4-44fb-b9ac-bfd82ed1ff38", level: "University" },
-      ]);
+      ];
     }
-  };
+    setAvailableGrades(allGrades);
+  } catch (error) {
+    setAvailableGrades([
+      { id: "824bf1f9-e196-4087-aa8d-954f406b8aba", level: "Grade 1" },
+      { id: "fc6d6e0f-5b53-4d13-b1c8-004f70093eb4", level: "Grade 2" },
+      { id: "70768a4a-5ee4-44fb-b9ac-bfd82ed1ff38", level: "University" },
+    ]);
+  }
+};
 
   const handlePhotoChange = (event) => {
     const file = event.target.files[0];
@@ -350,94 +374,126 @@ const MyAccount = () => {
     }
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setErrorMessage("");
-    setSuccessMessage("");
+const handleSubmit = async (event) => {
+  event.preventDefault();
+  setLoading(true);
+  setErrorMessage("");
+  setSuccessMessage("");
 
-    let token = localStorage.getItem("access_token");
-    if (!token) {
-      setErrorMessage("No authentication token found. Please log out and log back in.");
+  let token = authStorage.getAccessToken(); // ← changed
+  if (!token) {
+    setErrorMessage(
+      "No authentication token found. Please log out and log back in.",
+    );
+    setLoading(false);
+    return;
+  }
+
+  try {
+    if (!formData.subjectInput.trim() || !formData.gradeInput.trim()) {
+      setErrorMessage("Please specify both subject and grade.");
+      setTimeout(() => setErrorMessage(""), 5000);
       setLoading(false);
       return;
     }
 
-    try {
-      if (!formData.subjectInput.trim() || !formData.gradeInput.trim()) {
-        setErrorMessage("Please specify both subject and grade.");
-        setTimeout(() => setErrorMessage(""), 5000);
-        setLoading(false);
-        return;
-      }
+    let subjectId = await createSubject(formData.subjectInput.trim());
+    let gradeId = formData.grade_id;
 
-      let subjectId = await createSubject(formData.subjectInput.trim());
-      let gradeId = formData.grade_id;
-      
-      if (!gradeId && formData.gradeInput.trim()) {
-        const selectedGrade = availableGrades.find(g => (g.level || g.name || g.id) === formData.gradeInput.trim());
-        if (selectedGrade) gradeId = selectedGrade.id;
-      }
-      
-      const formDataToSend = new FormData();
-      
-      if (formData.bio?.trim()) formDataToSend.append("bio", formData.bio.trim());
-      
-      // Clean phone number (from React-Phone-Number-Input it's already +254...)
-      if (formData.phone?.trim()) formDataToSend.append("phone", formData.phone.trim());
-      
-      // Ensure numeric hourly rate
-      if (formData.hourly_rate?.toString().trim()) {
-        formDataToSend.append("hourly_rate", formData.hourly_rate.toString().trim());
-      }
-      
-      if (formData.experience?.toString().trim()) formDataToSend.append("experience", formData.experience.toString().trim());
-      if (formData.birth_date?.trim()) formDataToSend.append("birth_date", formData.birth_date.trim());
-      if (formData.teacher_license_number?.trim()) formDataToSend.append("teacher_license_number", formData.teacher_license_number.trim());
-      if (formData.national_identity_number?.trim()) formDataToSend.append("national_identity_number", formData.national_identity_number.trim());
-      if (formData.gender?.trim()) formDataToSend.append("gender", formData.gender.trim());
-
-      if (subjectId) formDataToSend.append("subjects", subjectId);
-      if (gradeId) formDataToSend.append("grade", gradeId);
-      
-      if (profilePhoto && profilePhoto instanceof File) formDataToSend.append("profile_picture", profilePhoto);
-
-      // Append the consolidated documents
-      if (formData.national_identity_card && formData.national_identity_card instanceof File) {
-        formDataToSend.append("national_identity_card", formData.national_identity_card);
-      }
-      if (formData.cv && formData.cv instanceof File) {
-        formDataToSend.append("cv", formData.cv);
-      }
-
-      let response;
-      try {
-        response = await axios.patch(
-          `${FHOST}/api/teacher/profile/update/`,
-          formDataToSend,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-      } catch (initialError) {
-        throw initialError;
-      }
-
-      if (response.status === 200 || response.status === 201) {
-        setSuccessMessage("Profile updated successfully!");
-        fetchProfile();
-        setTimeout(() => setSuccessMessage(""), 10000);
-      }
-    } catch (error) {
-      setErrorMessage(error.response?.data?.message || "Profile update failed. Check the fields and try again.");
-      setTimeout(() => setErrorMessage(""), 10000);
-    } finally {
-      setLoading(false);
+    if (!gradeId && formData.gradeInput.trim()) {
+      const selectedGrade = availableGrades.find(
+        (g) => (g.level || g.name || g.id) === formData.gradeInput.trim(),
+      );
+      if (selectedGrade) gradeId = selectedGrade.id;
     }
-  };
+
+    const formDataToSend = new FormData();
+
+    if (formData.bio?.trim()) formDataToSend.append("bio", formData.bio.trim());
+
+    // Clean phone number (from React-Phone-Number-Input it's already +254...)
+    if (formData.phone?.trim())
+      formDataToSend.append("phone", formData.phone.trim());
+
+    // Ensure numeric hourly rate
+    if (formData.hourly_rate?.toString().trim()) {
+      formDataToSend.append(
+        "hourly_rate",
+        formData.hourly_rate.toString().trim(),
+      );
+    }
+
+    if (formData.experience?.toString().trim())
+      formDataToSend.append(
+        "experience",
+        formData.experience.toString().trim(),
+      );
+    if (formData.birth_date?.trim())
+      formDataToSend.append("birth_date", formData.birth_date.trim());
+    if (formData.teacher_license_number?.trim())
+      formDataToSend.append(
+        "teacher_license_number",
+        formData.teacher_license_number.trim(),
+      );
+    if (formData.national_identity_number?.trim())
+      formDataToSend.append(
+        "national_identity_number",
+        formData.national_identity_number.trim(),
+      );
+    if (formData.gender?.trim())
+      formDataToSend.append("gender", formData.gender.trim());
+
+    if (subjectId) formDataToSend.append("subjects", subjectId);
+    if (gradeId) formDataToSend.append("grade", gradeId);
+
+    if (profilePhoto && profilePhoto instanceof File)
+      formDataToSend.append("profile_picture", profilePhoto);
+
+    // Append the consolidated documents
+    if (
+      formData.national_identity_card &&
+      formData.national_identity_card instanceof File
+    ) {
+      formDataToSend.append(
+        "national_identity_card",
+        formData.national_identity_card,
+      );
+    }
+    if (formData.cv && formData.cv instanceof File) {
+      formDataToSend.append("cv", formData.cv);
+    }
+
+    let response;
+    try {
+      response = await axios.patch(
+        `${FHOST}/api/teacher/profile/update/`,
+        formDataToSend,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+    } catch (initialError) {
+      throw initialError;
+    }
+
+    if (response.status === 200 || response.status === 201) {
+      setSuccessMessage("Profile updated successfully!");
+      fetchProfile();
+      setTimeout(() => setSuccessMessage(""), 10000);
+    }
+  } catch (error) {
+    setErrorMessage(
+      error.response?.data?.message ||
+        "Profile update failed. Check the fields and try again.",
+    );
+    setTimeout(() => setErrorMessage(""), 10000);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const statusInfo = (() => {
     const status = userInfo.verification_status;
