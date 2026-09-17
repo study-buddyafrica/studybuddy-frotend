@@ -447,6 +447,32 @@ const App = () => {
               </BlankLayout>
             }
           />
+                  <Route
+            path="/student-signup"
+            element={
+              <Navigate to="/signup" replace />
+            }
+          />
+          <Route
+            path="/teacher-signup"
+            element={
+              <Navigate to="/signup" replace />
+            }
+          />
+
+                  <Route
+            path="/student-signup"
+            element={
+              <Navigate to="/signup" replace />
+            }
+          />
+          <Route
+            path="/teacher-signup"
+            element={
+              <Navigate to="/signup" replace />
+            }
+          />
+
         </Routes>
       </Suspense>
     </Router>
