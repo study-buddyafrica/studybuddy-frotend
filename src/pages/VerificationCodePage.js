@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { FHOST } from "../components/constants/Functions";
+import {
+  AuthAlert,
+  OtpCodeInput,
+  useResendCountdown,
+  authLinkClass,
+} from "../components/auth";
 
 const VerificationCodePage = () => {
   const location = useLocation();
@@ -17,6 +23,11 @@ const VerificationCodePage = () => {
   const [informationalMessage, setInformationalMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [resendResetKey, setResendResetKey] = useState(0);
+  const { remaining, canResend, label: resendLabel } = useResendCountdown(
+    60,
+    resendResetKey,
+  );
 
   // Get email and registration data from sessionStorage if not in location state
   useEffect(() => {
@@ -528,6 +539,7 @@ const VerificationCodePage = () => {
         setInformationalMessage(
           "Verification code resent successfully! Please check your email.",
         );
+        setResendResetKey((k) => k + 1);
       }
     } catch (error) {
       console.error("Resend code error:", error);
@@ -537,12 +549,6 @@ const VerificationCodePage = () => {
     }
   };
 
-  const handleInputChange = (e) => {
-    const value = e.target.value.replace(/\D/g, ""); // Only allow numbers
-    if (value.length <= 6) {
-      setVerificationCode(value);
-    }
-  };
 
   // Get email for display
   const displayEmail =
@@ -565,16 +571,18 @@ const VerificationCodePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] to-[#e1f5fe] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 md:p-8">
         <div className="text-center mb-6 md:mb-8">
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-[#0288d1]/10 mb-4">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-[#01B0F1]/10 mb-4">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-8 w-8 text-[#0288d1]"
+              className="h-8 w-8 text-[#01B0F1]"
               fill="none"
               viewBox="0 0 24 24"
-              stroke="currentColor">
+              stroke="currentColor"
+              aria-hidden="true"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -583,82 +591,92 @@ const VerificationCodePage = () => {
               />
             </svg>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#01579b] font-lilita mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-[#015575] font-lilita mb-2">
             Verify Your Email
           </h1>
           <p className="text-gray-600 font-josefin">
             We've sent a verification code to
           </p>
-          <p className="text-[#0288d1] font-semibold font-josefin">
+          <p className="text-[#01B0F1] font-semibold font-josefin">
             {displayEmail}
           </p>
         </div>
 
         <form onSubmit={handleVerify} className="space-y-6">
-          {/* Verification Code Input */}
           <div>
             <label
-              htmlFor="verificationCode"
-              className="block text-sm font-medium text-gray-700 mb-2 font-josefin">
+              htmlFor="otp-0"
+              className="block text-sm font-medium text-gray-700 mb-3 font-josefin text-center"
+            >
               Enter Verification Code
             </label>
-            <input
-              type="text"
-              id="verificationCode"
-              name="verificationCode"
+            <OtpCodeInput
               value={verificationCode}
-              onChange={handleInputChange}
-              placeholder="Enter 6-digit code"
-              maxLength={6}
-              className="w-full px-4 py-3 border outline-none border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] focus:border-[#0288d1] font-mono text-center text-2xl tracking-widest font-josefin"
-              required
+              onChange={setVerificationCode}
+              length={6}
+              disabled={loading}
               autoFocus
             />
-            <p className="mt-2 text-xs text-gray-500 font-josefin text-center">
+            <p className="mt-3 text-xs text-gray-500 font-josefin text-center">
               Enter the 6-digit code sent to your email
             </p>
           </div>
 
-          {/* Messages */}
           {errorMessage && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">
-              <p className="font-josefin text-sm">{errorMessage}</p>
-            </div>
+            <AuthAlert
+              message={errorMessage}
+              variant="error"
+              onDismiss={() => setErrorMessage("")}
+              onRetry={
+                /connection|network|timeout|try again|failed/i.test(
+                  errorMessage,
+                )
+                  ? () => setErrorMessage("")
+                  : undefined
+              }
+            />
           )}
 
           {informationalMessage && (
-            <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl">
-              <p className="font-josefin text-sm">{informationalMessage}</p>
-            </div>
+            <AuthAlert
+              message={informationalMessage}
+              variant="success"
+              onDismiss={() => setInformationalMessage("")}
+              action={null}
+            />
           )}
 
-          {/* Verify Button */}
           <button
             type="submit"
             disabled={loading || verificationCode.length < 4}
             className={`w-full py-3 rounded-xl font-lilita text-base md:text-lg transition-all ${
               loading || verificationCode.length < 4
                 ? "bg-gray-400 cursor-not-allowed text-white"
-                : "bg-gradient-to-r from-[#0288d1] to-[#01579b] text-white hover:shadow-lg hover:from-[#039be5] hover:to-[#0277bd]"
-            }`}>
+                : "bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white hover:shadow-lg"
+            }`}
+          >
             {loading ? (
               <span className="flex items-center justify-center">
                 <svg
                   className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
-                  viewBox="0 0 24 24">
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
                   <circle
                     className="opacity-25"
                     cx="12"
                     cy="12"
                     r="10"
                     stroke="currentColor"
-                    strokeWidth="4"></circle>
+                    strokeWidth="4"
+                  />
                   <path
                     className="opacity-75"
                     fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
                 </svg>
                 Verifying...
               </span>
@@ -667,17 +685,25 @@ const VerificationCodePage = () => {
             )}
           </button>
 
-          {/* Resend Code */}
           <div className="text-center">
             <p className="text-sm text-gray-600 font-josefin mb-2">
               Didn't receive the code?
             </p>
+            {!canResend && (
+              <p
+                className="text-sm font-josefin text-[#015575] tabular-nums mb-1"
+                aria-live="polite"
+              >
+                Resend available in {remaining}s
+              </p>
+            )}
             <button
               type="button"
               onClick={handleResendCode}
-              disabled={resendLoading}
-              className="text-[#0288d1] hover:text-[#01579b] font-semibold font-josefin text-sm disabled:text-gray-400 disabled:cursor-not-allowed">
-              {resendLoading ? "Sending..." : "Resend Verification Code"}
+              disabled={resendLoading || !canResend}
+              className={`${authLinkClass} font-josefin text-sm disabled:text-gray-400 disabled:cursor-not-allowed disabled:no-underline`}
+            >
+              {resendLoading ? "Sending..." : resendLabel}
             </button>
           </div>
         </form>
@@ -685,9 +711,7 @@ const VerificationCodePage = () => {
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600 font-josefin">
             Wrong email?{" "}
-            <Link
-              to="/signup"
-              className="text-[#0288d1] hover:text-[#01579b] font-semibold">
+            <Link to="/signup" className={authLinkClass}>
               Go back to signup
             </Link>
           </p>
@@ -695,6 +719,7 @@ const VerificationCodePage = () => {
       </div>
     </div>
   );
+
 };
 
 export default VerificationCodePage;

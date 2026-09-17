@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
-  FaRegEye,
-  FaRegEyeSlash,
   FaChalkboardTeacher,
   FaUserGraduate,
   FaUserFriends,
   FaUserTie,
+  FaEnvelope,
+  FaLock,
+  FaUser,
 } from "react-icons/fa";
 import { FHOST } from "../components/constants/Functions";
+import {
+  AuthInput,
+  AuthPasswordInput,
+  AuthAlert,
+  authInputBaseClass,
+  authLinkClass,
+} from "../components/auth";
 
 const UniversalSignupPage = () => {
   const { state } = useLocation();
@@ -41,8 +49,6 @@ const UniversalSignupPage = () => {
   const [educationLevels, setEducationLevels] = useState([]);
   const [educationLevelIsLoading, setEducationLevelIsLoading] = useState(false);
   const [educationLevelError, setEducationLevelError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState("");
   const [passwordRequirements, setPasswordRequirements] = useState({
@@ -291,7 +297,7 @@ const UniversalSignupPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] to-[#e1f5fe] flex items-center justify-center p-4">
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl flex flex-col md:flex-row overflow-hidden">
         {/* Left Panel - Hidden on mobile */}
-        <div className="hidden md:flex md:w-2/5 bg-gradient-to-br from-[#0288d1] to-[#01579b] p-8 flex-col justify-center relative overflow-hidden">
+        <div className="hidden md:flex md:w-2/5 bg-gradient-to-br from-[#01B0F1] to-[#015575] p-8 flex-col justify-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full opacity-10">
             <div className="absolute top-10 right-10 w-24 h-24 rounded-full bg-white"></div>
             <div className="absolute bottom-20 left-10 w-16 h-16 rounded-full bg-white"></div>
@@ -344,7 +350,7 @@ const UniversalSignupPage = () => {
         {/* Right Panel - Form Section */}
         <div className="w-full md:w-3/5 p-6 md:p-8">
           <div className="text-center mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-[#01579b] font-lilita mb-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-[#015575] font-lilita mb-2">
               Create Your Account
             </h1>
             <p className="text-gray-600 font-josefin">
@@ -355,78 +361,55 @@ const UniversalSignupPage = () => {
           <form onSubmit={handleSignup} className="space-y-4">
             {/* First & Last Name */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <FaUserTie className="w-4 h-4 md:w-5 md:h-5" />
-                </div>
-                <input
-                  type="text"
-                  name="first_name"
-                  placeholder="First Name"
-                  value={formData.first_name}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] outline-none font-josefin"
-                  required
-                />
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <FaUserTie className="w-4 h-4 md:w-5 md:h-5" />
-                </div>
-                <input
-                  type="text"
-                  name="last_name"
-                  placeholder="Last Name"
-                  value={formData.last_name}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-2 md:py-3 border outline-none border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 md:h-5 md:w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor">
-                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                </svg>
-              </div>
-              <input
-                type="email"
-                name="email"
-                placeholder="Email Address"
-                value={formData.email}
+              <AuthInput
+                type="text"
+                name="first_name"
+                placeholder="First Name"
+                value={formData.first_name}
                 onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-2 outline-none md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
+                icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+                autoComplete="given-name"
+                required
+              />
+              <AuthInput
+                type="text"
+                name="last_name"
+                placeholder="Last Name"
+                value={formData.last_name}
+                onChange={handleInputChange}
+                icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+                autoComplete="family-name"
                 required
               />
             </div>
 
+            {/* Email */}
+            <AuthInput
+              type="email"
+              name="email"
+              placeholder="Email Address"
+              value={formData.email}
+              onChange={handleInputChange}
+              icon={<FaEnvelope className="w-4 h-4" aria-hidden="true" />}
+              autoComplete="email"
+              required
+            />
+
             <div className="flex flex-col md:flex-row gap-4 items-center">
               {/* Role Selection */}
               <div className="relative w-full">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor">
-                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                  </svg>
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                  <FaUser className="w-4 h-4" aria-hidden="true" />
                 </div>
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5"
+                    className="h-4 w-4"
                     fill="none"
                     viewBox="0 0 24 24"
-                    stroke="currentColor">
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -439,8 +422,9 @@ const UniversalSignupPage = () => {
                   name="role"
                   value={formData.role}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
-                  required>
+                  className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer`}
+                  required
+                >
                   <option value="">Select Role</option>
                   {roles.map((role) => (
                     <option key={role.id} value={role.id}>
@@ -453,22 +437,15 @@ const UniversalSignupPage = () => {
               {/* Education Level — only shown for students */}
               {formData.role === "student" && (
                 <div className="relative w-full">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 md:h-5 md:w-5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor">
-                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
-                    </svg>
-                  </div>
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 md:h-5 md:w-5"
+                      className="h-4 w-4"
                       fill="none"
                       viewBox="0 0 24 24"
-                      stroke="currentColor">
+                      stroke="currentColor"
+                      aria-hidden="true"
+                    >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -481,9 +458,10 @@ const UniversalSignupPage = () => {
                     name="education_level"
                     value={formData.education_level}
                     onChange={handleInputChange}
-                    disabled={educationLevelIsLoading || educationLevelError}
-                    className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
-                    required>
+                    disabled={educationLevelIsLoading || !!educationLevelError}
+                    className={`${authInputBaseClass} pl-4 pr-10 py-3 appearance-none cursor-pointer`}
+                    required
+                  >
                     <option value="">
                       {educationLevelIsLoading
                         ? "Loading..."
@@ -502,102 +480,39 @@ const UniversalSignupPage = () => {
             </div>
 
             {/* Username */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 md:h-5 md:w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 2a5 5 0 100 10A5 5 0 0010 2zM4 12a6 6 0 1112 0v1a2 2 0 01-2 2H6a2 2 0 01-2-2v-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                name="username"
-                placeholder="Username"
-                value={formData.username}
-                onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-2 outline-none md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                required
-              />
-            </div>
+            <AuthInput
+              type="text"
+              name="username"
+              placeholder="Username"
+              value={formData.username}
+              onChange={handleInputChange}
+              icon={<FaUser className="w-4 h-4" aria-hidden="true" />}
+              autoComplete="username"
+              required
+            />
 
             {/* Password Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="Password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 md:top-3.5 text-gray-500 hover:text-[#01579b]">
-                  {showPassword ? (
-                    <FaRegEyeSlash className="text-sm md:text-base" />
-                  ) : (
-                    <FaRegEye className="text-sm md:text-base" />
-                  )}
-                </button>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  placeholder="Confirm Password"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 outline-none pr-10 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-2.5 md:top-3.5 text-gray-500 hover:text-[#01579b]">
-                  {showConfirmPassword ? (
-                    <FaRegEyeSlash className="text-sm md:text-base" />
-                  ) : (
-                    <FaRegEye className="text-sm md:text-base" />
-                  )}
-                </button>
-              </div>
+              <AuthPasswordInput
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleInputChange}
+                icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
+                autoComplete="new-password"
+                required
+              />
+              <AuthPasswordInput
+                name="confirmPassword"
+                placeholder="Confirm Password"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
+                revealLabel="Show confirm password"
+                hideLabel="Hide confirm password"
+                autoComplete="new-password"
+                required
+              />
             </div>
 
             {/* Password Strength Indicator */}
@@ -718,15 +633,27 @@ const UniversalSignupPage = () => {
             {/* Messages and Submit Button */}
             <div className="space-y-3">
               {errorMessage && (
-                <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-center">
-                  <p className="font-josefin text-sm">{errorMessage}</p>
-                </div>
+                <AuthAlert
+                  message={errorMessage}
+                  variant="error"
+                  onDismiss={() => setErrorMessage("")}
+                  onRetry={
+                    /connection|network|timeout|try again|failed to send/i.test(
+                      errorMessage,
+                    )
+                      ? () => setErrorMessage("")
+                      : undefined
+                  }
+                />
               )}
 
               {informationalMessage && (
-                <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl">
-                  <p className="font-josefin text-sm">{informationalMessage}</p>
-                </div>
+                <AuthAlert
+                  message={informationalMessage}
+                  variant="success"
+                  onDismiss={() => setInformationalMessage("")}
+                  action={null}
+                />
               )}
 
               <button
@@ -737,7 +664,7 @@ const UniversalSignupPage = () => {
                 className={`w-full py-2.5 md:py-3.5 rounded-xl font-lilita text-base md:text-lg transition-all ${
                   loading || passwordStrength !== "strong" || !formData.role
                     ? "bg-gray-400 cursor-not-allowed text-white"
-                    : "bg-gradient-to-r from-[#0288d1] to-[#01579b] text-white hover:shadow-lg hover:from-[#039be5] hover:to-[#0277bd]"
+                    : "bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white hover:shadow-lg hover:from-[#01B0F1] hover:to-[#015575]"
                 }`}>
                 {loading ? (
                   <span className="flex items-center justify-center text-sm md:text-base">
@@ -769,9 +696,7 @@ const UniversalSignupPage = () => {
 
           <p className="text-center font-josefin text-gray-600 mt-4 md:mt-6 text-sm md:text-base">
             Already have an account?{" "}
-            <Link
-              to="/login"
-              className="text-[#0288d1] hover:text-[#01579b] font-semibold">
+            <Link to="/login" className={authLinkClass}>
               Log in here
             </Link>
           </p>
