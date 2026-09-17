@@ -66,9 +66,7 @@ const MeetTheTeamPage = lazy(() => import("./pages/MeetTheTeamPage"));
 const LiveChatPage = lazy(() => import("./pages/LiveChatPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
-const StudentSignUpPage = lazy(() => import("./pages/StudentSignUpPage"));
 const ParentSignUpPage = lazy(() => import("./pages/UniversalSignUpPage"));
-const TeacherSignUpPage = lazy(() => import("./pages/TeacherSignUpPage"));
 const VerificationCodePage = lazy(() => import("./pages/VerificationCodePage"));
 const AboutUsPage = lazy(() => import("./pages/AboutUsPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -303,16 +301,15 @@ const App = () => {
             path="/cookies-policy"
             element={
               <MainLayout>
-                {" "}
-                <Route
-                  path="/confirm-email/:token"
-                  element={
-                    <MainLayout>
-                      <ConfirmEmail />
-                    </MainLayout>
-                  }
-                />
                 <CookiesPolicy />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/confirm-email/:token"
+            element={
+              <MainLayout>
+                <ConfirmEmail />
               </MainLayout>
             }
           />
@@ -416,14 +413,6 @@ const App = () => {
             }
           />
           <Route
-            path="/student-signup"
-            element={
-              <BlankLayout>
-                <StudentSignUpPage />
-              </BlankLayout>
-            }
-          />
-          <Route
             path="/signup"
             element={
               <BlankLayout>
@@ -432,12 +421,12 @@ const App = () => {
             }
           />
           <Route
+            path="/student-signup"
+            element={<Navigate to="/signup" replace />}
+          />
+          <Route
             path="/teacher-signup"
-            element={
-              <BlankLayout>
-                <TeacherSignUpPage />
-              </BlankLayout>
-            }
+            element={<Navigate to="/signup" replace />}
           />
           <Route
             path="/verify-code"
