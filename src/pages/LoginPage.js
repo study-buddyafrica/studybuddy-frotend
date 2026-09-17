@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FaRegEye, FaRegEyeSlash, FaEnvelope, FaLock } from "react-icons/fa";
+import { FaEnvelope, FaLock } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { motion } from "framer-motion";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
@@ -8,6 +8,12 @@ import { jwtDecode } from "jwt-decode";
 import { checkUser, FHOST } from "../components/constants/Functions";
 import { firebaseAuth } from "../firebaseConfig";
 import { authStorage } from "../services/authStorage"; // ← added
+import {
+  AuthInput,
+  AuthPasswordInput,
+  AuthAlert,
+  authLinkClass,
+} from "../components/auth";
 
 const getUserFromToken = (accessToken) => {
   try {
@@ -64,7 +70,6 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
@@ -286,45 +291,32 @@ const LoginPage = () => {
 
           <form onSubmit={handleLogin} className="space-y-6">
             <motion.div whileHover={{ scale: 1.02 }}>
-              <div className="relative">
-                <FaEnvelope className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  placeholder="Email Address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border outline-none border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                  required
-                  disabled={isEmailLoading || isGoogleLoading}
-                />
-              </div>
+              <AuthInput
+                type="email"
+                placeholder="Email Address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                icon={<FaEnvelope className="w-4 h-4" aria-hidden="true" />}
+                required
+                autoComplete="email"
+                disabled={isEmailLoading || isGoogleLoading}
+              />
             </motion.div>
 
             <motion.div whileHover={{ scale: 1.02 }}>
-              <div className="relative">
-                <FaLock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border outline-none border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01B0F1] focus:border-transparent"
-                  required
-                  disabled={isEmailLoading || isGoogleLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-[#015575]"
-                  disabled={isEmailLoading || isGoogleLoading}
-                >
-                  {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
-                </button>
-              </div>
+              <AuthPasswordInput
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
+                required
+                autoComplete="current-password"
+                disabled={isEmailLoading || isGoogleLoading}
+              />
               <div className="mt-2 text-right">
                 <Link
                   to="/forgot-password"
-                  className="text-sm text-[#015575] hover:text-[#01B0F1] font-semibold font-josefin"
+                  className={`text-sm font-josefin ${authLinkClass}`}
                 >
                   Forgot Password?
                 </Link>
@@ -332,14 +324,17 @@ const LoginPage = () => {
             </motion.div>
 
             {errorMessage && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl"
-              >
-                <p className="font-josefin text-sm text-center">
-                  {errorMessage}
-                </p>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <AuthAlert
+                  message={errorMessage}
+                  variant="error"
+                  onDismiss={() => setErrorMessage("")}
+                  onRetry={
+                    /connection|network|timeout|try again/i.test(errorMessage)
+                      ? () => setErrorMessage("")
+                      : undefined
+                  }
+                />
               </motion.div>
             )}
 
@@ -391,10 +386,7 @@ const LoginPage = () => {
             <div className="text-center">
               <p className="font-josefin text-gray-600">
                 Don't have an account?{" "}
-                <Link
-                  to="/signup"
-                  className="text-[#015575] hover:text-[#01B0F1] font-semibold"
-                >
+                <Link to="/signup" className={authLinkClass}>
                   Sign Up
                 </Link>
               </p>
