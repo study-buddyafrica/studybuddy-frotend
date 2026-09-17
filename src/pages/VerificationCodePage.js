@@ -264,7 +264,8 @@ const VerificationCodePage = () => {
                 password: regData.password,
                 confirm_password: regData.confirm_password || regData.password,
                 role: regData.role,
-                education_level_id: regData.education_level || "",              };
+                education_level_id: regData.education_level || "",
+              };
             } else if (regData.name) {
               // Handle cases where we only have 'name' (split into first_name and last_name)
               const nameParts = regData.name.trim().split(/\s+/);
@@ -282,7 +283,8 @@ const VerificationCodePage = () => {
                 password: regData.password,
                 confirm_password: regData.confirm_password || regData.password,
                 role: regData.role,
-                education_level_id: regData.education_level || "",              };
+                education_level_id: regData.education_level || "",
+              };
             } else {
               // Fallback - create from email if no name data
               const emailPrefix = (regData.email || currentEmail).split("@")[0];
@@ -294,7 +296,8 @@ const VerificationCodePage = () => {
                 password: regData.password,
                 confirm_password: regData.confirm_password || regData.password,
                 role: regData.role,
-                education_level_id: regData.education_level || "",              };
+                education_level_id: regData.education_level || "",
+              };
             }
 
             console.log("Registering user with payload:", {
