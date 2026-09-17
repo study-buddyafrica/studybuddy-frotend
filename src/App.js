@@ -359,7 +359,19 @@ const App = () => {
               </MainLayout>
             }
           />
-
+          <Route
+            path="/student-signup"
+            element={
+              <Navigate to="/signup" replace />
+            }
+          />
+          <Route
+            path="/teacher-signup"
+            element={
+              <Navigate to="/signup" replace />
+            }
+          />
+          
           {/* Pages without Navbar/Footer */}
           <Route
             path="/login"
