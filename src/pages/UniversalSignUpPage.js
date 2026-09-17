@@ -168,17 +168,26 @@ const UniversalSignupPage = () => {
         sendCodeData = { error: "Failed to parse server response" };
       }
 
-      // 2. Handle Errors (e.g., Email already exists)
+      // 2. Handle Errors (e.g., Email already exists, rate limit, validation errors)
       if (!sendCodeResponse.ok) {
-        const errorMsg = `${sendCodeData.errors[0].detail}`;
+        let errorMsg = "Failed to send verification code.";
+        if (sendCodeData.errors && Array.isArray(sendCodeData.errors) && sendCodeData.errors.length > 0) {
+          errorMsg = sendCodeData.errors[0]?.detail || sendCodeData.errors[0]?.message || String(sendCodeData.errors[0]);
+        } else if (sendCodeData.detail) {
+          errorMsg = sendCodeData.detail;
+        } else if (sendCodeData.message) {
+          errorMsg = sendCodeData.message;
+        } else if (sendCodeData.email) {
+          errorMsg = Array.isArray(sendCodeData.email) ? sendCodeData.email.join(" ") : String(sendCodeData.email);
+        } else if (sendCodeData.error) {
+          errorMsg = typeof sendCodeData.error === "string" ? sendCodeData.error : JSON.stringify(sendCodeData.error);
+        }
 
-        if (
-          errorMsg.toLowerCase().includes("email") &&
-          errorMsg.toLowerCase().includes("already exists")
-        ) {
-          setErrorMessage("An account with this email already exists.");
+        const lowerError = String(errorMsg).toLowerCase();
+        if (lowerError.includes("email") && lowerError.includes("already exists")) {
+          setErrorMessage("An account with this email already exists. Please log in or use another email.");
         } else {
-          setErrorMessage(errorMsg);
+          setErrorMessage(String(errorMsg));
         }
         setLoading(false);
         return;

@@ -303,16 +303,15 @@ const App = () => {
             path="/cookies-policy"
             element={
               <MainLayout>
-                {" "}
-                <Route
-                  path="/confirm-email/:token"
-                  element={
-                    <MainLayout>
-                      <ConfirmEmail />
-                    </MainLayout>
-                  }
-                />
                 <CookiesPolicy />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/confirm-email/:token"
+            element={
+              <MainLayout>
+                <ConfirmEmail />
               </MainLayout>
             }
           />
