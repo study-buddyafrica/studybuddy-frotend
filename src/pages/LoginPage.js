@@ -9,6 +9,7 @@ import { checkUser, FHOST } from "../components/constants/Functions";
 import { firebaseAuth } from "../firebaseConfig";
 import { authStorage } from "../services/authStorage"; // ← added
 import {
+  AuthLayout,
   AuthInput,
   AuthPasswordInput,
   AuthAlert,
@@ -268,133 +269,124 @@ const LoginPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff] flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl flex flex-col md:flex-row">
-        <div className="md:w-1/2 bg-gradient-to-br from-[#01B0F1] to-[#015575] rounded-l-2xl p-8 hidden md:flex items-center justify-center">
-          <div className="text-white text-center space-y-6">
-            <h2 className="text-4xl font-lilita mb-4">Welcome Back!</h2>
-            <p className="font-josefin text-lg">
-              Continue your learning journey with StudyBuddy
-            </p>
-          </div>
-        </div>
+    <AuthLayout
+      mode="login"
+      title="Welcome Back"
+      subtitle="Sign in to continue your educational journey"
+    >
+      <form onSubmit={handleLogin} className="space-y-5">
+        <motion.div whileHover={{ scale: 1.01 }}>
+          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5 font-josefin">
+            Email Address
+          </label>
+          <AuthInput
+            type="email"
+            placeholder="name@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            icon={<FaEnvelope className="w-4 h-4" aria-hidden="true" />}
+            required
+            autoComplete="email"
+            disabled={isEmailLoading || isGoogleLoading}
+          />
+        </motion.div>
 
-        <div className="md:w-1/2 p-8 lg:p-12">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#015575] font-lilita mb-2">
-              Welcome Back
-            </h1>
-            <p className="text-gray-600 font-josefin">
-              Sign in to continue your educational journey
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            <motion.div whileHover={{ scale: 1.02 }}>
-              <AuthInput
-                type="email"
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                icon={<FaEnvelope className="w-4 h-4" aria-hidden="true" />}
-                required
-                autoComplete="email"
-                disabled={isEmailLoading || isGoogleLoading}
-              />
-            </motion.div>
-
-            <motion.div whileHover={{ scale: 1.02 }}>
-              <AuthPasswordInput
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
-                required
-                autoComplete="current-password"
-                disabled={isEmailLoading || isGoogleLoading}
-              />
-              <div className="mt-2 text-right">
-                <Link
-                  to="/forgot-password"
-                  className={`text-sm font-josefin ${authLinkClass}`}
-                >
-                  Forgot Password?
-                </Link>
-              </div>
-            </motion.div>
-
-            {errorMessage && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <AuthAlert
-                  message={errorMessage}
-                  variant="error"
-                  onDismiss={() => setErrorMessage("")}
-                  onRetry={
-                    /connection|network|timeout|try again/i.test(errorMessage)
-                      ? () => setErrorMessage("")
-                      : undefined
-                  }
-                />
-              </motion.div>
-            )}
-
-            <motion.button
-              whileHover={!isEmailLoading ? { scale: 1.02 } : undefined}
-              whileTap={!isEmailLoading ? { scale: 0.98 } : undefined}
-              type="submit"
-              disabled={isEmailLoading || isGoogleLoading}
-              className="w-full bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 rounded-xl font-lilita hover:shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed"
+        <motion.div whileHover={{ scale: 1.01 }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider font-josefin">
+              Password
+            </label>
+            <Link
+              to="/forgot-password"
+              className={`text-xs font-josefin font-semibold ${authLinkClass}`}
             >
-              {isEmailLoading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Spinner /> Signing In...
-                </div>
-              ) : (
-                "Sign In"
-              )}
-            </motion.button>
+              Forgot Password?
+            </Link>
+          </div>
+          <AuthPasswordInput
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
+            required
+            autoComplete="current-password"
+            disabled={isEmailLoading || isGoogleLoading}
+          />
+        </motion.div>
 
-            <div className="my-6">
-              <div className="flex items-center my-6">
-                <div className="flex-1 border-t border-gray-300" />
-                <span className="px-4 text-gray-500 font-josefin">
-                  Or continue with
-                </span>
-                <div className="flex-1 border-t border-gray-300" />
+        {errorMessage && (
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
+            <AuthAlert
+              message={errorMessage}
+              variant="error"
+              onDismiss={() => setErrorMessage("")}
+              onRetry={
+                /connection|network|timeout|try again/i.test(errorMessage)
+                  ? () => setErrorMessage("")
+                  : undefined
+              }
+            />
+          </motion.div>
+        )}
+
+        <motion.button
+          whileHover={!isEmailLoading ? { scale: 1.01 } : undefined}
+          whileTap={!isEmailLoading ? { scale: 0.99 } : undefined}
+          type="submit"
+          disabled={isEmailLoading || isGoogleLoading}
+          className="w-full bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3.5 rounded-xl font-lilita text-base tracking-wide hover:shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer"
+        >
+          {isEmailLoading ? (
+            <div className="flex items-center justify-center gap-2">
+              <Spinner /> Signing In...
+            </div>
+          ) : (
+            "Sign In"
+          )}
+        </motion.button>
+
+        <div className="pt-2">
+          <div className="flex items-center my-4">
+            <div className="flex-1 border-t border-gray-200" />
+            <span className="px-4 text-xs uppercase tracking-wider text-gray-400 font-josefin font-semibold">
+              Or continue with
+            </span>
+            <div className="flex-1 border-t border-gray-200" />
+          </div>
+
+          <motion.button
+            whileHover={!isGoogleLoading ? { scale: 1.01 } : undefined}
+            whileTap={!isGoogleLoading ? { scale: 0.99 } : undefined}
+            type="button"
+            onClick={handleLoginGoogle}
+            disabled={isGoogleLoading || isEmailLoading}
+            className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 bg-white hover:bg-gray-50/80 rounded-xl transition-colors disabled:opacity-75 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+          >
+            {isGoogleLoading ? (
+              <div className="flex items-center justify-center gap-2 font-josefin">
+                <Spinner color="text-gray-700" /> Authenticating with Google...
               </div>
-              <motion.button
-                whileHover={!isGoogleLoading ? { scale: 1.02 } : undefined}
-                whileTap={!isGoogleLoading ? { scale: 0.98 } : undefined}
-                type="button"
-                onClick={handleLoginGoogle}
-                disabled={isGoogleLoading || isEmailLoading}
-                className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-75 disabled:cursor-not-allowed"
-              >
-                {isGoogleLoading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <Spinner color="text-gray-700" /> Signing In...
-                  </div>
-                ) : (
-                  <>
-                    <FcGoogle className="text-xl" />
-                    <span className="font-josefin text-gray-700">Google</span>
-                  </>
-                )}
-              </motion.button>
-            </div>
-
-            <div className="text-center">
-              <p className="font-josefin text-gray-600">
-                Don't have an account?{" "}
-                <Link to="/signup" className={authLinkClass}>
-                  Sign Up
-                </Link>
-              </p>
-            </div>
-          </form>
+            ) : (
+              <>
+                <FcGoogle className="text-xl" />
+                <span className="font-josefin font-semibold text-gray-700 text-sm">
+                  Continue with Google
+                </span>
+              </>
+            )}
+          </motion.button>
         </div>
-      </div>
-    </div>
+
+        <div className="pt-4 text-center border-t border-gray-100">
+          <p className="font-josefin text-sm text-gray-600">
+            Don't have an account?{" "}
+            <Link to="/signup" className={`${authLinkClass} font-semibold underline underline-offset-2`}>
+              Create an account
+            </Link>
+          </p>
+        </div>
+      </form>
+    </AuthLayout>
   );
 };
 

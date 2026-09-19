@@ -9,8 +9,12 @@ import {
   FaLock,
   FaUser,
 } from "react-icons/fa";
-import { FHOST } from "../components/constants/Functions";
+import { FcGoogle } from "react-icons/fc";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { FHOST, checkUser } from "../components/constants/Functions";
+import { firebaseAuth } from "../firebaseConfig";
 import {
+  AuthLayout,
   AuthInput,
   AuthPasswordInput,
   AuthAlert,
@@ -50,6 +54,7 @@ const UniversalSignupPage = () => {
   const [educationLevelIsLoading, setEducationLevelIsLoading] = useState(false);
   const [educationLevelError, setEducationLevelError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState("");
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
@@ -242,10 +247,10 @@ const UniversalSignupPage = () => {
       const data = await response.json();
       if (!data?.results?.length) throw new Error("No learning levels found");
       setEducationLevels(data.results);
-      if (state.education_level) {
+      if (state?.education_level) {
         const match = data.results.find((level) =>
           level.name
-            .toLowerCase()
+            ?.toLowerCase()
             .includes(state.education_level.toLowerCase()),
         );
         if (match) {
@@ -267,107 +272,103 @@ const UniversalSignupPage = () => {
       setEducationLevels([]);
       setFormData((prev) => ({ ...prev, education_level: "" }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.role, formData.education_level]);
+
+  const handleGoogleSignup = async () => {
+    const provider = new GoogleAuthProvider();
+    setIsGoogleLoading(true);
+    setErrorMessage("");
+    setInformationalMessage("");
+
+    try {
+      const { user } = await signInWithPopup(firebaseAuth, provider);
+      const userInfo = await checkUser(user.email);
+
+      if (
+        userInfo.exists === true ||
+        String(userInfo.exists).toLowerCase() === "true"
+      ) {
+        setInformationalMessage(
+          "An account with this Google email already exists. Redirecting to login...",
+        );
+        setTimeout(() => navigate("/login"), 1500);
+        return;
+      }
+
+      const nameParts = (user.displayName || "").trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      const generatedUsername = firstName
+        ? `${firstName.toLowerCase()}${Math.floor(Math.random() * 1000)}`
+        : "";
+
+      setFormData((prev) => ({
+        ...prev,
+        first_name: firstName || prev.first_name,
+        last_name: lastName || prev.last_name,
+        email: user.email || prev.email,
+        username: prev.username || generatedUsername,
+      }));
+
+      setInformationalMessage(
+        "Google account connected! Please choose your role and password to complete registration.",
+      );
+    } catch (err) {
+      console.error("Google sign-in error:", err);
+      setErrorMessage(
+        "Google authentication failed or was cancelled. Please try again.",
+      );
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const getStrengthLabel = (strength) => {
     if (strength === "strong") return "Strong Password";
     return "Weak Password";
   };
 
-  const getRoleTitle = () => {
-    switch (formData.role) {
-      case "parent":
-        return "Empower Your Child's Learning";
-      case "teacher":
-        return "Inspire Future Generations";
-      case "student":
-        return "Unlock Your Potential";
-      default:
-        return "Join Our Learning Community";
-    }
-  };
-
-  const getRoleDescription = () => {
-    switch (formData.role) {
-      case "parent":
-        return "Take control of your child's education journey with personalized tracking and resources.";
-      case "teacher":
-        return "Share your knowledge, create engaging lessons, and connect with students worldwide.";
-      case "student":
-        return "Access personalized learning paths, interactive content, and expert guidance.";
-      default:
-        return "Become part of a vibrant community dedicated to lifelong learning.";
-    }
-  };
-
-  const displayRole = formData.role;
+  const activeStep = formData.role ? 2 : 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] to-[#e1f5fe] flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl flex flex-col md:flex-row overflow-hidden">
-        {/* Left Panel - Hidden on mobile */}
-        <div className="hidden md:flex md:w-2/5 bg-gradient-to-br from-[#01B0F1] to-[#015575] p-8 flex-col justify-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10">
-            <div className="absolute top-10 right-10 w-24 h-24 rounded-full bg-white"></div>
-            <div className="absolute bottom-20 left-10 w-16 h-16 rounded-full bg-white"></div>
-            <div className="absolute top-1/3 left-1/4 w-32 h-32 rounded-full bg-white"></div>
-          </div>
+    <AuthLayout
+      mode="signup"
+      activeStep={activeStep}
+      title="Create Your Account"
+      subtitle="Join our community of learners and educators"
+    >
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={handleGoogleSignup}
+          disabled={isGoogleLoading || loading}
+          className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 bg-white hover:bg-gray-50/80 rounded-xl transition-colors disabled:opacity-75 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+        >
+          {isGoogleLoading ? (
+            <span className="font-josefin text-sm text-gray-700">
+              Connecting Google...
+            </span>
+          ) : (
+            <>
+              <FcGoogle className="text-xl" />
+              <span className="font-josefin font-semibold text-gray-700 text-sm">
+                Continue with Google
+              </span>
+            </>
+          )}
+        </button>
 
-          <div className="relative z-10 text-white">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <h2 className="text-3xl font-bold mb-4 font-lilita">
-                {getRoleTitle()}
-              </h2>
-              <p className="text-white/90 mb-6 font-josefin">
-                {getRoleDescription()}
-              </p>
-
-              <div className="flex items-center space-x-4">
-                <div className="bg-white/20 p-3 rounded-full">
-                  {displayRole === "parent" && (
-                    <FaUserFriends className="w-8 h-8" />
-                  )}
-                  {displayRole === "teacher" && (
-                    <FaChalkboardTeacher className="w-8 h-8" />
-                  )}
-                  {displayRole === "student" && (
-                    <FaUserGraduate className="w-8 h-8" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg font-lilita">Benefits</h3>
-                  <ul className="text-sm mt-2 space-y-1 font-josefin">
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                      Personalized learning experience
-                    </li>
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                      Access to premium resources
-                    </li>
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                      Connect with experts
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center my-4">
+          <div className="flex-1 border-t border-gray-200" />
+          <span className="px-4 text-xs uppercase tracking-wider text-gray-400 font-josefin font-semibold">
+            Or register with email
+          </span>
+          <div className="flex-1 border-t border-gray-200" />
         </div>
+      </div>
 
-        {/* Right Panel - Form Section */}
-        <div className="w-full md:w-3/5 p-6 md:p-8">
-          <div className="text-center mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-[#015575] font-lilita mb-2">
-              Create Your Account
-            </h1>
-            <p className="text-gray-600 font-josefin">
-              Join our community of learners and educators
-            </p>
-          </div>
-
-          <form onSubmit={handleSignup} className="space-y-4">
+      <form onSubmit={handleSignup} className="space-y-4">
             {/* First & Last Name */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               <AuthInput
@@ -703,15 +704,16 @@ const UniversalSignupPage = () => {
             </div>
           </form>
 
-          <p className="text-center font-josefin text-gray-600 mt-4 md:mt-6 text-sm md:text-base">
+          <p className="text-center font-josefin text-gray-600 mt-5 text-sm">
             Already have an account?{" "}
-            <Link to="/login" className={authLinkClass}>
+            <Link
+              to="/login"
+              className={`${authLinkClass} font-semibold underline underline-offset-2`}
+            >
               Log in here
             </Link>
           </p>
-        </div>
-      </div>
-    </div>
+    </AuthLayout>
   );
 };
 
