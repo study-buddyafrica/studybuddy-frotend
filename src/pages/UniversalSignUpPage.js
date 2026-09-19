@@ -235,12 +235,29 @@ const UniversalSignupPage = () => {
     }
   };
 
-  //learning levels for students
+  // Known default levels so user is never blocked by temporary backend/network blips
+  const DEFAULT_EDUCATION_LEVELS = [
+    {
+      id: "9a77c63d-5249-4360-9a7d-7cbb18993811",
+      name: "K-12 (Primary & Secondary)",
+    },
+    {
+      id: "d1c74a1c-7a2f-4671-9a26-9e83a67bc4e7",
+      name: "University & Tertiary",
+    },
+    {
+      id: "50605ec9-ca30-4202-830c-24d225baf1ec",
+      name: "Continuous & Vocational Learning",
+    },
+  ];
+
+  // Learning levels for students
   async function fetchLearningLevels() {
     setEducationLevelIsLoading(true);
     setEducationLevelError("");
     try {
-      const response = await fetch(`${FHOST}/api/education-levels/`);
+      const apiBase = FHOST || "http://127.0.0.1:8000";
+      const response = await fetch(`${apiBase}/api/education-levels/`);
       if (!response.ok) {
         throw new Error("Failed to fetch learning levels");
       }
@@ -258,8 +275,9 @@ const UniversalSignupPage = () => {
         }
       }
     } catch (error) {
-      console.error("Error fetching learning levels:", error);
-      setEducationLevelError("Unable to load education levels.");
+      console.warn("Unable to fetch live education levels, using fallback options:", error);
+      setEducationLevelError("Could not reach server. Using standard curriculum levels.");
+      setEducationLevels((prev) => (prev.length > 0 ? prev : DEFAULT_EDUCATION_LEVELS));
     } finally {
       setEducationLevelIsLoading(false);
     }
@@ -267,13 +285,14 @@ const UniversalSignupPage = () => {
 
   useEffect(() => {
     if (formData.role === "student") {
-      fetchLearningLevels();
+      if (educationLevels.length === 0) {
+        fetchLearningLevels();
+      }
     } else {
-      setEducationLevels([]);
       setFormData((prev) => ({ ...prev, education_level: "" }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.role, formData.education_level]);
+  }, [formData.role]);
 
   const handleGoogleSignup = async () => {
     const provider = new GoogleAuthProvider();
@@ -369,137 +388,148 @@ const UniversalSignupPage = () => {
       </div>
 
       <form onSubmit={handleSignup} className="space-y-4">
-            {/* First & Last Name */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <AuthInput
-                type="text"
-                name="first_name"
-                placeholder="First Name"
-                value={formData.first_name}
-                onChange={handleInputChange}
-                icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
-                autoComplete="given-name"
-                required
+        {/* Row 1: First & Last Name */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <AuthInput
+            type="text"
+            name="first_name"
+            placeholder="First Name"
+            value={formData.first_name}
+            onChange={handleInputChange}
+            icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="given-name"
+            required
+          />
+          <AuthInput
+            type="text"
+            name="last_name"
+            placeholder="Last Name"
+            value={formData.last_name}
+            onChange={handleInputChange}
+            icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="family-name"
+            required
+          />
+        </div>
+
+        {/* Row 2: Email & Username (Consistent 2-column layout) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <AuthInput
+            type="email"
+            name="email"
+            placeholder="Email Address"
+            value={formData.email}
+            onChange={handleInputChange}
+            icon={<FaEnvelope className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="email"
+            required
+          />
+          <AuthInput
+            type="text"
+            name="username"
+            placeholder="Username"
+            value={formData.username}
+            onChange={handleInputChange}
+            icon={<FaUser className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="username"
+            required
+          />
+        </div>
+
+        {/* Row 3: Role Selection (Clean full width, stable grid) */}
+        <div className="relative w-full">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+            <FaUser className="w-4 h-4" aria-hidden="true" />
+          </div>
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
               />
-              <AuthInput
-                type="text"
-                name="last_name"
-                placeholder="Last Name"
-                value={formData.last_name}
-                onChange={handleInputChange}
-                icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
-                autoComplete="family-name"
-                required
-              />
+            </svg>
+          </div>
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleInputChange}
+            className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer`}
+            required
+          >
+            <option value="">Select Role (Student, Teacher, Parent)</option>
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Row 4: Education Level (Only shown for students, with smooth reveal, icon, and fallback) */}
+        {formData.role === "student" && (
+          <div className="relative w-full transition-all duration-300">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#01B0F1]">
+              <FaUserGraduate className="w-4 h-4" aria-hidden="true" />
             </div>
-
-            {/* Email */}
-            <AuthInput
-              type="email"
-              name="email"
-              placeholder="Email Address"
-              value={formData.email}
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+            <select
+              name="education_level"
+              value={formData.education_level}
               onChange={handleInputChange}
-              icon={<FaEnvelope className="w-4 h-4" aria-hidden="true" />}
-              autoComplete="email"
+              disabled={educationLevelIsLoading}
+              className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer border-[#01B0F1]/40 focus:border-[#01B0F1]`}
               required
-            />
-
-            <div className="flex flex-col md:flex-row gap-4 items-center">
-              {/* Role Selection */}
-              <div className="relative w-full">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-                  <FaUser className="w-4 h-4" aria-hidden="true" />
-                </div>
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer`}
-                  required
+            >
+              <option value="">
+                {educationLevelIsLoading
+                  ? "Loading education levels..."
+                  : "Select Education Level (CBC, 8-4-4, University)"}
+              </option>
+              {educationLevels.map((level) => (
+                <option key={level.id} value={level.id}>
+                  {level.name}
+                </option>
+              ))}
+            </select>
+            {educationLevelError && (
+              <div className="flex items-center justify-between text-xs text-amber-600 mt-1 px-1 font-josefin">
+                <span>Network error loading live levels; using standard defaults.</span>
+                <button
+                  type="button"
+                  onClick={fetchLearningLevels}
+                  className="text-[#015575] hover:underline font-semibold ml-2"
                 >
-                  <option value="">Select Role</option>
-                  {roles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
+                  Retry
+                </button>
               </div>
-
-              {/* Education Level — only shown for students */}
-              {formData.role === "student" && (
-                <div className="relative w-full">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                  <select
-                    name="education_level"
-                    value={formData.education_level}
-                    onChange={handleInputChange}
-                    disabled={educationLevelIsLoading || !!educationLevelError}
-                    className={`${authInputBaseClass} pl-4 pr-10 py-3 appearance-none cursor-pointer`}
-                    required
-                  >
-                    <option value="">
-                      {educationLevelIsLoading
-                        ? "Loading..."
-                        : educationLevelError
-                          ? "Error loading levels"
-                          : "Select Education Level"}
-                    </option>
-                    {educationLevels.map((level) => (
-                      <option key={level.id} value={level.id}>
-                        {level.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Username */}
-            <AuthInput
-              type="text"
-              name="username"
-              placeholder="Username"
-              value={formData.username}
-              onChange={handleInputChange}
-              icon={<FaUser className="w-4 h-4" aria-hidden="true" />}
-              autoComplete="username"
-              required
-            />
+            )}
+          </div>
+        )}
 
             {/* Password Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
