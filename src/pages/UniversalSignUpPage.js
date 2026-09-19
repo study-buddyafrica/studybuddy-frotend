@@ -9,8 +9,12 @@ import {
   FaLock,
   FaUser,
 } from "react-icons/fa";
-import { FHOST } from "../components/constants/Functions";
+import { FcGoogle } from "react-icons/fc";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { FHOST, checkUser } from "../components/constants/Functions";
+import { firebaseAuth } from "../firebaseConfig";
 import {
+  AuthLayout,
   AuthInput,
   AuthPasswordInput,
   AuthAlert,
@@ -50,6 +54,7 @@ const UniversalSignupPage = () => {
   const [educationLevelIsLoading, setEducationLevelIsLoading] = useState(false);
   const [educationLevelError, setEducationLevelError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState("");
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
@@ -230,22 +235,39 @@ const UniversalSignupPage = () => {
     }
   };
 
-  //learning levels for students
+  // Known default levels so user is never blocked by temporary backend/network blips
+  const DEFAULT_EDUCATION_LEVELS = [
+    {
+      id: "9a77c63d-5249-4360-9a7d-7cbb18993811",
+      name: "K-12 (Primary & Secondary)",
+    },
+    {
+      id: "d1c74a1c-7a2f-4671-9a26-9e83a67bc4e7",
+      name: "University & Tertiary",
+    },
+    {
+      id: "50605ec9-ca30-4202-830c-24d225baf1ec",
+      name: "Continuous & Vocational Learning",
+    },
+  ];
+
+  // Learning levels for students
   async function fetchLearningLevels() {
     setEducationLevelIsLoading(true);
     setEducationLevelError("");
     try {
-      const response = await fetch(`${FHOST}/api/education-levels/`);
+      const apiBase = FHOST || "http://127.0.0.1:8000";
+      const response = await fetch(`${apiBase}/api/education-levels/`);
       if (!response.ok) {
         throw new Error("Failed to fetch learning levels");
       }
       const data = await response.json();
       if (!data?.results?.length) throw new Error("No learning levels found");
       setEducationLevels(data.results);
-      if (state.education_level) {
+      if (state?.education_level) {
         const match = data.results.find((level) =>
           level.name
-            .toLowerCase()
+            ?.toLowerCase()
             .includes(state.education_level.toLowerCase()),
         );
         if (match) {
@@ -253,8 +275,9 @@ const UniversalSignupPage = () => {
         }
       }
     } catch (error) {
-      console.error("Error fetching learning levels:", error);
-      setEducationLevelError("Unable to load education levels.");
+      console.warn("Unable to fetch live education levels, using fallback options:", error);
+      setEducationLevelError("Could not reach server. Using standard curriculum levels.");
+      setEducationLevels((prev) => (prev.length > 0 ? prev : DEFAULT_EDUCATION_LEVELS));
     } finally {
       setEducationLevelIsLoading(false);
     }
@@ -262,243 +285,251 @@ const UniversalSignupPage = () => {
 
   useEffect(() => {
     if (formData.role === "student") {
-      fetchLearningLevels();
+      if (educationLevels.length === 0) {
+        fetchLearningLevels();
+      }
     } else {
-      setEducationLevels([]);
       setFormData((prev) => ({ ...prev, education_level: "" }));
     }
-  }, [formData.role, formData.education_level]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.role]);
+
+  const handleGoogleSignup = async () => {
+    const provider = new GoogleAuthProvider();
+    setIsGoogleLoading(true);
+    setErrorMessage("");
+    setInformationalMessage("");
+
+    try {
+      const { user } = await signInWithPopup(firebaseAuth, provider);
+      const userInfo = await checkUser(user.email);
+
+      if (
+        userInfo.exists === true ||
+        String(userInfo.exists).toLowerCase() === "true"
+      ) {
+        setInformationalMessage(
+          "An account with this Google email already exists. Redirecting to login...",
+        );
+        setTimeout(() => navigate("/login"), 1500);
+        return;
+      }
+
+      const nameParts = (user.displayName || "").trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      const generatedUsername = firstName
+        ? `${firstName.toLowerCase()}${Math.floor(Math.random() * 1000)}`
+        : "";
+
+      setFormData((prev) => ({
+        ...prev,
+        first_name: firstName || prev.first_name,
+        last_name: lastName || prev.last_name,
+        email: user.email || prev.email,
+        username: prev.username || generatedUsername,
+      }));
+
+      setInformationalMessage(
+        "Google account connected! Please choose your role and password to complete registration.",
+      );
+    } catch (err) {
+      console.error("Google sign-in error:", err);
+      setErrorMessage(
+        "Google authentication failed or was cancelled. Please try again.",
+      );
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const getStrengthLabel = (strength) => {
     if (strength === "strong") return "Strong Password";
     return "Weak Password";
   };
 
-  const getRoleTitle = () => {
-    switch (formData.role) {
-      case "parent":
-        return "Empower Your Child's Learning";
-      case "teacher":
-        return "Inspire Future Generations";
-      case "student":
-        return "Unlock Your Potential";
-      default:
-        return "Join Our Learning Community";
-    }
-  };
-
-  const getRoleDescription = () => {
-    switch (formData.role) {
-      case "parent":
-        return "Take control of your child's education journey with personalized tracking and resources.";
-      case "teacher":
-        return "Share your knowledge, create engaging lessons, and connect with students worldwide.";
-      case "student":
-        return "Access personalized learning paths, interactive content, and expert guidance.";
-      default:
-        return "Become part of a vibrant community dedicated to lifelong learning.";
-    }
-  };
-
-  const displayRole = formData.role;
+  const activeStep = formData.role ? 2 : 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] to-[#e1f5fe] flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl flex flex-col md:flex-row overflow-hidden">
-        {/* Left Panel - Hidden on mobile */}
-        <div className="hidden md:flex md:w-2/5 bg-gradient-to-br from-[#01B0F1] to-[#015575] p-8 flex-col justify-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10">
-            <div className="absolute top-10 right-10 w-24 h-24 rounded-full bg-white"></div>
-            <div className="absolute bottom-20 left-10 w-16 h-16 rounded-full bg-white"></div>
-            <div className="absolute top-1/3 left-1/4 w-32 h-32 rounded-full bg-white"></div>
-          </div>
+    <AuthLayout
+      mode="signup"
+      activeStep={activeStep}
+      title="Create Your Account"
+      subtitle="Join our community of learners and educators"
+    >
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={handleGoogleSignup}
+          disabled={isGoogleLoading || loading}
+          className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 bg-white hover:bg-gray-50/80 rounded-xl transition-colors disabled:opacity-75 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+        >
+          {isGoogleLoading ? (
+            <span className="font-josefin text-sm text-gray-700">
+              Connecting Google...
+            </span>
+          ) : (
+            <>
+              <FcGoogle className="text-xl" />
+              <span className="font-josefin font-semibold text-gray-700 text-sm">
+                Continue with Google
+              </span>
+            </>
+          )}
+        </button>
 
-          <div className="relative z-10 text-white">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <h2 className="text-3xl font-bold mb-4 font-lilita">
-                {getRoleTitle()}
-              </h2>
-              <p className="text-white/90 mb-6 font-josefin">
-                {getRoleDescription()}
-              </p>
+        <div className="flex items-center my-4">
+          <div className="flex-1 border-t border-gray-200" />
+          <span className="px-4 text-xs uppercase tracking-wider text-gray-400 font-josefin font-semibold">
+            Or register with email
+          </span>
+          <div className="flex-1 border-t border-gray-200" />
+        </div>
+      </div>
 
-              <div className="flex items-center space-x-4">
-                <div className="bg-white/20 p-3 rounded-full">
-                  {displayRole === "parent" && (
-                    <FaUserFriends className="w-8 h-8" />
-                  )}
-                  {displayRole === "teacher" && (
-                    <FaChalkboardTeacher className="w-8 h-8" />
-                  )}
-                  {displayRole === "student" && (
-                    <FaUserGraduate className="w-8 h-8" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg font-lilita">Benefits</h3>
-                  <ul className="text-sm mt-2 space-y-1 font-josefin">
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                      Personalized learning experience
-                    </li>
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                      Access to premium resources
-                    </li>
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                      Connect with experts
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
+      <form onSubmit={handleSignup} className="space-y-4">
+        {/* Row 1: First & Last Name */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <AuthInput
+            type="text"
+            name="first_name"
+            placeholder="First Name"
+            value={formData.first_name}
+            onChange={handleInputChange}
+            icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="given-name"
+            required
+          />
+          <AuthInput
+            type="text"
+            name="last_name"
+            placeholder="Last Name"
+            value={formData.last_name}
+            onChange={handleInputChange}
+            icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="family-name"
+            required
+          />
         </div>
 
-        {/* Right Panel - Form Section */}
-        <div className="w-full md:w-3/5 p-6 md:p-8">
-          <div className="text-center mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-[#015575] font-lilita mb-2">
-              Create Your Account
-            </h1>
-            <p className="text-gray-600 font-josefin">
-              Join our community of learners and educators
-            </p>
+        {/* Row 2: Email & Username (Consistent 2-column layout) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <AuthInput
+            type="email"
+            name="email"
+            placeholder="Email Address"
+            value={formData.email}
+            onChange={handleInputChange}
+            icon={<FaEnvelope className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="email"
+            required
+          />
+          <AuthInput
+            type="text"
+            name="username"
+            placeholder="Username"
+            value={formData.username}
+            onChange={handleInputChange}
+            icon={<FaUser className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="username"
+            required
+          />
+        </div>
+
+        {/* Row 3: Role Selection (Clean full width, stable grid) */}
+        <div className="relative w-full">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+            <FaUser className="w-4 h-4" aria-hidden="true" />
           </div>
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </div>
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleInputChange}
+            className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer`}
+            required
+          >
+            <option value="">Select Role (Student, Teacher, Parent)</option>
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <form onSubmit={handleSignup} className="space-y-4">
-            {/* First & Last Name */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <AuthInput
-                type="text"
-                name="first_name"
-                placeholder="First Name"
-                value={formData.first_name}
-                onChange={handleInputChange}
-                icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
-                autoComplete="given-name"
-                required
-              />
-              <AuthInput
-                type="text"
-                name="last_name"
-                placeholder="Last Name"
-                value={formData.last_name}
-                onChange={handleInputChange}
-                icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
-                autoComplete="family-name"
-                required
-              />
+        {/* Row 4: Education Level (Only shown for students, with smooth reveal, icon, and fallback) */}
+        {formData.role === "student" && (
+          <div className="relative w-full transition-all duration-300">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#01B0F1]">
+              <FaUserGraduate className="w-4 h-4" aria-hidden="true" />
             </div>
-
-            {/* Email */}
-            <AuthInput
-              type="email"
-              name="email"
-              placeholder="Email Address"
-              value={formData.email}
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+            <select
+              name="education_level"
+              value={formData.education_level}
               onChange={handleInputChange}
-              icon={<FaEnvelope className="w-4 h-4" aria-hidden="true" />}
-              autoComplete="email"
+              disabled={educationLevelIsLoading}
+              className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer border-[#01B0F1]/40 focus:border-[#01B0F1]`}
               required
-            />
-
-            <div className="flex flex-col md:flex-row gap-4 items-center">
-              {/* Role Selection */}
-              <div className="relative w-full">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-                  <FaUser className="w-4 h-4" aria-hidden="true" />
-                </div>
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer`}
-                  required
+            >
+              <option value="">
+                {educationLevelIsLoading
+                  ? "Loading education levels..."
+                  : "Select Education Level (CBC, 8-4-4, University)"}
+              </option>
+              {educationLevels.map((level) => (
+                <option key={level.id} value={level.id}>
+                  {level.name}
+                </option>
+              ))}
+            </select>
+            {educationLevelError && (
+              <div className="flex items-center justify-between text-xs text-amber-600 mt-1 px-1 font-josefin">
+                <span>Network error loading live levels; using standard defaults.</span>
+                <button
+                  type="button"
+                  onClick={fetchLearningLevels}
+                  className="text-[#015575] hover:underline font-semibold ml-2"
                 >
-                  <option value="">Select Role</option>
-                  {roles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
+                  Retry
+                </button>
               </div>
-
-              {/* Education Level — only shown for students */}
-              {formData.role === "student" && (
-                <div className="relative w-full">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                  <select
-                    name="education_level"
-                    value={formData.education_level}
-                    onChange={handleInputChange}
-                    disabled={educationLevelIsLoading || !!educationLevelError}
-                    className={`${authInputBaseClass} pl-4 pr-10 py-3 appearance-none cursor-pointer`}
-                    required
-                  >
-                    <option value="">
-                      {educationLevelIsLoading
-                        ? "Loading..."
-                        : educationLevelError
-                          ? "Error loading levels"
-                          : "Select Education Level"}
-                    </option>
-                    {educationLevels.map((level) => (
-                      <option key={level.id} value={level.id}>
-                        {level.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Username */}
-            <AuthInput
-              type="text"
-              name="username"
-              placeholder="Username"
-              value={formData.username}
-              onChange={handleInputChange}
-              icon={<FaUser className="w-4 h-4" aria-hidden="true" />}
-              autoComplete="username"
-              required
-            />
+            )}
+          </div>
+        )}
 
             {/* Password Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -703,15 +734,16 @@ const UniversalSignupPage = () => {
             </div>
           </form>
 
-          <p className="text-center font-josefin text-gray-600 mt-4 md:mt-6 text-sm md:text-base">
+          <p className="text-center font-josefin text-gray-600 mt-5 text-sm">
             Already have an account?{" "}
-            <Link to="/login" className={authLinkClass}>
+            <Link
+              to="/login"
+              className={`${authLinkClass} font-semibold underline underline-offset-2`}
+            >
               Log in here
             </Link>
           </p>
-        </div>
-      </div>
-    </div>
+    </AuthLayout>
   );
 };
 
