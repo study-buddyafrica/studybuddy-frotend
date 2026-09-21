@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Star, MapPin, Book, Clock } from "lucide-react";
 import axios from "axios";
 import { FHOST } from "../constants/Functions.jsx";
+import { authStorage } from "../../services/authStorage";
 
 const Tutors = () => {
   const [tutors, setTutors] = useState([]);
@@ -20,16 +21,19 @@ const Tutors = () => {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => {
-    const fetchTutors = async () => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        const res = await axios.get(`${FHOST}/admin/teachers`, {
+useEffect(() => {
+  const fetchTutors = async () => {
+    setLoading(true);
+    try {
+      const token = authStorage.getAccessToken(); // ← changed
+      const res = await axios
+        .get(`${FHOST}/admin/teachers`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }).catch(() => null);
-        const list = Array.isArray(res?.data?.teachers) ? res.data.teachers : [];
-        setTutors(list.map(t => ({
+        })
+        .catch(() => null);
+      const list = Array.isArray(res?.data?.teachers) ? res.data.teachers : [];
+      setTutors(
+        list.map((t) => ({
           id: t.id,
           name: t.full_name || t.username,
           subjects: t.subjects || t.subject_list || [],
@@ -38,13 +42,14 @@ const Tutors = () => {
           experience: t.experience || "",
           status: t.status || (t.verified ? "active" : "pending"),
           availability: t.availability || "",
-        })));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTutors();
-  }, []);
+        })),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchTutors();
+}, []);
 
   // Handle input change
   const handleChange = (e) => {

@@ -68,11 +68,24 @@ const StudentSignUpPage = () => {
       }
 
       if (!sendCodeResponse.ok) {
-        const errorMsg = sendCodeData.detail || sendCodeData.message || sendCodeData.error || 'Failed to send verification code';
-        if (errorMsg.includes('email') && errorMsg.includes('already exists')) {
-          setErrorMessage('An account with this email already exists. Please use a different email or try logging in.');
+        let errorMsg = "Failed to send verification code.";
+        if (sendCodeData.errors && Array.isArray(sendCodeData.errors) && sendCodeData.errors.length > 0) {
+          errorMsg = sendCodeData.errors[0]?.detail || sendCodeData.errors[0]?.message || String(sendCodeData.errors[0]);
+        } else if (sendCodeData.detail) {
+          errorMsg = sendCodeData.detail;
+        } else if (sendCodeData.message) {
+          errorMsg = sendCodeData.message;
+        } else if (sendCodeData.email) {
+          errorMsg = Array.isArray(sendCodeData.email) ? sendCodeData.email.join(" ") : String(sendCodeData.email);
+        } else if (sendCodeData.error) {
+          errorMsg = typeof sendCodeData.error === "string" ? sendCodeData.error : JSON.stringify(sendCodeData.error);
+        }
+
+        const lowerError = String(errorMsg).toLowerCase();
+        if (lowerError.includes("email") && lowerError.includes("already exists")) {
+          setErrorMessage("An account with this email already exists. Please use a different email or try logging in.");
         } else {
-          setErrorMessage(errorMsg);
+          setErrorMessage(String(errorMsg));
         }
         setLoading(false);
         return;

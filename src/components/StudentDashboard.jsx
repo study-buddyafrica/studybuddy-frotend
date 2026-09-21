@@ -28,6 +28,7 @@ import StudentViewProfile from "./students/StudentViewProfile";
 import axios from "axios";
 import { FHOST } from "./constants/Functions";
 import DashboardHeader from "./layout/DashboardHeader";
+import { authStorage } from "../services/authStorage";
 
 const DashboardHome = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -50,7 +51,7 @@ const DashboardHome = () => {
 
     // Try to extract from JWT token
     try {
-      const token = localStorage.getItem("access_token");
+      const token = authStorage.getAccessToken();
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         return payload.profile_id || payload.user_id || user?.id;
@@ -128,11 +129,14 @@ const DashboardHome = () => {
           const profileId = getProfileId(storedUserInfo);
           console.log("Checking profile completion for ID:", profileId);
 
-          const profileResponse = await axios.get(`${FHOST}/api/student/profile/update/${profileId}/`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          const profileResponse = await axios.get(
+            `${FHOST}/api/student/profile/update/${profileId}/`,
+            {
+              headers: {
+                Authorization: `Bearer ${authStorage.getAccessToken()}`,
+              },
             },
-          });
+          );
           if (profileResponse.data) {
             const profileData = profileResponse.data;
             // Check if profile has required fields
@@ -207,9 +211,9 @@ const DashboardHome = () => {
             {
               headers: {
                 "Content-Type": "multipart/form-data",
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
+                Authorization: `Bearer ${authStorage.getAccessToken()}`,
               },
-            }
+            },
           );
 
           if (response.status === 200) {
@@ -240,8 +244,7 @@ const DashboardHome = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("userInfo");
-    localStorage.removeItem("token");
+    authStorage.clearTokens();
     localStorage.removeItem("view_as_student_id");
     localStorage.removeItem("view_as_student_name");
     localStorage.removeItem("view_as_student_email");

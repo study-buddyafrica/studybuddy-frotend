@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FHOST } from '../constants/Functions';
 import { CalendarIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { authStorage } from "../../services/authStorage";
 
 const LiveClass = ({ userInfo }) => {
   const [activeTab, setActiveTab] = useState('create');
@@ -21,202 +22,212 @@ const LiveClass = ({ userInfo }) => {
   const [error, setError] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
 
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-
-        const response = await axios.get(`${FHOST}/api/booked-sessions/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        // Handle paginated response
-        const data = response.data;
-        const allBookings = Array.isArray(data?.results) ? data.results : [];
-
-        // Filter for bookings that are allowed and not attended yet
-        const availableBookings = allBookings.filter(
-          booking => booking.is_allowed && !booking.attended
-        );
-        setBookings(availableBookings);
-      } catch (err) {
-        console.error('Error fetching bookings:', err);
-        setBookings([]);
-      }
-    };
-    fetchBookings();
-  }, []);
-
-
-  useEffect(() => {
-    const fetchLiveSessions = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-
-        const response = await axios.get(`${FHOST}/api/live-sessions/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        // Handle paginated response
-        const data = response.data;
-        const sessions = Array.isArray(data?.results) ? data.results : [];
-        setLiveSessions(sessions);
-      } catch (err) {
-        console.error('Error fetching live sessions:', err);
-        setLiveSessions([]);
-      }
-    };
-
-
-    fetchLiveSessions();
-  }, []);
-
-
-  const handleUpdateLiveSession = async (sessionId, updateData) => {
-    setLoading(true);
-    setError(null);
+useEffect(() => {
+  const fetchBookings = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
-      }
+      const token = authStorage.getAccessToken(); // ← changed
+      if (!token) return;
 
-      const response = await axios.patch(
-        `${FHOST}/api/teacher/live-session/update/${sessionId}/`,
-        updateData,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const response = await axios.get(`${FHOST}/api/booked-sessions/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Handle paginated response
+      const data = response.data;
+      const allBookings = Array.isArray(data?.results) ? data.results : [];
+
+      const availableBookings = allBookings.filter(
+        (booking) => booking.is_allowed && !booking.attended,
       );
-
-      if (response.status === 200) {
-        // Update the specific session in the list
-        setLiveSessions(prevSessions => prevSessions.map(s => s.id === sessionId ? response.data : s));
-        alert('Session marked as attended successfully!');
-      } else {
-        setError('Unexpected response from server.');
-      }
+      setBookings(availableBookings);
     } catch (err) {
-      const status = err?.response?.status;
-      const data = err?.response?.data;
-      const details = typeof data === 'string'
-        ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error marking session as attended.';
-      setError(String(msg));
-    } finally {
-      setLoading(false);
+      console.error("Error fetching bookings:", err);
+      setBookings([]);
+    }
+  };
+  fetchBookings();
+}, []);
+
+
+useEffect(() => {
+  const fetchLiveSessions = async () => {
+    try {
+      const token = authStorage.getAccessToken(); // ← changed
+      if (!token) return;
+
+      const response = await axios.get(`${FHOST}/api/live-sessions/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Handle paginated response
+      const data = response.data;
+      const sessions = Array.isArray(data?.results) ? data.results : [];
+      setLiveSessions(sessions);
+    } catch (err) {
+      console.error("Error fetching live sessions:", err);
+      setLiveSessions([]);
     }
   };
 
-  const handleCreateMeeting = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      // Check if user is authenticated
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('You are not authenticated. Please login again.');
-      }
+  fetchLiveSessions();
+}, []);
 
-      // Basic validation before request
-      if (!meetingDetails.session_booking_id) throw new Error('Please select a booking session.');
-      if (!meetingDetails.topic.trim()) throw new Error('Please enter a class topic.');
-      if (!meetingDetails.agenda.trim()) throw new Error('Please enter a class description.');
 
-      const payload = {
+const handleUpdateLiveSession = async (sessionId, updateData) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      throw new Error("You are not authenticated. Please login again.");
+    }
+
+    const response = await axios.patch(
+      `${FHOST}/api/teacher/live-session/update/${sessionId}/`,
+      updateData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (response.status === 200) {
+      setLiveSessions((prevSessions) =>
+        prevSessions.map((s) => (s.id === sessionId ? response.data : s)),
+      );
+      alert("Session marked as attended successfully!");
+    } else {
+      setError("Unexpected response from server.");
+    }
+  } catch (err) {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+    const details =
+      typeof data === "string"
+        ? data
+        : data?.error || data?.message || data?.details;
+    const msg =
+      details ||
+      (status ? `Request failed with status ${status}` : err?.message) ||
+      "Error marking session as attended.";
+    setError(String(msg));
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleCreateMeeting = async (e) => {
+  if (e && e.preventDefault) e.preventDefault();
+  setLoading(true);
+  setError(null);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      throw new Error("You are not authenticated. Please login again.");
+    }
+
+    if (!meetingDetails.session_booking_id)
+      throw new Error("Please select a booking session.");
+    if (!meetingDetails.topic.trim())
+      throw new Error("Please enter a class topic.");
+    if (!meetingDetails.agenda.trim())
+      throw new Error("Please enter a class description.");
+
+    const payload = {
+      session_booking_id: meetingDetails.session_booking_id,
+      title: meetingDetails.topic,
+      description: meetingDetails.agenda,
+    };
+
+    const response = await axios.post(
+      `${FHOST}/api/teacher/live-session/`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // ← changed (was reading localStorage again)
+        },
+      },
+    );
+
+    if (response.status === 201 || response.status === 200) {
+      const data = response.data;
+      setMeetingData({
+        id: data?.id || null,
         session_booking_id: meetingDetails.session_booking_id,
-        title: meetingDetails.topic,
-        description: meetingDetails.agenda,
-      };
+        meetLink: data?.meeting_link || data?.teacher_meeting_link || null,
+        studentLink: data?.student_meeting_link || null,
+        whiteboardLink: data?.whiteboard_link || null,
+        title: data?.title || meetingDetails.topic,
+        description: data?.description || meetingDetails.agenda,
+        startedAt: data?.started_at || null,
+        endedAt: data?.ended_at || null,
+      });
+      setShowPopup(true);
 
-      const response = await axios.post(
-        `${FHOST}/api/teacher/live-session/`,
-        payload,
+      setMeetingDetails({
+        session_booking_id: "",
+        topic: "",
+        agenda: "",
+        start_time: "",
+        duration: 45,
+        timezone: "UTC",
+      });
+
+      // Refresh live sessions
+      const refreshResponse = await axios.get(`${FHOST}/api/live-sessions/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const refreshData = refreshResponse.data;
+      const sessions = Array.isArray(refreshData?.results)
+        ? refreshData.results
+        : [];
+      setLiveSessions(sessions);
+
+      // Refresh bookings
+      const refreshBookingsResponse = await axios.get(
+        `${FHOST}/api/booked-sessions/`,
         {
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+            Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
-
-      if (response.status === 201 || response.status === 200) {
-        const data = response.data;
-        setMeetingData({
-          id: data?.id || null,
-          session_booking_id: meetingDetails.session_booking_id,
-          meetLink: data?.meeting_link || data?.teacher_meeting_link || null,
-          studentLink: data?.student_meeting_link || null,
-          whiteboardLink: data?.whiteboard_link || null,
-          title: data?.title || meetingDetails.topic,
-          description: data?.description || meetingDetails.agenda,
-          startedAt: data?.started_at || null,
-          endedAt: data?.ended_at || null,
-        });
-        setShowPopup(true);
-
-        // Reset form after successful creation
-        setMeetingDetails({
-          session_booking_id: '',
-          topic: '',
-          agenda: '',
-          start_time: '',
-          duration: 45,
-          timezone: 'UTC',
-        });
-
-        // Refresh live sessions
-        const refreshResponse = await axios.get(`${FHOST}/api/live-sessions/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const refreshData = refreshResponse.data;
-        const sessions = Array.isArray(refreshData?.results) ? refreshData.results : [];
-        setLiveSessions(sessions);
-
-        // Refresh bookings to remove the used one
-        const refreshBookingsResponse = await axios.get(`${FHOST}/api/booked-sessions/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const refreshBookingsData = refreshBookingsResponse.data;
-        const allBookings = Array.isArray(refreshBookingsData?.results) ? refreshBookingsData.results : [];
-        const availableBookings = allBookings.filter(
-          booking => booking.is_allowed && !booking.attended
-        );
-        setBookings(availableBookings);
-      } else {
-        setError('Unexpected response from server while creating meeting.');
-      }
-    } catch (err) {
-      const status = err?.response?.status;
-      const data = err?.response?.data;
-      const details = typeof data === 'string'
-        ? data
-        : (data?.error || data?.message || data?.details);
-      const msg = details
-        || (status ? `Request failed with status ${status}` : err?.message)
-        || 'Error creating meeting. Please check your inputs.';
-      setError(String(msg));
-    } finally {
-      setLoading(false);
+      const refreshBookingsData = refreshBookingsResponse.data;
+      const allBookings = Array.isArray(refreshBookingsData?.results)
+        ? refreshBookingsData.results
+        : [];
+      const availableBookings = allBookings.filter(
+        (booking) => booking.is_allowed && !booking.attended,
+      );
+      setBookings(availableBookings);
+    } else {
+      setError("Unexpected response from server while creating meeting.");
     }
-  };
+  } catch (err) {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+    const details =
+      typeof data === "string"
+        ? data
+        : data?.error || data?.message || data?.details;
+    const msg =
+      details ||
+      (status ? `Request failed with status ${status}` : err?.message) ||
+      "Error creating meeting. Please check your inputs.";
+    setError(String(msg));
+  } finally {
+    setLoading(false);
+  }
+};
 
 
   return (

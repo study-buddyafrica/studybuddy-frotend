@@ -1,14 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
-  FaRegEye,
-  FaRegEyeSlash,
   FaChalkboardTeacher,
   FaUserGraduate,
   FaUserFriends,
   FaUserTie,
+  FaEnvelope,
+  FaLock,
+  FaUser,
 } from "react-icons/fa";
-import { FHOST } from "../components/constants/Functions";
+import { FcGoogle } from "react-icons/fc";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { FHOST, checkUser } from "../components/constants/Functions";
+import { firebaseAuth } from "../firebaseConfig";
+import {
+  AuthLayout,
+  AuthInput,
+  AuthPasswordInput,
+  AuthAlert,
+  authInputBaseClass,
+  authLinkClass,
+} from "../components/auth";
 
 const UniversalSignupPage = () => {
   const { state } = useLocation();
@@ -41,9 +53,8 @@ const UniversalSignupPage = () => {
   const [educationLevels, setEducationLevels] = useState([]);
   const [educationLevelIsLoading, setEducationLevelIsLoading] = useState(false);
   const [educationLevelError, setEducationLevelError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState("");
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
@@ -162,17 +173,26 @@ const UniversalSignupPage = () => {
         sendCodeData = { error: "Failed to parse server response" };
       }
 
-      // 2. Handle Errors (e.g., Email already exists)
+      // 2. Handle Errors (e.g., Email already exists, rate limit, validation errors)
       if (!sendCodeResponse.ok) {
-        const errorMsg = `${sendCodeData.errors[0].detail}`;
+        let errorMsg = "Failed to send verification code.";
+        if (sendCodeData.errors && Array.isArray(sendCodeData.errors) && sendCodeData.errors.length > 0) {
+          errorMsg = sendCodeData.errors[0]?.detail || sendCodeData.errors[0]?.message || String(sendCodeData.errors[0]);
+        } else if (sendCodeData.detail) {
+          errorMsg = sendCodeData.detail;
+        } else if (sendCodeData.message) {
+          errorMsg = sendCodeData.message;
+        } else if (sendCodeData.email) {
+          errorMsg = Array.isArray(sendCodeData.email) ? sendCodeData.email.join(" ") : String(sendCodeData.email);
+        } else if (sendCodeData.error) {
+          errorMsg = typeof sendCodeData.error === "string" ? sendCodeData.error : JSON.stringify(sendCodeData.error);
+        }
 
-        if (
-          errorMsg.toLowerCase().includes("email") &&
-          errorMsg.toLowerCase().includes("already exists")
-        ) {
-          setErrorMessage("An account with this email already exists.");
+        const lowerError = String(errorMsg).toLowerCase();
+        if (lowerError.includes("email") && lowerError.includes("already exists")) {
+          setErrorMessage("An account with this email already exists. Please log in or use another email.");
         } else {
-          setErrorMessage(errorMsg);
+          setErrorMessage(String(errorMsg));
         }
         setLoading(false);
         return;
@@ -215,22 +235,39 @@ const UniversalSignupPage = () => {
     }
   };
 
-  //learning levels for students
+  // Known default levels so user is never blocked by temporary backend/network blips
+  const DEFAULT_EDUCATION_LEVELS = [
+    {
+      id: "9a77c63d-5249-4360-9a7d-7cbb18993811",
+      name: "K-12 (Primary & Secondary)",
+    },
+    {
+      id: "d1c74a1c-7a2f-4671-9a26-9e83a67bc4e7",
+      name: "University & Tertiary",
+    },
+    {
+      id: "50605ec9-ca30-4202-830c-24d225baf1ec",
+      name: "Continuous & Vocational Learning",
+    },
+  ];
+
+  // Learning levels for students
   async function fetchLearningLevels() {
     setEducationLevelIsLoading(true);
     setEducationLevelError("");
     try {
-      const response = await fetch(`${FHOST}/api/education-levels/`);
+      const apiBase = FHOST || "http://127.0.0.1:8000";
+      const response = await fetch(`${apiBase}/api/education-levels/`);
       if (!response.ok) {
         throw new Error("Failed to fetch learning levels");
       }
       const data = await response.json();
       if (!data?.results?.length) throw new Error("No learning levels found");
       setEducationLevels(data.results);
-      if (state.education_level) {
+      if (state?.education_level) {
         const match = data.results.find((level) =>
           level.name
-            .toLowerCase()
+            ?.toLowerCase()
             .includes(state.education_level.toLowerCase()),
         );
         if (match) {
@@ -238,8 +275,9 @@ const UniversalSignupPage = () => {
         }
       }
     } catch (error) {
-      console.error("Error fetching learning levels:", error);
-      setEducationLevelError("Unable to load education levels.");
+      console.warn("Unable to fetch live education levels, using fallback options:", error);
+      setEducationLevelError("Could not reach server. Using standard curriculum levels.");
+      setEducationLevels((prev) => (prev.length > 0 ? prev : DEFAULT_EDUCATION_LEVELS));
     } finally {
       setEducationLevelIsLoading(false);
     }
@@ -247,357 +285,274 @@ const UniversalSignupPage = () => {
 
   useEffect(() => {
     if (formData.role === "student") {
-      fetchLearningLevels();
+      if (educationLevels.length === 0) {
+        fetchLearningLevels();
+      }
     } else {
-      setEducationLevels([]);
       setFormData((prev) => ({ ...prev, education_level: "" }));
     }
-  }, [formData.role, formData.education_level]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.role]);
+
+  const handleGoogleSignup = async () => {
+    const provider = new GoogleAuthProvider();
+    setIsGoogleLoading(true);
+    setErrorMessage("");
+    setInformationalMessage("");
+
+    try {
+      const { user } = await signInWithPopup(firebaseAuth, provider);
+      const userInfo = await checkUser(user.email);
+
+      if (
+        userInfo.exists === true ||
+        String(userInfo.exists).toLowerCase() === "true"
+      ) {
+        setInformationalMessage(
+          "An account with this Google email already exists. Redirecting to login...",
+        );
+        setTimeout(() => navigate("/login"), 1500);
+        return;
+      }
+
+      const nameParts = (user.displayName || "").trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      const generatedUsername = firstName
+        ? `${firstName.toLowerCase()}${Math.floor(Math.random() * 1000)}`
+        : "";
+
+      setFormData((prev) => ({
+        ...prev,
+        first_name: firstName || prev.first_name,
+        last_name: lastName || prev.last_name,
+        email: user.email || prev.email,
+        username: prev.username || generatedUsername,
+      }));
+
+      setInformationalMessage(
+        "Google account connected! Please choose your role and password to complete registration.",
+      );
+    } catch (err) {
+      console.error("Google sign-in error:", err);
+      setErrorMessage(
+        "Google authentication failed or was cancelled. Please try again.",
+      );
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const getStrengthLabel = (strength) => {
     if (strength === "strong") return "Strong Password";
     return "Weak Password";
   };
 
-  const getRoleTitle = () => {
-    switch (formData.role) {
-      case "parent":
-        return "Empower Your Child's Learning";
-      case "teacher":
-        return "Inspire Future Generations";
-      case "student":
-        return "Unlock Your Potential";
-      default:
-        return "Join Our Learning Community";
-    }
-  };
-
-  const getRoleDescription = () => {
-    switch (formData.role) {
-      case "parent":
-        return "Take control of your child's education journey with personalized tracking and resources.";
-      case "teacher":
-        return "Share your knowledge, create engaging lessons, and connect with students worldwide.";
-      case "student":
-        return "Access personalized learning paths, interactive content, and expert guidance.";
-      default:
-        return "Become part of a vibrant community dedicated to lifelong learning.";
-    }
-  };
-
-  const displayRole = formData.role;
+  const activeStep = formData.role ? 2 : 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] to-[#e1f5fe] flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl flex flex-col md:flex-row overflow-hidden">
-        {/* Left Panel - Hidden on mobile */}
-        <div className="hidden md:flex md:w-2/5 bg-gradient-to-br from-[#0288d1] to-[#01579b] p-8 flex-col justify-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10">
-            <div className="absolute top-10 right-10 w-24 h-24 rounded-full bg-white"></div>
-            <div className="absolute bottom-20 left-10 w-16 h-16 rounded-full bg-white"></div>
-            <div className="absolute top-1/3 left-1/4 w-32 h-32 rounded-full bg-white"></div>
-          </div>
+    <AuthLayout
+      mode="signup"
+      activeStep={activeStep}
+      title="Create Your Account"
+      subtitle="Join our community of learners and educators"
+    >
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={handleGoogleSignup}
+          disabled={isGoogleLoading || loading}
+          className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 bg-white hover:bg-gray-50/80 rounded-xl transition-colors disabled:opacity-75 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+        >
+          {isGoogleLoading ? (
+            <span className="font-josefin text-sm text-gray-700">
+              Connecting Google...
+            </span>
+          ) : (
+            <>
+              <FcGoogle className="text-xl" />
+              <span className="font-josefin font-semibold text-gray-700 text-sm">
+                Continue with Google
+              </span>
+            </>
+          )}
+        </button>
 
-          <div className="relative z-10 text-white">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <h2 className="text-3xl font-bold mb-4 font-lilita">
-                {getRoleTitle()}
-              </h2>
-              <p className="text-white/90 mb-6 font-josefin">
-                {getRoleDescription()}
-              </p>
+        <div className="flex items-center my-4">
+          <div className="flex-1 border-t border-gray-200" />
+          <span className="px-4 text-xs uppercase tracking-wider text-gray-400 font-josefin font-semibold">
+            Or register with email
+          </span>
+          <div className="flex-1 border-t border-gray-200" />
+        </div>
+      </div>
 
-              <div className="flex items-center space-x-4">
-                <div className="bg-white/20 p-3 rounded-full">
-                  {displayRole === "parent" && (
-                    <FaUserFriends className="w-8 h-8" />
-                  )}
-                  {displayRole === "teacher" && (
-                    <FaChalkboardTeacher className="w-8 h-8" />
-                  )}
-                  {displayRole === "student" && (
-                    <FaUserGraduate className="w-8 h-8" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg font-lilita">Benefits</h3>
-                  <ul className="text-sm mt-2 space-y-1 font-josefin">
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                      Personalized learning experience
-                    </li>
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                      Access to premium resources
-                    </li>
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                      Connect with experts
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
+      <form onSubmit={handleSignup} className="space-y-4">
+        {/* Row 1: First & Last Name */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <AuthInput
+            type="text"
+            name="first_name"
+            placeholder="First Name"
+            value={formData.first_name}
+            onChange={handleInputChange}
+            icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="given-name"
+            required
+          />
+          <AuthInput
+            type="text"
+            name="last_name"
+            placeholder="Last Name"
+            value={formData.last_name}
+            onChange={handleInputChange}
+            icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="family-name"
+            required
+          />
         </div>
 
-        {/* Right Panel - Form Section */}
-        <div className="w-full md:w-3/5 p-6 md:p-8">
-          <div className="text-center mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-[#01579b] font-lilita mb-2">
-              Create Your Account
-            </h1>
-            <p className="text-gray-600 font-josefin">
-              Join our community of learners and educators
-            </p>
+        {/* Row 2: Email & Username (Consistent 2-column layout) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <AuthInput
+            type="email"
+            name="email"
+            placeholder="Email Address"
+            value={formData.email}
+            onChange={handleInputChange}
+            icon={<FaEnvelope className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="email"
+            required
+          />
+          <AuthInput
+            type="text"
+            name="username"
+            placeholder="Username"
+            value={formData.username}
+            onChange={handleInputChange}
+            icon={<FaUser className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="username"
+            required
+          />
+        </div>
+
+        {/* Row 3: Role Selection (Clean full width, stable grid) */}
+        <div className="relative w-full">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+            <FaUser className="w-4 h-4" aria-hidden="true" />
           </div>
-
-          <form onSubmit={handleSignup} className="space-y-4">
-            {/* First & Last Name */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <FaUserTie className="w-4 h-4 md:w-5 md:h-5" />
-                </div>
-                <input
-                  type="text"
-                  name="first_name"
-                  placeholder="First Name"
-                  value={formData.first_name}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] outline-none font-josefin"
-                  required
-                />
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <FaUserTie className="w-4 h-4 md:w-5 md:h-5" />
-                </div>
-                <input
-                  type="text"
-                  name="last_name"
-                  placeholder="Last Name"
-                  value={formData.last_name}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-2 md:py-3 border outline-none border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 md:h-5 md:w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor">
-                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                </svg>
-              </div>
-              <input
-                type="email"
-                name="email"
-                placeholder="Email Address"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-2 outline-none md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                required
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
               />
-            </div>
+            </svg>
+          </div>
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleInputChange}
+            className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer`}
+            required
+          >
+            <option value="">Select Role (Student, Teacher, Parent)</option>
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            <div className="flex flex-col md:flex-row gap-4 items-center">
-              {/* Role Selection */}
-              <div className="relative w-full">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor">
-                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                  </svg>
-                </div>
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
-                  required>
-                  <option value="">Select Role</option>
-                  {roles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
+        {/* Row 4: Education Level (Only shown for students, with smooth reveal, icon, and fallback) */}
+        {formData.role === "student" && (
+          <div className="relative w-full transition-all duration-300">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#01B0F1]">
+              <FaUserGraduate className="w-4 h-4" aria-hidden="true" />
+            </div>
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+            <select
+              name="education_level"
+              value={formData.education_level}
+              onChange={handleInputChange}
+              disabled={educationLevelIsLoading}
+              className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer border-[#01B0F1]/40 focus:border-[#01B0F1]`}
+              required
+            >
+              <option value="">
+                {educationLevelIsLoading
+                  ? "Loading education levels..."
+                  : "Select Education Level (CBC, 8-4-4, University)"}
+              </option>
+              {educationLevels.map((level) => (
+                <option key={level.id} value={level.id}>
+                  {level.name}
+                </option>
+              ))}
+            </select>
+            {educationLevelError && (
+              <div className="flex items-center justify-between text-xs text-amber-600 mt-1 px-1 font-josefin">
+                <span>Network error loading live levels; using standard defaults.</span>
+                <button
+                  type="button"
+                  onClick={fetchLearningLevels}
+                  className="text-[#015575] hover:underline font-semibold ml-2"
+                >
+                  Retry
+                </button>
               </div>
-
-              {/* Education Level — only shown for students */}
-              {formData.role === "student" && (
-                <div className="relative w-full">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 md:h-5 md:w-5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor">
-                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
-                    </svg>
-                  </div>
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 md:h-5 md:w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                  <select
-                    name="education_level"
-                    value={formData.education_level}
-                    onChange={handleInputChange}
-                    disabled={educationLevelIsLoading || educationLevelError}
-                    className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin appearance-none bg-white cursor-pointer"
-                    required>
-                    <option value="">
-                      {educationLevelIsLoading
-                        ? "Loading..."
-                        : educationLevelError
-                          ? "Error loading levels"
-                          : "Select Education Level"}
-                    </option>
-                    {educationLevels.map((level) => (
-                      <option key={level.id} value={level.id}>
-                        {level.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Username */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 md:h-5 md:w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 2a5 5 0 100 10A5 5 0 0010 2zM4 12a6 6 0 1112 0v1a2 2 0 01-2 2H6a2 2 0 01-2-2v-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                name="username"
-                placeholder="Username"
-                value={formData.username}
-                onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-2 outline-none md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                required
-              />
-            </div>
+            )}
+          </div>
+        )}
 
             {/* Password Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="Password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-10 outline-none py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 md:top-3.5 text-gray-500 hover:text-[#01579b]">
-                  {showPassword ? (
-                    <FaRegEyeSlash className="text-sm md:text-base" />
-                  ) : (
-                    <FaRegEye className="text-sm md:text-base" />
-                  )}
-                </button>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  placeholder="Confirm Password"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 outline-none pr-10 py-2 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] font-josefin"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-2.5 md:top-3.5 text-gray-500 hover:text-[#01579b]">
-                  {showConfirmPassword ? (
-                    <FaRegEyeSlash className="text-sm md:text-base" />
-                  ) : (
-                    <FaRegEye className="text-sm md:text-base" />
-                  )}
-                </button>
-              </div>
+              <AuthPasswordInput
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleInputChange}
+                icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
+                autoComplete="new-password"
+                required
+              />
+              <AuthPasswordInput
+                name="confirmPassword"
+                placeholder="Confirm Password"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
+                revealLabel="Show confirm password"
+                hideLabel="Hide confirm password"
+                autoComplete="new-password"
+                required
+              />
             </div>
 
             {/* Password Strength Indicator */}
@@ -718,15 +673,27 @@ const UniversalSignupPage = () => {
             {/* Messages and Submit Button */}
             <div className="space-y-3">
               {errorMessage && (
-                <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-center">
-                  <p className="font-josefin text-sm">{errorMessage}</p>
-                </div>
+                <AuthAlert
+                  message={errorMessage}
+                  variant="error"
+                  onDismiss={() => setErrorMessage("")}
+                  onRetry={
+                    /connection|network|timeout|try again|failed to send/i.test(
+                      errorMessage,
+                    )
+                      ? () => setErrorMessage("")
+                      : undefined
+                  }
+                />
               )}
 
               {informationalMessage && (
-                <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl">
-                  <p className="font-josefin text-sm">{informationalMessage}</p>
-                </div>
+                <AuthAlert
+                  message={informationalMessage}
+                  variant="success"
+                  onDismiss={() => setInformationalMessage("")}
+                  action={null}
+                />
               )}
 
               <button
@@ -737,7 +704,7 @@ const UniversalSignupPage = () => {
                 className={`w-full py-2.5 md:py-3.5 rounded-xl font-lilita text-base md:text-lg transition-all ${
                   loading || passwordStrength !== "strong" || !formData.role
                     ? "bg-gray-400 cursor-not-allowed text-white"
-                    : "bg-gradient-to-r from-[#0288d1] to-[#01579b] text-white hover:shadow-lg hover:from-[#039be5] hover:to-[#0277bd]"
+                    : "bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white hover:shadow-lg hover:from-[#01B0F1] hover:to-[#015575]"
                 }`}>
                 {loading ? (
                   <span className="flex items-center justify-center text-sm md:text-base">
@@ -767,17 +734,16 @@ const UniversalSignupPage = () => {
             </div>
           </form>
 
-          <p className="text-center font-josefin text-gray-600 mt-4 md:mt-6 text-sm md:text-base">
+          <p className="text-center font-josefin text-gray-600 mt-5 text-sm">
             Already have an account?{" "}
             <Link
               to="/login"
-              className="text-[#0288d1] hover:text-[#01579b] font-semibold">
+              className={`${authLinkClass} font-semibold underline underline-offset-2`}
+            >
               Log in here
             </Link>
           </p>
-        </div>
-      </div>
-    </div>
+    </AuthLayout>
   );
 };
 

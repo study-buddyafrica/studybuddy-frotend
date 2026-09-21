@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { FHOST } from "../constants/Functions";
 import { FaEdit, FaUser, FaEnvelope, FaCalendarAlt, FaPhone, FaGraduationCap, FaSchool, FaBook } from "react-icons/fa";
+import { authStorage } from "../../services/authStorage";
 
 const StudentViewProfile = ({ userInfo, onEditProfile }) => {
   const [profileData, setProfileData] = useState(null);
@@ -18,73 +19,76 @@ const StudentViewProfile = ({ userInfo, onEditProfile }) => {
     fetchSubjects();
   }, [userInfo]);
 
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${FHOST}/api/student/profile/update/${userInfo.id}/`, {
+const fetchProfile = async () => {
+  try {
+    setLoading(true);
+    const response = await axios.get(
+      `${FHOST}/api/student/profile/update/${userInfo.id}/`,
+      {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
         },
-      });
-      if (response.data) {
-        setProfileData(response.data);
-      }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-      if (error.response?.status === 404) {
-        setError("Profile not found. Please update your profile first.");
-      } else {
-        setError("Failed to load profile. Please try again.");
-      }
-    } finally {
-      setLoading(false);
+      },
+    );
+    if (response.data) {
+      setProfileData(response.data);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    if (error.response?.status === 404) {
+      setError("Profile not found. Please update your profile first.");
+    } else {
+      setError("Failed to load profile. Please try again.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const fetchGrades = async () => {
-    try {
-      const response = await axios.get(`${FHOST}/admin/get-classes`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data?.classes) {
-        setAvailableGrades(response.data.classes);
-      }
-    } catch (error) {
-      console.error("Error fetching grades:", error);
+const fetchGrades = async () => {
+  try {
+    const response = await axios.get(`${FHOST}/admin/get-classes`, {
+      headers: {
+        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+      },
+    });
+    if (response.data?.classes) {
+      setAvailableGrades(response.data.classes);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching grades:", error);
+  }
+};
 
-  const fetchSchools = async () => {
-    try {
-      const response = await axios.get(`${FHOST}/api/schools/`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data?.results) {
-        setAvailableSchools(response.data.results || []);
-      }
-    } catch (error) {
-      console.error("Error fetching schools:", error);
+const fetchSchools = async () => {
+  try {
+    const response = await axios.get(`${FHOST}/api/schools/`, {
+      headers: {
+        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+      },
+    });
+    if (response.data?.results) {
+      setAvailableSchools(response.data.results || []);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching schools:", error);
+  }
+};
 
-  const fetchSubjects = async () => {
-    try {
-      const response = await axios.get(`${FHOST}/admin/get-subjects/`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data?.classes) {
-        setAvailableSubjects(response.data.classes);
-      }
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
+const fetchSubjects = async () => {
+  try {
+    const response = await axios.get(`${FHOST}/admin/get-subjects/`, {
+      headers: {
+        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+      },
+    });
+    if (response.data?.classes) {
+      setAvailableSubjects(response.data.classes);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching subjects:", error);
+  }
+};
 
   const getGradeName = (gradeId) => {
     const grade = availableGrades.find(g => g.id === gradeId);

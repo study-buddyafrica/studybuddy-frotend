@@ -11,6 +11,7 @@ import {
 } from "react-icons/fa";
 import { FHOST } from "../constants/Functions";
 import CourseDetails from "./CourseDetails";
+import { authStorage } from "../../services/authStorage";
 
 const initialCourseState = {
   title: "",
@@ -86,125 +87,137 @@ const MyLessons = ({ userInfo }) => {
     setTimeout(() => setErrorMessage(""), 5000);
   };
 
-  const fetchCourses = async () => {
-    setLoadingCourses(true);
-    try {
-      const token = localStorage.getItem("access_token");
-      const response = await axios.get(`${FHOST}/api/courses/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  const handleCourseFieldChange = (field, value) => {
+    setNewCourse((previousCourse) => ({
+      ...previousCourse,
+      [field]: value,
+    }));
+  };
+
+const fetchCourses = async () => {
+  setLoadingCourses(true);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.get(`${FHOST}/api/courses/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    const payload = response.data?.results || response.data || [];
+    const list = Array.isArray(payload) ? payload : [];
+    setCourses(list);
+    if (!selectedCourse && list.length) {
+      setSelectedCourse(list[0]);
+    }
+  } catch (error) {
+    handleApiError("Failed to load courses. Please try again.", error);
+  } finally {
+    setLoadingCourses(false);
+  }
+};
+
+const fetchEnrollments = async () => {
+  setLoadingEnrollments(true);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.get(`${FHOST}/api/courses/enrollments/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    const payload = response.data?.results || response.data || [];
+    const list = Array.isArray(payload)
+      ? payload.map((enrollment) => ({
+          id: enrollment.id,
+          course: enrollment.course,
+          course_title:
+            enrollment.course_title ||
+            enrollment.course?.title ||
+            "Untitled course",
+          student: enrollment.student,
+          purchased_at: enrollment.purchased_at,
+          is_active: enrollment.is_active,
+          transaction: enrollment.transaction,
+          amount_paid: enrollment.amount_paid,
+        }))
+      : [];
+    setEnrollments(list);
+  } catch (error) {
+    handleApiError("Failed to load enrollments. Please try again.", error);
+  } finally {
+    setLoadingEnrollments(false);
+  }
+};
+
+const fetchSubjects = async () => {
+  setLoadingSubjects(true);
+  try {
+    let allSubjects = [];
+    let nextUrl = `${FHOST}/api/subjects/`;
+
+    while (nextUrl) {
+      const response = await axios.get(nextUrl, {
+        headers: {
+          Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+        },
       });
-      const payload = response.data?.results || response.data || [];
-      const list = Array.isArray(payload) ? payload : [];
-      setCourses(list);
-      if (!selectedCourse && list.length) {
-        setSelectedCourse(list[0]);
+      if (response.data && response.data.results) {
+        allSubjects = allSubjects.concat(response.data.results);
       }
-    } catch (error) {
-      handleApiError("Failed to load courses. Please try again.", error);
-    } finally {
-      setLoadingCourses(false);
+      nextUrl = response.data.next;
     }
-  };
 
-  const fetchEnrollments = async () => {
-    setLoadingEnrollments(true);
-    try {
-      const token = localStorage.getItem("access_token");
-      const response = await axios.get(`${FHOST}/api/courses/enrollments/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    setAvailableSubjects(allSubjects);
+  } catch (error) {
+    console.error("Error fetching subjects:", error);
+    const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+    if (userInfo?.subjects) {
+      const subjectsFromProfile = Array.isArray(userInfo.subjects)
+        ? userInfo.subjects
+        : [userInfo.subjects];
+      setAvailableSubjects(
+        subjectsFromProfile.map((s) =>
+          typeof s === "object" ? s : { id: s, name: s },
+        ),
+      );
+    }
+  } finally {
+    setLoadingSubjects(false);
+  }
+};
+
+const fetchGrades = async () => {
+  setLoadingGrades(true);
+  try {
+    let allGrades = [];
+    let nextUrl = `${FHOST}/api/grades/`;
+
+    while (nextUrl) {
+      const response = await axios.get(nextUrl, {
+        headers: {
+          Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+        },
       });
-      const payload = response.data?.results || response.data || [];
-      const list = Array.isArray(payload)
-        ? payload.map((enrollment) => ({
-            id: enrollment.id,
-            course: enrollment.course,
-            course_title: enrollment.course_title || enrollment.course?.title || "Untitled course",
-            student: enrollment.student,
-            purchased_at: enrollment.purchased_at,
-            is_active: enrollment.is_active,
-            transaction: enrollment.transaction,
-            amount_paid: enrollment.amount_paid,
-          }))
-        : [];
-      setEnrollments(list);
-    } catch (error) {
-      handleApiError("Failed to load enrollments. Please try again.", error);
-    } finally {
-      setLoadingEnrollments(false);
-    }
-  };
-
-  const fetchSubjects = async () => {
-    setLoadingSubjects(true);
-    try {
-      let allSubjects = [];
-      let nextUrl = `${FHOST}/api/subjects/`;
-
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-        if (response.data && response.data.results) {
-          allSubjects = allSubjects.concat(response.data.results);
-        }
-        nextUrl = response.data.next;
+      if (response.data && response.data.results) {
+        allGrades = allGrades.concat(response.data.results);
       }
-
-      setAvailableSubjects(allSubjects);
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
-      // If API fails, try to get from teacher profile
-      const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-      if (userInfo?.subjects) {
-        const subjectsFromProfile = Array.isArray(userInfo.subjects) ? userInfo.subjects : [userInfo.subjects];
-        setAvailableSubjects(subjectsFromProfile.map(s => typeof s === 'object' ? s : { id: s, name: s }));
-      }
-    } finally {
-      setLoadingSubjects(false);
+      nextUrl = response.data.next;
     }
-  };
 
-  const fetchGrades = async () => {
-    setLoadingGrades(true);
-    try {
-      let allGrades = [];
-      let nextUrl = `${FHOST}/api/grades/`;
+    setAvailableGrades(allGrades);
+  } catch (error) {
+    console.error("Error fetching grades:", error);
+  } finally {
+    setLoadingGrades(false);
+  }
+};
 
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-        if (response.data && response.data.results) {
-          allGrades = allGrades.concat(response.data.results);
-        }
-        nextUrl = response.data.next;
-      }
-
-      setAvailableGrades(allGrades);
-    } catch (error) {
-      console.error("Error fetching grades:", error);
-    } finally {
-      setLoadingGrades(false);
-    }
-  };
-
-  const fetchLiveLessons = async () => {
-    setLoadingLiveLessons(true);
-    try {
-      const token = localStorage.getItem("access_token");
-      // Assuming an endpoint for course live lessons, but since not specified, perhaps skip or use a placeholder
-      // For now, set empty
-      setLiveLessons([]);
-    } catch (error) {
-      handleApiError("Failed to load live lessons. Please try again.", error);
-    } finally {
-      setLoadingLiveLessons(false);
-    }
-  };
+ const fetchLiveLessons = async () => {
+   setLoadingLiveLessons(true);
+   try {
+     setLiveLessons([]);
+   } catch (error) {
+     handleApiError("Failed to load live lessons. Please try again.", error);
+   } finally {
+     setLoadingLiveLessons(false);
+   }
+ };
 
   const handleRefresh = () => {
     fetchCourses();
@@ -228,121 +241,125 @@ const MyLessons = ({ userInfo }) => {
     });
   }, [courseSearch, courses]);
 
-  const handleCourseFieldChange = (field, value) => {
-    setNewCourse((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleCreateCourse = async (event) => {
-    event.preventDefault();
-    setSavingCourse(true);
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        handleApiError("Authentication required. Please log in again.", new Error("No token"));
-        setSavingCourse(false);
-        return;
-      }
-
-      const teacherIdentifier =
-        userInfo?.teacher_profile_id ||
-        userInfo?.teacher_profile?.id ||
-        userInfo?.id;
-
-      const formData = new FormData();
-      formData.append('title', newCourse.title.trim());
-      formData.append('description', newCourse.description.trim());
-      formData.append('subject', newCourse.subject);
-      formData.append('grade', newCourse.grade);
-      formData.append('price', newCourse.price || "0");
-      formData.append('is_active', newCourse.is_active);
-      if (newCourse.code) formData.append('code', newCourse.code);
-      if (newCourse.cover_image) formData.append('cover_image', newCourse.cover_image);
-      formData.append('topics', newCourse.topics);
-      formData.append('teacher', teacherIdentifier);
-      formData.append('country', newCourse.country);
-      formData.append('is_universal', newCourse.is_universal);
-
-      const response = await axios.post(`${FHOST}/api/courses/`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.status === 200 || response.status === 201) {
-        setSuccessMessage("Course created successfully!");
-        setShowCreateCourseModal(false);
-        setNewCourse({
-          ...initialCourseState,
-          cover_image: null,
-        });
-        fetchCourses();
-        setTimeout(() => setSuccessMessage(""), 4000);
-      }
-    } catch (error) {
-      const errorMsg =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.response?.data?.detail ||
-        "Failed to create course. Please try again.";
-      handleApiError(errorMsg, error);
-    } finally {
+const handleCreateCourse = async (event) => {
+  event.preventDefault();
+  setSavingCourse(true);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      handleApiError(
+        "Authentication required. Please log in again.",
+        new Error("No token"),
+      );
       setSavingCourse(false);
+      return;
     }
-  };
 
-  const handleCreateLiveLesson = async (event) => {
-    event.preventDefault();
-    setSavingCourse(true); // Reuse saving state
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        handleApiError("Authentication required. Please log in again.", new Error("No token"));
-        return;
-      }
+    const teacherIdentifier =
+      userInfo?.teacher_profile_id ||
+      userInfo?.teacher_profile?.id ||
+      userInfo?.id;
 
-      const payload = {
-        course_id: newLiveLesson.course_id,
-        title: newLiveLesson.title.trim(),
-        description: newLiveLesson.description.trim(),
-        started_at: newLiveLesson.started_at,
-        ended_at: newLiveLesson.ended_at,
-      };
+    const formData = new FormData();
+    formData.append("title", newCourse.title.trim());
+    formData.append("description", newCourse.description.trim());
+    formData.append("subject", newCourse.subject);
+    formData.append("grade", newCourse.grade);
+    formData.append("price", newCourse.price || "0");
+    formData.append("is_active", newCourse.is_active);
+    if (newCourse.code) formData.append("code", newCourse.code);
+    if (newCourse.cover_image)
+      formData.append("cover_image", newCourse.cover_image);
+    formData.append("topics", newCourse.topics);
+    formData.append("teacher", teacherIdentifier);
+    formData.append("country", newCourse.country);
+    formData.append("is_universal", newCourse.is_universal);
 
-      const response = await axios.post(`${FHOST}/api/teacher/course/live-lession/`, payload, {
+    const response = await axios.post(`${FHOST}/api/courses/`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 200 || response.status === 201) {
+      setSuccessMessage("Course created successfully!");
+      setShowCreateCourseModal(false);
+      setNewCourse({
+        ...initialCourseState,
+        cover_image: null,
+      });
+      fetchCourses();
+      setTimeout(() => setSuccessMessage(""), 4000);
+    }
+  } catch (error) {
+    const errorMsg =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.response?.data?.detail ||
+      "Failed to create course. Please try again.";
+    handleApiError(errorMsg, error);
+  } finally {
+    setSavingCourse(false);
+  }
+};
+
+const handleCreateLiveLesson = async (event) => {
+  event.preventDefault();
+  setSavingCourse(true);
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      handleApiError(
+        "Authentication required. Please log in again.",
+        new Error("No token"),
+      );
+      return;
+    }
+
+    const payload = {
+      course_id: newLiveLesson.course_id,
+      title: newLiveLesson.title.trim(),
+      description: newLiveLesson.description.trim(),
+      started_at: newLiveLesson.started_at,
+      ended_at: newLiveLesson.ended_at,
+    };
+
+    const response = await axios.post(
+      `${FHOST}/api/teacher/course/live-lession/`,
+      payload,
+      {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      });
+      },
+    );
 
-      if (response.status === 200 || response.status === 201) {
-        setSuccessMessage("Live lesson created successfully!");
-        setShowCreateLiveLessonModal(false);
-        setNewLiveLesson({
-          course_id: '',
-          title: '',
-          description: '',
-          started_at: '',
-          ended_at: '',
-        });
-        fetchLiveLessons();
-        setTimeout(() => setSuccessMessage(""), 4000);
-      }
-    } catch (error) {
-      const errorMsg =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.response?.data?.detail ||
-        "Failed to create live lesson. Please try again.";
-      handleApiError(errorMsg, error);
-    } finally {
-      setSavingCourse(false);
+    if (response.status === 200 || response.status === 201) {
+      setSuccessMessage("Live lesson created successfully!");
+      setShowCreateLiveLessonModal(false);
+      setNewLiveLesson({
+        course_id: "",
+        title: "",
+        description: "",
+        started_at: "",
+        ended_at: "",
+      });
+      fetchLiveLessons();
+      setTimeout(() => setSuccessMessage(""), 4000);
     }
-  };
+  } catch (error) {
+    const errorMsg =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.response?.data?.detail ||
+      "Failed to create live lesson. Please try again.";
+    handleApiError(errorMsg, error);
+  } finally {
+    setSavingCourse(false);
+  }
+};
 
 
   const tabs = [

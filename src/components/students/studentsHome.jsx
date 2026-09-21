@@ -2,6 +2,7 @@ import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import { FaBookReader, FaChalkboardTeacher, FaUserAlt } from 'react-icons/fa'; // For profile picture placeholder
 import { FHOST } from '../constants/Functions';
+import { authStorage } from "../../services/authStorage";
 
 const StudentsHome = ({setActiveComponent}) => {
   const [sessions, setSessions] = useState([]);
@@ -20,41 +21,41 @@ const StudentsHome = ({setActiveComponent}) => {
   const [viewMoreTeachers, setViewMoreTeachers] = useState(false);
   const [viewMoreVideos, setViewMoreVideos] = useState(false);
 
-  useEffect(() => {
-    // Fetch teachers data from the backend
-    const fetchTeachers = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
-        const response = await axios.get(`${FHOST}/api/teachers/list`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
+useEffect(() => {
+  const fetchTeachers = async () => {
+    try {
+      const token = authStorage.getAccessToken(); // ← changed
+      const response = await axios.get(`${FHOST}/api/teachers/list`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
 
-        const results = response.data?.results || [];
+      const results = response.data?.results || [];
 
-        const formattedTeachers = results.map((teacher) => ({
-          id: teacher.id,
-          full_name: teacher.full_name || 'Teacher',
-          bio: teacher.bio || '',
-          subjects: teacher.subjects || [],
-          is_verified: teacher.is_verified,
-          profilePicture: teacher.profile_picture || 'https://via.placeholder.com/50',
-          rating: teacher.rating || 4.5,
-          availability: teacher.availability || [
-            { date: '2024-11-27', time: '9:00 AM - 11:00 AM', isAvailable: true },
-            { date: '2024-11-27', time: '3:00 PM - 5:00 PM', isAvailable: true },
-          ],
-        }));
+      const formattedTeachers = results.map((teacher) => ({
+        id: teacher.id,
+        full_name: teacher.full_name || "Teacher",
+        bio: teacher.bio || "",
+        subjects: teacher.subjects || [],
+        is_verified: teacher.is_verified,
+        profilePicture:
+          teacher.profile_picture || "https://via.placeholder.com/50",
+        rating: teacher.rating || 4.5,
+        availability: teacher.availability || [
+          { date: "2024-11-27", time: "9:00 AM - 11:00 AM", isAvailable: true },
+          { date: "2024-11-27", time: "3:00 PM - 5:00 PM", isAvailable: true },
+        ],
+      }));
 
-        setTeachers(formattedTeachers);
-      } catch (err) {
-        setError('An error occurred while fetching teachers data');
-      } finally {
-        setLoading(false);
-      }
-    };
+      setTeachers(formattedTeachers);
+    } catch (err) {
+      setError("An error occurred while fetching teachers data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchTeachers();
-  }, []);
+  fetchTeachers();
+}, []);
 
   useEffect(() => {
     const fetchSessions = async () => {

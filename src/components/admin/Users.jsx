@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import axios from 'axios';
 import { FHOST } from '../constants/Functions.jsx';
+import { authStorage } from "../../services/authStorage";
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,48 +13,54 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        // Fetch users by role - we'll need to fetch all roles separately
-        const roles = ['teacher', 'student', 'parent'];
-        const allUsers = [];
-        
-        for (const role of roles) {
-          try {
-            // Try to fetch users with role filter
-            const res = await axios.get(`${FHOST}/api/users/users-list?role=${role}`, {
+useEffect(() => {
+  const fetchUsers = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const token = authStorage.getAccessToken();
+      // Fetch users by role - we'll need to fetch all roles separately
+      const roles = ["teacher", "student", "parent"];
+      const allUsers = [];
+
+      for (const role of roles) {
+        try {
+          // Try to fetch users with role filter
+          const res = await axios
+            .get(`${FHOST}/api/users/users-list?role=${role}`, {
               headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-            }).catch(() => null);
-            
-            if (res?.data?.results && Array.isArray(res.data.results)) {
-              allUsers.push(...res.data.results.map(u => ({
+            })
+            .catch(() => null);
+
+          if (res?.data?.results && Array.isArray(res.data.results)) {
+            allUsers.push(
+              ...res.data.results.map((u) => ({
                 id: u.id,
-                name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username,
+                name:
+                  `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
+                  u.username,
                 email: u.email,
                 type: u.role,
-                status: u.is_active ? 'active' : 'inactive',
+                status: u.is_active ? "active" : "inactive",
                 is_staff: u.is_staff || false,
-              })));
-            }
-          } catch (err) {
-            console.error(`Failed to fetch ${role} users:`, err);
+              })),
+            );
           }
+        } catch (err) {
+          console.error(`Failed to fetch ${role} users:`, err);
         }
-        
-        setUsers(allUsers);
-      } catch (err) {
-        console.error('Failed to load users:', err);
-        setError('Failed to load users');
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchUsers();
-  }, []);
+
+      setUsers(allUsers);
+    } catch (err) {
+      console.error("Failed to load users:", err);
+      setError("Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchUsers();
+}, []);
 
   const handleSearch = () => {
     setSearchQuery(searchTerm);
@@ -63,46 +70,48 @@ const Users = () => {
     alert('Admin creation via UI is disabled. Please use backend admin tools.');
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      await axios.delete(`${FHOST}/api/user/delete/${id}/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      setUsers(users.filter(user => user.id !== id));
-    } catch (err) {
-      console.error('Failed to delete user:', err);
-      alert('Failed to delete user. Please try again.');
-    }
-  };
+const handleDelete = async (id) => {
+  if (!window.confirm("Are you sure you want to delete this user?")) return;
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    await axios.delete(`${FHOST}/api/user/delete/${id}/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    setUsers(users.filter((user) => user.id !== id));
+  } catch (err) {
+    console.error("Failed to delete user:", err);
+    alert("Failed to delete user. Please try again.");
+  }
+};
 
   const handleEdit = (user) => {
     setEditingUser(user);
   };
 
-  const handleSaveEdit = async () => {
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const payload = {
-        email: editingUser.email,
-        first_name: editingUser.name?.split(' ')[0] || '',
-        last_name: editingUser.name?.split(' ').slice(1).join(' ') || '',
-        username: editingUser.email?.split('@')[0] || '',
-        role: editingUser.type,
-        is_active: editingUser.status === 'active',
-        is_staff: editingUser.is_staff || false,
-      };
-      await axios.patch(`${FHOST}/api/user/update/${editingUser.id}/`, payload, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      setUsers(users.map(user => user.id === editingUser.id ? editingUser : user));
-      setEditingUser(null);
-    } catch (err) {
-      console.error('Failed to update user:', err);
-      alert('Failed to update user. Please try again.');
-    }
-  };
+const handleSaveEdit = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const payload = {
+      email: editingUser.email,
+      first_name: editingUser.name?.split(" ")[0] || "",
+      last_name: editingUser.name?.split(" ").slice(1).join(" ") || "",
+      username: editingUser.email?.split("@")[0] || "",
+      role: editingUser.type,
+      is_active: editingUser.status === "active",
+      is_staff: editingUser.is_staff || false,
+    };
+    await axios.patch(`${FHOST}/api/user/update/${editingUser.id}/`, payload, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    setUsers(
+      users.map((user) => (user.id === editingUser.id ? editingUser : user)),
+    );
+    setEditingUser(null);
+  } catch (err) {
+    console.error("Failed to update user:", err);
+    alert("Failed to update user. Please try again.");
+  }
+};
 
   const handleChange = (e) => {
     setEditingUser({ ...editingUser, [e.target.name]: e.target.value });

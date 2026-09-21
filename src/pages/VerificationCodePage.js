@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { FHOST } from "../components/constants/Functions";
+import {
+  AuthLayout,
+  AuthAlert,
+  OtpCodeInput,
+  useResendCountdown,
+  authLinkClass,
+} from "../components/auth";
 
 const VerificationCodePage = () => {
   const location = useLocation();
@@ -17,6 +24,11 @@ const VerificationCodePage = () => {
   const [informationalMessage, setInformationalMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [resendResetKey, setResendResetKey] = useState(0);
+  const { remaining, canResend, label: resendLabel } = useResendCountdown(
+    60,
+    resendResetKey,
+  );
 
   // Get email and registration data from sessionStorage if not in location state
   useEffect(() => {
@@ -253,7 +265,7 @@ const VerificationCodePage = () => {
                 password: regData.password,
                 confirm_password: regData.confirm_password || regData.password,
                 role: regData.role,
-                education_level_id: regData.education_level || "",
+                education_level_id: regData.education_level || null,
               };
             } else if (regData.name) {
               // Handle cases where we only have 'name' (split into first_name and last_name)
@@ -272,7 +284,7 @@ const VerificationCodePage = () => {
                 password: regData.password,
                 confirm_password: regData.confirm_password || regData.password,
                 role: regData.role,
-                education_level_id: regData.education_level || "",
+                education_level_id: regData.education_level || null,
               };
             } else {
               // Fallback - create from email if no name data
@@ -285,7 +297,7 @@ const VerificationCodePage = () => {
                 password: regData.password,
                 confirm_password: regData.confirm_password || regData.password,
                 role: regData.role,
-                education_level_id: regData.education_level || "",
+                education_level_id: regData.education_level || null,
               };
             }
 
@@ -381,28 +393,67 @@ const VerificationCodePage = () => {
               } else if (registerResponse.status === 400) {
                 // Handle validation errors
                 if (registerData.errors) {
-                  const fieldErrors = Object.entries(registerData.errors)
-                    .map(
-                      ([field, messages]) =>
-                        `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages}`,
-                    )
-                    .join("; ");
-                  errorMsg += fieldErrors;
+                  if (Array.isArray(registerData.errors)) {
+                    const parsedErrors = registerData.errors
+                      .map((item) => {
+                        if (typeof item === "string") return item;
+                        if (item && typeof item === "object") {
+                          return (
+                            item.detail || item.message || JSON.stringify(item)
+                          );
+                        }
+                        return String(item);
+                      })
+                      .filter(Boolean)
+                      .join("; ");
+                    errorMsg += parsedErrors || "Invalid registration data.";
+                  } else if (
+                    typeof registerData.errors === "object" &&
+                    registerData.errors !== null
+                  ) {
+                    const fieldErrors = Object.entries(registerData.errors)
+                      .map(([field, messages]) => {
+                        if (Array.isArray(messages)) {
+                          const joined = messages
+                            .map((m) =>
+                              m && typeof m === "object"
+                                ? m.detail || m.message || JSON.stringify(m)
+                                : String(m),
+                            )
+                            .join(", ");
+                          return `${field}: ${joined}`;
+                        }
+                        if (messages && typeof messages === "object") {
+                          return `${field}: ${messages.detail || messages.message || JSON.stringify(messages)}`;
+                        }
+                        return `${field}: ${messages}`;
+                      })
+                      .join("; ");
+                    errorMsg += fieldErrors;
+                  } else {
+                    errorMsg += String(registerData.errors);
+                  }
                 } else if (registerData.detail) {
                   errorMsg +=
                     typeof registerData.detail === "string"
                       ? registerData.detail
-                      : JSON.stringify(registerData.detail);
+                      : registerData.detail.detail ||
+                        registerData.detail.message ||
+                        JSON.stringify(registerData.detail);
                 } else if (registerData.message) {
                   errorMsg +=
                     typeof registerData.message === "string"
                       ? registerData.message
-                      : JSON.stringify(registerData.message);
+                      : registerData.message.detail ||
+                        registerData.message.message ||
+                        JSON.stringify(registerData.message);
                 } else if (registerData.error) {
                   errorMsg +=
                     typeof registerData.error === "string"
                       ? registerData.error
-                      : JSON.stringify(registerData.error);
+                      : registerData.error.detail ||
+                        registerData.error.message ||
+                        JSON.stringify(registerData.error);
                 } else {
                   errorMsg +=
                     "Invalid registration data. Please check your information.";
@@ -531,6 +582,7 @@ const VerificationCodePage = () => {
         setInformationalMessage(
           "Verification code resent successfully! Please check your email.",
         );
+        setResendResetKey((k) => k + 1);
       }
     } catch (error) {
       console.error("Resend code error:", error);
@@ -540,12 +592,6 @@ const VerificationCodePage = () => {
     }
   };
 
-  const handleInputChange = (e) => {
-    const value = e.target.value.replace(/\D/g, ""); // Only allow numbers
-    if (value.length <= 6) {
-      setVerificationCode(value);
-    }
-  };
 
   // Get email for display
   const displayEmail =
@@ -567,137 +613,163 @@ const VerificationCodePage = () => {
     return null; // Will redirect in useEffect
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] to-[#e1f5fe] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 md:p-8">
-        <div className="text-center mb-6 md:mb-8">
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-[#0288d1]/10 mb-4">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-8 w-8 text-[#0288d1]"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#01579b] font-lilita mb-2">
-            Verify Your Email
-          </h1>
-          <p className="text-gray-600 font-josefin">
-            We've sent a verification code to
-          </p>
-          <p className="text-[#0288d1] font-semibold font-josefin">
-            {displayEmail}
-          </p>
-        </div>
-
-        <form onSubmit={handleVerify} className="space-y-6">
-          {/* Verification Code Input */}
-          <div>
-            <label
-              htmlFor="verificationCode"
-              className="block text-sm font-medium text-gray-700 mb-2 font-josefin">
-              Enter Verification Code
-            </label>
-            <input
-              type="text"
-              id="verificationCode"
-              name="verificationCode"
-              value={verificationCode}
-              onChange={handleInputChange}
-              placeholder="Enter 6-digit code"
-              maxLength={6}
-              className="w-full px-4 py-3 border outline-none border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0288d1] focus:border-[#0288d1] font-mono text-center text-2xl tracking-widest font-josefin"
-              required
-              autoFocus
-            />
-            <p className="mt-2 text-xs text-gray-500 font-josefin text-center">
-              Enter the 6-digit code sent to your email
-            </p>
-          </div>
-
-          {/* Messages */}
-          {errorMessage && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl">
-              <p className="font-josefin text-sm">{errorMessage}</p>
-            </div>
-          )}
-
-          {informationalMessage && (
-            <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl">
-              <p className="font-josefin text-sm">{informationalMessage}</p>
-            </div>
-          )}
-
-          {/* Verify Button */}
-          <button
-            type="submit"
-            disabled={loading || verificationCode.length < 4}
-            className={`w-full py-3 rounded-xl font-lilita text-base md:text-lg transition-all ${
-              loading || verificationCode.length < 4
-                ? "bg-gray-400 cursor-not-allowed text-white"
-                : "bg-gradient-to-r from-[#0288d1] to-[#01579b] text-white hover:shadow-lg hover:from-[#039be5] hover:to-[#0277bd]"
-            }`}>
-            {loading ? (
-              <span className="flex items-center justify-center">
-                <svg
-                  className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24">
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Verifying...
-              </span>
-            ) : (
-              "Verify Email"
-            )}
-          </button>
-
-          {/* Resend Code */}
-          <div className="text-center">
-            <p className="text-sm text-gray-600 font-josefin mb-2">
-              Didn't receive the code?
-            </p>
-            <button
-              type="button"
-              onClick={handleResendCode}
-              disabled={resendLoading}
-              className="text-[#0288d1] hover:text-[#01579b] font-semibold font-josefin text-sm disabled:text-gray-400 disabled:cursor-not-allowed">
-              {resendLoading ? "Sending..." : "Resend Verification Code"}
-            </button>
-          </div>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600 font-josefin">
-            Wrong email?{" "}
-            <Link
-              to="/signup"
-              className="text-[#0288d1] hover:text-[#01579b] font-semibold">
-              Go back to signup
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+  const isSuccess = Boolean(
+    informationalMessage && informationalMessage.toLowerCase().includes("redirecting"),
   );
+
+  return (
+    <AuthLayout
+      mode="verify"
+      activeStep={isSuccess ? 4 : 3}
+      title="Verify Your Email"
+      subtitle="Enter the 6-digit verification code sent to your email"
+    >
+      <div className="text-center mb-6">
+        <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-2xl bg-[#01B0F1]/15 mb-3 shadow-inner text-[#01B0F1]">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-7 w-7"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+        <p className="text-xs uppercase tracking-wider text-gray-400 font-josefin font-semibold">
+          Verification Target
+        </p>
+        <p className="text-[#015575] font-semibold font-josefin text-base sm:text-lg">
+          {displayEmail}
+        </p>
+      </div>
+
+      <form onSubmit={handleVerify} className="space-y-6">
+        <div>
+          <label
+            htmlFor="otp-0"
+            className="block text-sm font-medium text-gray-700 mb-3 font-josefin text-center"
+          >
+            Enter Verification Code
+          </label>
+          <OtpCodeInput
+            value={verificationCode}
+            onChange={setVerificationCode}
+            length={6}
+            disabled={loading}
+            autoFocus
+          />
+          <p className="mt-3 text-xs text-gray-500 font-josefin text-center">
+            Enter the 6-digit code sent to your email
+          </p>
+        </div>
+
+        {errorMessage && (
+          <AuthAlert
+            message={errorMessage}
+            variant="error"
+            onDismiss={() => setErrorMessage("")}
+            onRetry={
+              /connection|network|timeout|try again|failed/i.test(
+                errorMessage,
+              )
+                ? () => setErrorMessage("")
+                : undefined
+            }
+          />
+        )}
+
+        {informationalMessage && (
+          <AuthAlert
+            message={informationalMessage}
+            variant="success"
+            onDismiss={() => setInformationalMessage("")}
+            action={null}
+          />
+        )}
+
+        <button
+          type="submit"
+          disabled={loading || verificationCode.length < 4}
+          className={`w-full py-3.5 rounded-xl font-lilita text-base md:text-lg transition-all cursor-pointer ${
+            loading || verificationCode.length < 4
+              ? "bg-gray-400 cursor-not-allowed text-white"
+              : "bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white hover:shadow-lg"
+          }`}
+        >
+          {loading ? (
+            <span className="flex items-center justify-center">
+              <svg
+                className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Verifying...
+            </span>
+          ) : (
+            "Verify Email"
+          )}
+        </button>
+
+        <div className="text-center">
+          <p className="text-sm text-gray-600 font-josefin mb-2">
+            Didn't receive the code?
+          </p>
+          {!canResend && (
+            <p
+              className="text-sm font-josefin text-[#015575] tabular-nums mb-1"
+              aria-live="polite"
+            >
+              Resend available in {remaining}s
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleResendCode}
+            disabled={resendLoading || !canResend}
+            className={`${authLinkClass} font-josefin text-sm disabled:text-gray-400 disabled:cursor-not-allowed disabled:no-underline`}
+          >
+            {resendLoading ? "Sending..." : resendLabel}
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-6 text-center border-t border-gray-100 pt-4">
+        <p className="text-sm text-gray-600 font-josefin">
+          Wrong email?{" "}
+          <Link
+            to="/signup"
+            className={`${authLinkClass} font-semibold underline underline-offset-2`}
+          >
+            Go back to signup
+          </Link>
+        </p>
+      </div>
+    </AuthLayout>
+  );
+
 };
 
 export default VerificationCodePage;

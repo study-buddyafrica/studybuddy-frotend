@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { FHOST } from "../constants/Functions.jsx";
 import { Check, X, Search, Filter, BadgeDollarSign, Eye, FileText } from "lucide-react";
+import { authStorage } from "../../services/authStorage";
 
 const gradeOptions = [
   "All",
@@ -137,35 +138,37 @@ const TeachersAdmin = () => {
     };
   };
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+const fetchAll = useCallback(async () => {
+  setLoading(true);
+  setError("");
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      // Fetch all teachers from users endpoint
-      let allTeachers = [];
-      let nextUrl = `${FHOST}/api/users/users-list/?role=teacher`;
+    // Fetch all teachers from users endpoint
+    let allTeachers = [];
+    let nextUrl = `${FHOST}/api/users/users-list/?role=teacher`;
 
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, { headers });
-        const data = response.data;
-        allTeachers = allTeachers.concat(data.results || []);
-        nextUrl = data.next;
-      }
-
-      const teachersWithDetails = await Promise.all(allTeachers.map(user => buildTeacherFromUser(user, headers)));
-      setTeachers(teachersWithDetails);
-      setWithdrawals([]);
-    } catch (e) {
-      console.error("Failed to load teachers:", e);
-      setError("Failed to load data");
-      setTeachers([]);
-    } finally {
-      setLoading(false);
+    while (nextUrl) {
+      const response = await axios.get(nextUrl, { headers });
+      const data = response.data;
+      allTeachers = allTeachers.concat(data.results || []);
+      nextUrl = data.next;
     }
-  }, []);
+
+    const teachersWithDetails = await Promise.all(
+      allTeachers.map((user) => buildTeacherFromUser(user, headers)),
+    );
+    setTeachers(teachersWithDetails);
+    setWithdrawals([]);
+  } catch (e) {
+    console.error("Failed to load teachers:", e);
+    setError("Failed to load data");
+    setTeachers([]);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     fetchAll();
@@ -173,33 +176,33 @@ const TeachersAdmin = () => {
     fetchGrades();
   }, [fetchAll]);
 
-  const fetchSubjects = async () => {
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const response = await axios.get(`${FHOST}/admin/get-subjects/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      if (response.data?.classes) {
-        setAvailableSubjects(response.data.classes);
-      }
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
+const fetchSubjects = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.get(`${FHOST}/admin/get-subjects/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    if (response.data?.classes) {
+      setAvailableSubjects(response.data.classes);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching subjects:", error);
+  }
+};
 
-  const fetchGrades = async () => {
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const response = await axios.get(`${FHOST}/admin/get-classes`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      if (response.data?.classes) {
-        setAvailableGrades(response.data.classes);
-      }
-    } catch (error) {
-      console.error("Error fetching grades:", error);
+const fetchGrades = async () => {
+  try {
+    const token = authStorage.getAccessToken(); // ← changed
+    const response = await axios.get(`${FHOST}/admin/get-classes`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    if (response.data?.classes) {
+      setAvailableGrades(response.data.classes);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching grades:", error);
+  }
+};
 
   const hydrateTeacherDetails = (data) => {
     if (!data) return null;
@@ -246,39 +249,43 @@ const TeachersAdmin = () => {
       setTeacherDetails(hydrateTeacherDetails(teacherData));
     }
 
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      if (!token) {
-        alert("No authentication token found. Please log in again.");
-        setLoadingDetails(false);
-        return;
-      }
+try {
+  const token = authStorage.getAccessToken(); // ← changed
+  if (!token) {
+    alert("No authentication token found. Please log in again.");
+    setLoadingDetails(false);
+    return;
+  }
 
-      // Get teacher details using teacher profile ID
-      const teacherResponse = await axios.get(`${FHOST}/api/teachers/${teacherId}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+  // Get teacher details using teacher profile ID
+  const teacherResponse = await axios.get(
+    `${FHOST}/api/teachers/${teacherId}/`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
 
-      if (teacherResponse.data) {
-        // Use the actual verification status from the API
-        const processedData = {
-          ...teacherResponse.data,
-          verification_status: teacherResponse.data.verification_status, // Keep the real status
-        };
-        setTeacherDetails(hydrateTeacherDetails(processedData));
-      }
-    } catch (error) {
-      console.error("Error fetching teacher details:", error);
-      const errorMsg = error.response?.data?.detail ||
-                        error.response?.data?.message ||
-                        error.message ||
-                        "Failed to load teacher details.";
-      alert(errorMsg);
-      setSelectedTeacher(null);
-      setTeacherDetails(null);
-    } finally {
-      setLoadingDetails(false);
-    }
+  if (teacherResponse.data) {
+    // Use the actual verification status from the API
+    const processedData = {
+      ...teacherResponse.data,
+      verification_status: teacherResponse.data.verification_status, // Keep the real status
+    };
+    setTeacherDetails(hydrateTeacherDetails(processedData));
+  }
+} catch (error) {
+  console.error("Error fetching teacher details:", error);
+  const errorMsg =
+    error.response?.data?.detail ||
+    error.response?.data?.message ||
+    error.message ||
+    "Failed to load teacher details.";
+  alert(errorMsg);
+  setSelectedTeacher(null);
+  setTeacherDetails(null);
+} finally {
+  setLoadingDetails(false);
+}
   };
 
   const checkRequiredFields = (teacherData) => {
@@ -321,7 +328,7 @@ const TeachersAdmin = () => {
       return;
     }
     try {
-      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+      const token = authStorage.getAccessToken();
       
       // If teacherData not provided, fetch it
       let dataToUse = teacherData;
@@ -421,7 +428,7 @@ const TeachersAdmin = () => {
       return;
     }
     try {
-      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+      const token = authStorage.getAccessToken();
       
       // If teacherData not provided, fetch it
       let dataToUse = teacherData;

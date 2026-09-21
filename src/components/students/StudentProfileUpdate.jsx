@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { FHOST } from "../constants/Functions";
+import { authStorage } from "../../services/authStorage";
 
 const StudentProfileUpdate = ({ userInfo }) => {
-  // Helper function to get profile_id from JWT token if not in userInfo
   const getProfileId = () => {
     if (userInfo?.profile_id) return userInfo.profile_id;
-    if (userInfo?.id) return userInfo.id; // fallback to user id
+    if (userInfo?.id) return userInfo.id;
 
-    // Try to extract from JWT token
     try {
-      const token = localStorage.getItem("access_token");
+      const token = authStorage.getAccessToken(); // ← changed
       if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = JSON.parse(atob(token.split(".")[1]));
         return payload.profile_id || payload.user_id || userInfo?.id;
       }
     } catch (error) {
@@ -45,106 +44,105 @@ const StudentProfileUpdate = ({ userInfo }) => {
     }
   }, [userInfo]);
 
-  const fetchProfile = async () => {
-    try {
-      const profileId = getProfileId();
-      console.log("Fetching profile for ID:", profileId);
+const fetchProfile = async () => {
+  try {
+    const profileId = getProfileId();
+    console.log("Fetching profile for ID:", profileId);
 
-      const response = await axios.get(`${FHOST}/api/student/profile/update/${profileId}/`, {
+    const response = await axios.get(
+      `${FHOST}/api/student/profile/update/${profileId}/`,
+      {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
         },
+      },
+    );
+    if (response.data) {
+      setProfileData(response.data);
+      setFormData({
+        birth_date: response.data.birth_date || "",
+        contact_name: response.data.contact_name || "",
+        guardian_contact: response.data.guardian_contact || "",
+        grade: response.data.grade || "",
+        school: response.data.school || "",
       });
-      if (response.data) {
-        setProfileData(response.data);
-        setFormData({
-          birth_date: response.data.birth_date || "",
-          contact_name: response.data.contact_name || "",
-          guardian_contact: response.data.guardian_contact || "",
-          grade: response.data.grade || "",
-          school: response.data.school || "",
-        });
-        if (response.data.profile_picture) {
-          setProfilePhotoPreview(response.data.profile_picture);
-        }
-      }
-    } catch (error) {
-      // 404 means profile doesn't exist yet - that's fine, we'll create it on submit
-      if (error.response?.status === 404) {
-        console.log("Profile not found - will be created on first update");
-        // Don't set error, just start with empty form
-      } else {
-        console.error("Error fetching profile:", error);
+      if (response.data.profile_picture) {
+        setProfilePhotoPreview(response.data.profile_picture);
       }
     }
-  };
-
-  const fetchGrades = async () => {
-    try {
-      // Try public grades endpoint
-      const response = await axios.get(`${FHOST}/api/grades/`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data?.results) {
-        setAvailableGrades(response.data.results);
-        return;
-      }
-    } catch (publicError) {
-      console.log("Public grades endpoint failed, trying admin endpoint");
+  } catch (error) {
+    // 404 means profile doesn't exist yet - that's fine, we'll create it on submit
+    if (error.response?.status === 404) {
+      console.log("Profile not found - will be created on first update");
+      // Don't set error, just start with empty form
+    } else {
+      console.error("Error fetching profile:", error);
     }
+  }
+};
 
-    try {
-      // Try admin endpoint as fallback
-      const response = await axios.get(`${FHOST}/admin/get-classes`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data?.classes) {
-        setAvailableGrades(response.data.classes);
-        return;
-      }
-    } catch (adminError) {
-      console.log("Admin grades endpoint failed, using fallback");
+const fetchGrades = async () => {
+  try {
+    const response = await axios.get(`${FHOST}/api/grades/`, {
+      headers: {
+        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+      },
+    });
+    if (response.data?.results) {
+      setAvailableGrades(response.data.results);
+      return;
     }
+  } catch (publicError) {
+    console.log("Public grades endpoint failed, trying admin endpoint");
+  }
 
-    // Fallback: Provide default grades
-    setAvailableGrades([
-      { id: 'grade_1', name: 'Grade 1', level: 'Grade 1' },
-      { id: 'grade_2', name: 'Grade 2', level: 'Grade 2' },
-      { id: 'grade_3', name: 'Grade 3', level: 'Grade 3' },
-      { id: 'grade_4', name: 'Grade 4', level: 'Grade 4' },
-      { id: 'grade_5', name: 'Grade 5', level: 'Grade 5' },
-      { id: 'grade_6', name: 'Grade 6', level: 'Grade 6' },
-      { id: 'grade_7', name: 'Grade 7', level: 'Grade 7' },
-      { id: 'grade_8', name: 'Grade 8', level: 'Grade 8' },
-      { id: 'grade_9', name: 'Grade 9', level: 'Grade 9' },
-      { id: 'grade_10', name: 'Grade 10', level: 'Grade 10' },
-      { id: 'grade_11', name: 'Grade 11', level: 'Grade 11' },
-      { id: 'grade_12', name: 'Grade 12', level: 'Grade 12' },
-    ]);
-  };
-
-  const fetchSchools = async () => {
-    try {
-      const response = await axios.get(`${FHOST}/api/schools/`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (response.data?.results) {
-        setAvailableSchools(response.data.results || []);
-      }
-    } catch (error) {
-      console.error("Error fetching schools:", error);
-      // If schools endpoint doesn't exist, allow manual input
-      setAvailableSchools([]);
+  try {
+    const response = await axios.get(`${FHOST}/admin/get-classes`, {
+      headers: {
+        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+      },
+    });
+    if (response.data?.classes) {
+      setAvailableGrades(response.data.classes);
+      return;
     }
-  };
+  } catch (adminError) {
+    console.log("Admin grades endpoint failed, using fallback");
+  }
 
+  // Fallback: Provide default grades
+  setAvailableGrades([
+    { id: "grade_1", name: "Grade 1", level: "Grade 1" },
+    { id: "grade_2", name: "Grade 2", level: "Grade 2" },
+    { id: "grade_3", name: "Grade 3", level: "Grade 3" },
+    { id: "grade_4", name: "Grade 4", level: "Grade 4" },
+    { id: "grade_5", name: "Grade 5", level: "Grade 5" },
+    { id: "grade_6", name: "Grade 6", level: "Grade 6" },
+    { id: "grade_7", name: "Grade 7", level: "Grade 7" },
+    { id: "grade_8", name: "Grade 8", level: "Grade 8" },
+    { id: "grade_9", name: "Grade 9", level: "Grade 9" },
+    { id: "grade_10", name: "Grade 10", level: "Grade 10" },
+    { id: "grade_11", name: "Grade 11", level: "Grade 11" },
+    { id: "grade_12", name: "Grade 12", level: "Grade 12" },
+  ]);
+};
 
+const fetchSchools = async () => {
+  try {
+    const response = await axios.get(`${FHOST}/api/schools/`, {
+      headers: {
+        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
+      },
+    });
+    if (response.data?.results) {
+      setAvailableSchools(response.data.results || []);
+    }
+  } catch (error) {
+    console.error("Error fetching schools:", error);
+    // If schools endpoint doesn't exist, allow manual input
+    setAvailableSchools([]);
+  }
+};
 
   const handlePhotoChange = (event) => {
     const file = event.target.files[0];
@@ -172,7 +170,6 @@ const StudentProfileUpdate = ({ userInfo }) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
-
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -203,7 +200,10 @@ const StudentProfileUpdate = ({ userInfo }) => {
       }
       if (formData.school) {
         // Ensure school is sent as UUID string if it's an object
-        const schoolValue = typeof formData.school === 'object' ? formData.school.id : formData.school;
+        const schoolValue =
+          typeof formData.school === "object"
+            ? formData.school.id
+            : formData.school;
         formDataToSend.append("school", schoolValue);
       }
 
@@ -211,25 +211,25 @@ const StudentProfileUpdate = ({ userInfo }) => {
       if (formData.grade) {
         formDataToSend.append("grade", formData.grade);
       }
-      
+
       // Append profile picture if provided
       if (profilePhoto) {
         formDataToSend.append("profile_picture", profilePhoto);
       }
-      
+
       console.log("Submitting profile data:", {
         birth_date: formData.birth_date,
         contact_name: formData.contact_name,
         guardian_contact: formData.guardian_contact,
         grade: formData.grade,
         school: formData.school,
-        hasPhoto: !!profilePhoto
+        hasPhoto: !!profilePhoto,
       });
 
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        throw new Error("No authentication token found. Please login again.");
-      }
+const token = authStorage.getAccessToken(); // ← changed
+if (!token) {
+  throw new Error("No authentication token found. Please login again.");
+}
 
       // Try PUT first (should create if not exists, update if exists)
       // Then try PATCH (update only)
@@ -249,11 +249,15 @@ const StudentProfileUpdate = ({ userInfo }) => {
               "Content-Type": "multipart/form-data",
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         console.log("Profile updated/created successfully via PUT");
       } catch (putError) {
-        console.log("PUT failed, trying PATCH:", putError.response?.status, putError.response?.data);
+        console.log(
+          "PUT failed, trying PATCH:",
+          putError.response?.status,
+          putError.response?.data,
+        );
         lastError = putError;
 
         // Strategy 2: Try PATCH (update only - if profile exists)
@@ -269,28 +273,39 @@ const StudentProfileUpdate = ({ userInfo }) => {
                 "Content-Type": "multipart/form-data",
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
           console.log("Profile updated successfully via PATCH");
         } catch (patchError) {
           console.error("Both methods failed:", {
-            PUT: { status: putError.response?.status, data: putError.response?.data },
-            PATCH: { status: patchError.response?.status, data: patchError.response?.data }
+            PUT: {
+              status: putError.response?.status,
+              data: putError.response?.data,
+            },
+            PATCH: {
+              status: patchError.response?.status,
+              data: patchError.response?.data,
+            },
           });
 
           // Both methods failed - provide helpful error message
-          const errorData = patchError.response?.data || putError.response?.data;
-          const errorDetail = errorData?.detail || errorData?.message || errorData?.error;
+          const errorData =
+            patchError.response?.data || putError.response?.data;
+          const errorDetail =
+            errorData?.detail || errorData?.message || errorData?.error;
 
-          if (patchError.response?.status === 404 && putError.response?.status === 404) {
+          if (
+            patchError.response?.status === 404 &&
+            putError.response?.status === 404
+          ) {
             throw new Error(
               errorDetail ||
-              "Profile endpoint not found. Please ensure the profile API endpoint is configured correctly."
+                "Profile endpoint not found. Please ensure the profile API endpoint is configured correctly.",
             );
           } else {
             throw new Error(
               errorDetail ||
-              "Failed to update profile. Please check your connection and try again."
+                "Failed to update profile. Please check your connection and try again.",
             );
           }
         }
@@ -298,22 +313,23 @@ const StudentProfileUpdate = ({ userInfo }) => {
 
       if (response.status === 200 || response.status === 201) {
         setSuccessMessage("Profile updated successfully!");
-        
+
         const updatedProfile = response.data;
-        const currentUserInfo = JSON.parse(localStorage.getItem('userInfo'));
+        const currentUserInfo = JSON.parse(localStorage.getItem("userInfo"));
         const updatedUserInfo = { ...currentUserInfo, ...updatedProfile };
-        localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
-        
-        window.dispatchEvent(new Event('profile-updated'));
-        
+        localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
+
+        window.dispatchEvent(new Event("profile-updated"));
+
         setTimeout(() => setSuccessMessage(""), 5000);
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      const errorMsg = error.response?.data?.message || 
-                      error.response?.data?.error || 
-                      error.response?.data?.detail ||
-                      "Profile update failed. Please try again.";
+      const errorMsg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        "Profile update failed. Please try again.";
       setErrorMessage(errorMsg);
       setTimeout(() => setErrorMessage(""), 5000);
     } finally {
@@ -339,7 +355,10 @@ const StudentProfileUpdate = ({ userInfo }) => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-2xl shadow-sm p-6 md:p-8"
+        >
           {/* Profile Photo */}
           <div className="mb-8">
             <label className="block text-lg font-semibold text-[#015575] mb-4">
@@ -349,9 +368,9 @@ const StudentProfileUpdate = ({ userInfo }) => {
               <div className="relative group">
                 <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#015575]/20">
                   {profilePhotoPreview ? (
-                    <img 
-                      src={profilePhotoPreview} 
-                      alt="Profile" 
+                    <img
+                      src={profilePhotoPreview}
+                      alt="Profile"
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -368,9 +387,25 @@ const StudentProfileUpdate = ({ userInfo }) => {
                     onChange={handlePhotoChange}
                     disabled={loading}
                   />
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
                   </svg>
                 </label>
               </div>
@@ -379,10 +414,14 @@ const StudentProfileUpdate = ({ userInfo }) => {
 
           {/* Personal Information */}
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="text-xl font-semibold text-[#015575] mb-6">Personal Information</h3>
+            <h3 className="text-xl font-semibold text-[#015575] mb-6">
+              Personal Information
+            </h3>
             <div className="grid gap-6 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Birth Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Birth Date
+                </label>
                 <input
                   type="date"
                   name="birth_date"
@@ -393,7 +432,9 @@ const StudentProfileUpdate = ({ userInfo }) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Contact Name
+                </label>
                 <input
                   type="text"
                   name="contact_name"
@@ -405,7 +446,9 @@ const StudentProfileUpdate = ({ userInfo }) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Guardian Contact</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Guardian Contact
+                </label>
                 <input
                   type="tel"
                   name="guardian_contact"
@@ -417,7 +460,9 @@ const StudentProfileUpdate = ({ userInfo }) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Grade</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Grade
+                </label>
                 <select
                   name="grade"
                   value={formData.grade}
@@ -434,7 +479,9 @@ const StudentProfileUpdate = ({ userInfo }) => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">School</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  School
+                </label>
                 {availableSchools.length > 0 ? (
                   <select
                     name="school"
@@ -465,7 +512,6 @@ const StudentProfileUpdate = ({ userInfo }) => {
             </div>
           </div>
 
-
           {/* Submit Button */}
           <button
             type="submit"
@@ -474,14 +520,30 @@ const StudentProfileUpdate = ({ userInfo }) => {
           >
             {loading ? (
               <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 Updating...
               </span>
             ) : (
-              'Update Profile'
+              "Update Profile"
             )}
           </button>
         </form>

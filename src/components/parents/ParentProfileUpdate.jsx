@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { FHOST, refreshAccessToken } from "../constants/Functions";
+import { authStorage } from "../../services/authStorage";
 
 const ParentProfileUpdate = ({ userInfo }) => {
   const [profilePhoto, setProfilePhoto] = useState(null);
@@ -31,9 +32,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
     try {
       token = await refreshAccessToken();
     } catch (refreshError) {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("userInfo");
+      authStorage.clearTokens();
       window.location.href = "/";
       return;
     }
@@ -107,9 +106,7 @@ const ParentProfileUpdate = ({ userInfo }) => {
       try {
         token = await refreshAccessToken();
       } catch (refreshError) {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("userInfo");
+        authStorage.clearTokens();
         window.location.href = "/";
         return;
       }

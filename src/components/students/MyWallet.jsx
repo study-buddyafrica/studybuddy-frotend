@@ -3,6 +3,7 @@ import axios from "axios";
 import { FaTimes } from "react-icons/fa";
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { FHOST } from "../constants/Functions";
+import { authStorage } from "../../services/authStorage";
 
 const MyWallet = ({userInfo}) => {
   const [showPopup, setShowPopup] = useState(false); // State to control popup visibility
@@ -17,97 +18,103 @@ const MyWallet = ({userInfo}) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleDeposit = async (e) => {
-    e.preventDefault();
-    if (!depositAmount || parseFloat(depositAmount) <= 0) {
-      setErrorMessage('Please enter a valid deposit amount.');
+const handleDeposit = async (e) => {
+  e.preventDefault();
+  if (!depositAmount || parseFloat(depositAmount) <= 0) {
+    setErrorMessage("Please enter a valid deposit amount.");
+    return;
+  }
+
+  try {
+    setDepositLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      setErrorMessage("Authentication required. Please login again.");
+      setDepositLoading(false);
       return;
     }
 
-    try {
-      setDepositLoading(true);
-      setErrorMessage('');
-      setSuccessMessage('');
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        setErrorMessage('Authentication required. Please login again.');
-        setDepositLoading(false);
-        return;
-      }
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
 
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
+    const payload = {
+      amount: parseFloat(depositAmount),
+      payment_method: "mpesa",
+    };
 
-      const payload = {
-        amount: parseFloat(depositAmount),
-        payment_method: "mpesa",
-      };
+    const response = await axios.post(`${FHOST}/api/wallet/deposit/`, payload, {
+      headers,
+    });
 
-      const response = await axios.post(`${FHOST}/api/wallet/deposit/`, payload, { headers });
+    if (response.status === 200 || response.status === 201) {
+      const data = response.data;
 
-      if (response.status === 200 || response.status === 201) {
-        const data = response.data;
+      // store deposit info
+      setDepositInfo(data);
+      setShowCheckoutModal(true);
 
-        // store deposit info
-        setDepositInfo(data);
-        setShowCheckoutModal(true);
+      // close amount modal
+      setShowPopup(false);
 
-        // close amount modal
-        setShowPopup(false);
+      // clear fields
+      setDepositAmount("");
 
-        // clear fields
-        setDepositAmount('');
-
-        fetchWalletData();
-      }
-
-    } catch (error) {
-      console.error('Error initiating deposit:', error);
-      const errorMsg = error.response?.data?.detail || error.response?.data?.message || 'Failed to initiate deposit. Please try again.';
-      setErrorMessage(errorMsg);
-    } finally {
-      setDepositLoading(false);
+      fetchWalletData();
     }
-  };
+  } catch (error) {
+    console.error("Error initiating deposit:", error);
+    const errorMsg =
+      error.response?.data?.detail ||
+      error.response?.data?.message ||
+      "Failed to initiate deposit. Please try again.";
+    setErrorMessage(errorMsg);
+  } finally {
+    setDepositLoading(false);
+  }
+};
 
-  const fetchWalletData = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("access_token");
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
+const fetchWalletData = async () => {
+  try {
+    setLoading(true);
+    const token = authStorage.getAccessToken(); // ← changed
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
 
-      // Fetch wallet info
-      const walletResponse = await axios.get(`${FHOST}/api/wallet/`, { headers });
-      if (walletResponse.data?.results?.length > 0) {
-        const wallet = walletResponse.data.results[0];
-        setAmount(parseFloat(wallet.balance) || 0);
-      }
-
-      // Fetch transactions
-      const transactionsResponse = await axios.get(`${FHOST}/api/transactions/`, { headers });
-      const transactions = transactionsResponse.data?.results || [];
-      
-      // Filter transactions by type
-      const deposits = transactions.filter(
-        (transaction) => transaction.transaction_type === "deposit"
-      );
-      const withdrawals = transactions.filter(
-        (transaction) => transaction.transaction_type === "withdrawal"
-      );
-
-      setTopupHistory(deposits);
-      setExpenditureHistory(withdrawals);
-    } catch (error) {
-      console.error("Error fetching wallet data:", error);
-    } finally {
-      setLoading(false);
+    // Fetch wallet info
+    const walletResponse = await axios.get(`${FHOST}/api/wallet/`, { headers });
+    if (walletResponse.data?.results?.length > 0) {
+      const wallet = walletResponse.data.results[0];
+      setAmount(parseFloat(wallet.balance) || 0);
     }
-  };
+
+    // Fetch transactions
+    const transactionsResponse = await axios.get(`${FHOST}/api/transactions/`, {
+      headers,
+    });
+    const transactions = transactionsResponse.data?.results || [];
+
+    // Filter transactions by type
+    const deposits = transactions.filter(
+      (transaction) => transaction.transaction_type === "deposit",
+    );
+    const withdrawals = transactions.filter(
+      (transaction) => transaction.transaction_type === "withdrawal",
+    );
+
+    setTopupHistory(deposits);
+    setExpenditureHistory(withdrawals);
+  } catch (error) {
+    console.error("Error fetching wallet data:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     if (userInfo?.id) {

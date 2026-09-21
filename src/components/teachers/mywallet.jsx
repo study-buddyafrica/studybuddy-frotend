@@ -20,6 +20,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import { authStorage } from "../../services/authStorage";
 
 ChartJS.register(
   CategoryScale,
@@ -86,180 +87,226 @@ const MyWallet = ({ userInfo }) => {
     ],
   };
 
-  const fetchTransactionHistory = async () => {
-    try {
-      setLoading(true);
-      setErrorMessage('');
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        setErrorMessage('No authentication token found. Please login again.');
-        return;
-      }
+ const fetchTransactionHistory = async () => {
+   try {
+     setLoading(true);
+     setErrorMessage("");
+     const token = authStorage.getAccessToken(); // ← changed
+     if (!token) {
+       setErrorMessage("No authentication token found. Please login again.");
+       return;
+     }
 
-      const headers = { 
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
+     const headers = {
+       Authorization: `Bearer ${token}`,
+       "Content-Type": "application/json",
+     };
 
-      console.log('Fetching wallet data for user:', userInfo?.id);
+     console.log("Fetching wallet data for user:", userInfo?.id);
 
-      // Fetch wallet info using new API
-      try {
-        const walletResponse = await axios.get(`${FHOST}/api/wallet/`, { headers });
-        console.log('Wallet API response:', walletResponse.data);
-        
-        if (walletResponse.data?.results?.length > 0) {
-          // Find wallet for current user (in case multiple wallets returned)
-          const userWallet = walletResponse.data.results.find(w => w.user === userInfo?.id) || walletResponse.data.results[0];
-          const currentBalance = parseFloat(userWallet.balance) || 0;
-          console.log('Current wallet balance:', currentBalance, 'Wallet data:', userWallet);
-          setAmount(currentBalance);
-          setTeacherEarnings(currentBalance);
-          setPendingEarnings(0);
-        } else {
-          console.warn('No wallet found in response. Creating wallet might be needed.');
-          setAmount(0);
-        }
-      } catch (walletError) {
-        console.error('Error fetching wallet:', walletError);
-        setErrorMessage(`Wallet error: ${walletError.response?.data?.detail || walletError.message}`);
-      }
+     // Fetch wallet info using new API
+     try {
+       const walletResponse = await axios.get(`${FHOST}/api/wallet/`, {
+         headers,
+       });
+       console.log("Wallet API response:", walletResponse.data);
 
-      // Fetch transactions using new API
-      try {
-        const transactionsResponse = await axios.get(`${FHOST}/api/transactions/`, { headers });
-        console.log('Transactions API response:', transactionsResponse.data);
-        const transactions = (transactionsResponse.data?.results || []).map((t) => ({
-          ...t,
-          details: parseDetails(t.details || t.metadata || t.metadata_info),
-        }));
-        
-        const deposits = transactions.filter((t) => t.transaction_type === 'deposit');
-        const withdrawals = transactions.filter((t) => t.transaction_type === 'withdrawal');
-        
-        console.log('Deposits found:', deposits.length, 'Withdrawals found:', withdrawals.length);
-        setTopupHistory(deposits);
-        setWithdrawalHistory(withdrawals);
-      } catch (transError) {
-        console.error('Error fetching transactions:', transError);
-        setErrorMessage(`Transactions error: ${transError.response?.data?.detail || transError.message}`);
-        setTopupHistory([]);
-        setWithdrawalHistory([]);
-      }
-      
-      // Lesson payments feed (optional; keep empty until backend provides)
-      setLessonPayments([]);
-    } catch (err) {
-      console.error('Error fetching transaction history:', err);
-      const errorMsg = err.response?.data?.detail || err.response?.data?.message || err.message || 'Failed to load wallet data.';
-      setErrorMessage(`Error: ${errorMsg}`);
-      setTopupHistory([]);
-      setWithdrawalHistory([]);
-      setLessonPayments([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+       if (walletResponse.data?.results?.length > 0) {
+         // Find wallet for current user (in case multiple wallets returned)
+         const userWallet =
+           walletResponse.data.results.find((w) => w.user === userInfo?.id) ||
+           walletResponse.data.results[0];
+         const currentBalance = parseFloat(userWallet.balance) || 0;
+         console.log(
+           "Current wallet balance:",
+           currentBalance,
+           "Wallet data:",
+           userWallet,
+         );
+         setAmount(currentBalance);
+         setTeacherEarnings(currentBalance);
+         setPendingEarnings(0);
+       } else {
+         console.warn(
+           "No wallet found in response. Creating wallet might be needed.",
+         );
+         setAmount(0);
+       }
+     } catch (walletError) {
+       console.error("Error fetching wallet:", walletError);
+       setErrorMessage(
+         `Wallet error: ${walletError.response?.data?.detail || walletError.message}`,
+       );
+     }
 
-  const handleWithdrawal = async (e) => {
-    e.preventDefault();
-    if (!withdrawalAmount || !mpesaNumber) {
-      setErrorMessage('Please fill in all fields');
-      return;
-    }
-    
-    if (parseFloat(withdrawalAmount) > amount) {
-      setErrorMessage('Withdrawal amount cannot exceed available earnings');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setErrorMessage('');
-      setSuccessMessage('');
-      const token = localStorage.getItem('access_token');
-      const headers = { 
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
-      
-      // Use new withdrawal API endpoint
-      const response = await axios.post(`${FHOST}/api/withdraw/`, {
+     // Fetch transactions using new API
+     try {
+       const transactionsResponse = await axios.get(
+         `${FHOST}/api/transactions/`,
+         { headers },
+       );
+       console.log("Transactions API response:", transactionsResponse.data);
+       const transactions = (transactionsResponse.data?.results || []).map(
+         (t) => ({
+           ...t,
+           details: parseDetails(t.details || t.metadata || t.metadata_info),
+         }),
+       );
+
+       const deposits = transactions.filter(
+         (t) => t.transaction_type === "deposit",
+       );
+       const withdrawals = transactions.filter(
+         (t) => t.transaction_type === "withdrawal",
+       );
+
+       console.log(
+         "Deposits found:",
+         deposits.length,
+         "Withdrawals found:",
+         withdrawals.length,
+       );
+       setTopupHistory(deposits);
+       setWithdrawalHistory(withdrawals);
+     } catch (transError) {
+       console.error("Error fetching transactions:", transError);
+       setErrorMessage(
+         `Transactions error: ${transError.response?.data?.detail || transError.message}`,
+       );
+       setTopupHistory([]);
+       setWithdrawalHistory([]);
+     }
+
+     // Lesson payments feed (optional; keep empty until backend provides)
+     setLessonPayments([]);
+   } catch (err) {
+     console.error("Error fetching transaction history:", err);
+     const errorMsg =
+       err.response?.data?.detail ||
+       err.response?.data?.message ||
+       err.message ||
+       "Failed to load wallet data.";
+     setErrorMessage(`Error: ${errorMsg}`);
+     setTopupHistory([]);
+     setWithdrawalHistory([]);
+     setLessonPayments([]);
+   } finally {
+     setLoading(false);
+   }
+ };
+
+const handleWithdrawal = async (e) => {
+  e.preventDefault();
+  if (!withdrawalAmount || !mpesaNumber) {
+    setErrorMessage("Please fill in all fields");
+    return;
+  }
+
+  if (parseFloat(withdrawalAmount) > amount) {
+    setErrorMessage("Withdrawal amount cannot exceed available earnings");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    const token = authStorage.getAccessToken(); // ← changed
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+
+    // Use new withdrawal API endpoint
+    const response = await axios.post(
+      `${FHOST}/api/withdraw/`,
+      {
         amount: parseFloat(withdrawalAmount),
         account_number: mpesaNumber,
         payment_method: "mpesa",
-      }, { headers });
-      
-      if (response.status === 200 || response.status === 201) {
-        setSuccessMessage('Withdrawal initiated successfully! You will receive the funds in your M-Pesa account shortly.');
-        setShowWithdrawalModal(false);
-        setWithdrawalAmount('');
-        setMpesaNumber('');
-        fetchTransactionHistory();
-      }
-    } catch (error) {
-      console.error('Error initiating withdrawal:', error);
-      const errorMsg = error.response?.data?.detail || error.response?.data?.message || 'Failed to initiate withdrawal. Please try again.';
-      setErrorMessage(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
+      },
+      { headers },
+    );
 
-  const handleDeposit = async (e) => {
-    e.preventDefault();
-    if (!depositAmount || parseFloat(depositAmount) <= 0) {
-      setErrorMessage('Please enter a valid deposit amount.');
+    if (response.status === 200 || response.status === 201) {
+      setSuccessMessage(
+        "Withdrawal initiated successfully! You will receive the funds in your M-Pesa account shortly.",
+      );
+      setShowWithdrawalModal(false);
+      setWithdrawalAmount("");
+      setMpesaNumber("");
+      fetchTransactionHistory();
+    }
+  } catch (error) {
+    console.error("Error initiating withdrawal:", error);
+    const errorMsg =
+      error.response?.data?.detail ||
+      error.response?.data?.message ||
+      "Failed to initiate withdrawal. Please try again.";
+    setErrorMessage(errorMsg);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleDeposit = async (e) => {
+  e.preventDefault();
+  if (!depositAmount || parseFloat(depositAmount) <= 0) {
+    setErrorMessage("Please enter a valid deposit amount.");
+    return;
+  }
+
+  try {
+    setDepositLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    const token = authStorage.getAccessToken(); // ← changed
+    if (!token) {
+      setErrorMessage("Authentication required. Please login again.");
+      setDepositLoading(false);
       return;
     }
 
-    try {
-      setDepositLoading(true);
-      setErrorMessage('');
-      setSuccessMessage('');
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        setErrorMessage('Authentication required. Please login again.');
-        setDepositLoading(false);
-        return;
-      }
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
 
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
+    const payload = {
+      amount: parseFloat(depositAmount),
+      payment_method: "mpesa",
+    };
 
-      const payload = {
-        amount: parseFloat(depositAmount),
-        payment_method: "mpesa",
-      };
+    const response = await axios.post(`${FHOST}/api/wallet/deposit/`, payload, {
+      headers,
+    });
 
-      const response = await axios.post(`${FHOST}/api/wallet/deposit/`, payload, { headers });
+    if (response.status === 200 || response.status === 201) {
+      const data = response.data;
 
-      if (response.status === 200 || response.status === 201) {
-        const data = response.data;
-      
-        // store deposit info
-        setDepositInfo(data);
-        setShowCheckoutModal(true);
+      // store deposit info
+      setDepositInfo(data);
+      setShowCheckoutModal(true);
 
-        // close amount modal
-        setShowPopup(false);
-      
-        // clear fields
-        setDepositAmount('');
-      
-        fetchTransactionHistory();
-      }
-      
-    } catch (error) {
-      console.error('Error initiating deposit:', error);
-      const errorMsg = error.response?.data?.detail || error.response?.data?.message || 'Failed to initiate deposit. Please try again.';
-      setErrorMessage(errorMsg);
-    } finally {
-      setDepositLoading(false);
+      // close amount modal
+      setShowPopup(false);
+
+      // clear fields
+      setDepositAmount("");
+
+      fetchTransactionHistory();
     }
-  };
+  } catch (error) {
+    console.error("Error initiating deposit:", error);
+    const errorMsg =
+      error.response?.data?.detail ||
+      error.response?.data?.message ||
+      "Failed to initiate deposit. Please try again.";
+    setErrorMessage(errorMsg);
+  } finally {
+    setDepositLoading(false);
+  }
+};
 
   useEffect(() => {
     if (userInfo?.id) {
