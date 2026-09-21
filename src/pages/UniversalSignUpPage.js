@@ -210,6 +210,9 @@ const UniversalSignupPage = () => {
           confirm_password: formData.confirmPassword,
           role: formData.role,
         };
+        if (sendCodeData && sendCodeData.code) {
+          registrationData.verification_code = sendCodeData.code;
+        }
         sessionStorage.setItem(
           "pendingRegistration",
           JSON.stringify(registrationData),

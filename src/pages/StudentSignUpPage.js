@@ -94,6 +94,9 @@ const StudentSignUpPage = () => {
       if (sendCodeResponse.status === 200 || sendCodeResponse.status === 201) {
         setInformationalMessage('Verification code sent to your email! Redirecting to verification page...');
         const registrationData = { name, email, password, role: 'student' };
+        if (sendCodeData && sendCodeData.code) {
+          registrationData.verification_code = sendCodeData.code;
+        }
         sessionStorage.setItem('pendingRegistration', JSON.stringify(registrationData));
         setTimeout(() => {
           navigate('/verify-code', { state: { email, registrationData } });

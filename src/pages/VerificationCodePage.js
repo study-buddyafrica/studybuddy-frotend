@@ -40,6 +40,9 @@ const VerificationCodePage = () => {
           if (data.email) {
             setEmail(data.email);
             setRegistrationData(data);
+            if (data.verification_code) {
+              setVerificationCode(data.verification_code);
+            }
             return;
           }
         } catch (e) {
@@ -54,10 +57,15 @@ const VerificationCodePage = () => {
         try {
           const data = JSON.parse(pendingReg);
           setRegistrationData(data);
+          if (data.verification_code) {
+            setVerificationCode(data.verification_code);
+          }
         } catch (e) {
           console.error("Error parsing pendingRegistration:", e);
         }
       }
+    } else if (registrationData?.verification_code) {
+      setVerificationCode(registrationData.verification_code);
     }
   }, [email, registrationData, navigate]);
 
