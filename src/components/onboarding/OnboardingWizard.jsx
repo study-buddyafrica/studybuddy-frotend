@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import OnboardingLayout from "./OnboardingLayout";
 import Step1AccountOtp from "./Step1AccountOtp";
+import Step2AcademicProfile from "./Step2AcademicProfile";
 
 /**
  * OnboardingWizard: Master container for the 4-step student onboarding experience.
@@ -12,7 +13,7 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Read step from URL param if available (?step=1)
+  // Read step from URL param if available (?step=1, ?step=2)
   const stepParam = parseInt(searchParams.get("step"), 10);
   const [currentStep, setCurrentStep] = useState(
     stepParam >= 1 && stepParam <= 4 ? stepParam : initialStep,
@@ -49,6 +50,10 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
     goToStep(2);
   };
 
+  const handleStep2Success = () => {
+    goToStep(3);
+  };
+
   return (
     <OnboardingLayout
       currentStep={currentStep}
@@ -71,31 +76,10 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
       )}
 
       {currentStep === 2 && (
-        <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-[#DEF0FF] text-[#00658C] flex items-center justify-center mx-auto text-2xl font-lilita">
-            2
-          </div>
-          <h2 className="text-2xl font-lilita text-slate-900 tracking-wide">
-            Step 2: Academic Curriculum & Grade Selection
-          </h2>
-          <p className="text-slate-600 max-w-md mx-auto text-sm font-josefin">
-            Step 1 verification completed! Step 2 curriculum options (CBC, 8-4-4, Cambridge) are staging next.
-          </p>
-          <div className="pt-4 flex justify-center gap-3 font-josefin">
-            <button
-              onClick={() => goToStep(1)}
-              className="px-5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Back to Step 1
-            </button>
-            <button
-              onClick={() => goToStep(3)}
-              className="px-6 py-2.5 rounded-xl bg-[#003D55] text-white text-sm font-bold hover:bg-[#015575]"
-            >
-              Preview Step 3 →
-            </button>
-          </div>
-        </div>
+        <Step2AcademicProfile
+          onNext={handleStep2Success}
+          onBack={() => goToStep(1)}
+        />
       )}
 
       {currentStep === 3 && (
@@ -146,7 +130,7 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
             </button>
             <button
               onClick={() => navigate("/dashboard/student")}
-              className="px-6 py-2.5 rounded-xl bg-[#01B0F1] text-white text-sm font-bold hover:bg-[#0190c7]"
+              className="px-6 py-2.5 rounded-xl bg-[#003D55] text-white text-sm font-bold hover:bg-[#015575] transition-all shadow-md"
             >
               Launch Dashboard Now 🚀
             </button>
