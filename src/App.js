@@ -19,8 +19,8 @@ import AdminLayout from "./components/layout/AdminLayout";
 // Services & Components
 import { authStorage } from "./services/authStorage";
 import { authService } from "./services/authService";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
+// import Navbar from "./components/Navbar"; // 'Navbar' is declared but its value is never read.
+// import Footer from "./components/Footer"; // 'Footer' is declared but its value is never read.
 import RoleSelection from "./components/RoleSelection";
 import Scheduler from "./components/teachers/Scheduler";
 import HomePage from "./pages/HomePage";
@@ -35,26 +35,26 @@ import AdminTeachers from "./components/admin/TeachersAdmin";
 import AdminStudents from "./components/admin/StudentsAdmin";
 import AdminParents from "./components/admin/ParentsAdmin";
 import AdminWithdrawals from "./components/admin/Withdrawals";
-import StudentLayout from "./components/layout/StudentLayout";
-import MyWallet from "./components/students/MyWallet";
-import MyLessons from "./components/students/MyLessons";
-import TeacherProfiles from "./components/students/TeachersProfiles";
+// import StudentLayout from "./components/layout/StudentLayout"; // 'StudentLayout' is declared but its value is never read.
+// import MyWallet from "./components/students/MyWallet"; // 'MyWallet' is declared but its value is never read.
+// import MyLessons from "./components/students/MyLessons"; // 'MyLessons' is declared but its value is never read.
+// import TeacherProfiles from "./components/students/TeachersProfiles"; // 'TeacherProfiles' is declared but its value is never read.
 
 
-import StudentsHome from "./components/students/studentsHome";
+// import StudentsHome from "./components/students/studentsHome"; // 'StudentsHome' is declared but its value is never read.
 
 // Teachers components
-import TeacherLessons from "./components/teachers/MyLessons";
-import TeacherLiveclass from "./components/teachers/Liveclass";
-import TeacherAccount from "./components/teachers/MyAccount";
-import TeacherUpcomingClasses from "./components/teachers/UpcomingClasses";
-import TeacherScheduler from "./components/teachers/Scheduler";
-import TeacherWallet from "./components/teachers/mywallet";
+// import TeacherLessons from "./components/teachers/MyLessons"; // 'TeacherLessons' is declared but its value is never read.
+// import TeacherLiveclass from "./components/teachers/Liveclass"; // 'TeacherLiveclass' is declared but its value is never read.
+// import TeacherAccount from "./components/teachers/MyAccount"; // 'TeacherAccount' is declared but its value is never read.
+// import TeacherUpcomingClasses from "./components/teachers/UpcomingClasses"; // 'TeacherUpcomingClasses' is declared but its value is never read.
+// import TeacherScheduler from "./components/teachers/Scheduler"; // 'TeacherScheduler' is declared but its value is never read.
+// import TeacherWallet from "./components/teachers/mywallet"; // 'TeacherWallet' is declared but its value is never read.
 
 //Cookie Consent
 import CookieConsent from "./components/CookieConsent";
-import TeacherLayout from "./components/layout/TeacherLayout";
-import UpcomingClasses from "./components/teachers/UpcomingClasses";
+// import TeacherLayout from "./components/layout/TeacherLayout"; // 'TeacherLayout' is declared but its value is never read.
+// import UpcomingClasses from "./components/teachers/UpcomingClasses"; // 'UpcomingClasses' is declared but its value is never read.
 
 // Lazy-loaded Pages
 const TutorProfilesPage = lazy(() => import("./pages/TutorProfilesPage"));
@@ -442,6 +442,14 @@ const App = () => {
           />
           <Route
             path="/verify-code"
+            element={
+              <BlankLayout>
+                <VerificationCodePage />
+              </BlankLayout>
+            }
+          />
+          <Route
+            path="/onboarding"
             element={
               <BlankLayout>
                 <VerificationCodePage />
