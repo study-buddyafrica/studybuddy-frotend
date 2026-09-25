@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import OnboardingLayout from "./OnboardingLayout";
 import Step1AccountOtp from "./Step1AccountOtp";
 import Step2AcademicProfile from "./Step2AcademicProfile";
+import Step3SubjectsGoals from "./Step3SubjectsGoals";
 
 /**
  * OnboardingWizard: Master container for the 4-step student onboarding experience.
@@ -54,6 +55,10 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
     goToStep(3);
   };
 
+  const handleStep3Success = () => {
+    goToStep(4);
+  };
+
   return (
     <OnboardingLayout
       currentStep={currentStep}
@@ -83,31 +88,10 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
       )}
 
       {currentStep === 3 && (
-        <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-[#DEF0FF] text-[#00658C] flex items-center justify-center mx-auto text-2xl font-lilita">
-            3
-          </div>
-          <h2 className="text-2xl font-lilita text-slate-900 tracking-wide">
-            Step 3: Subjects & Learning Goals
-          </h2>
-          <p className="text-slate-600 max-w-md mx-auto text-sm font-josefin">
-            Configure target subjects and tailored study syllabus.
-          </p>
-          <div className="pt-4 flex justify-center gap-3 font-josefin">
-            <button
-              onClick={() => goToStep(2)}
-              className="px-5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Back to Step 2
-            </button>
-            <button
-              onClick={() => goToStep(4)}
-              className="px-6 py-2.5 rounded-xl bg-[#003D55] text-white text-sm font-bold hover:bg-[#015575]"
-            >
-              Preview Step 4 →
-            </button>
-          </div>
-        </div>
+        <Step3SubjectsGoals
+          onNext={handleStep3Success}
+          onBack={() => goToStep(2)}
+        />
       )}
 
       {currentStep === 4 && (
