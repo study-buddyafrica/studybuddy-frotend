@@ -61,11 +61,11 @@ const OnboardingLayout = ({
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#F8FAFC] text-slate-800 antialiased selection:bg-[#01B0F1]/20 selection:text-[#015575]">
+    <div className="h-screen w-full flex flex-col md:flex-row bg-[#F8FAFC] text-slate-800 antialiased selection:bg-[#01B0F1]/20 selection:text-[#015575] overflow-hidden">
       {/* ========================================================================= */}
       {/* Mobile Top Header (md:hidden)                                             */}
       {/* ========================================================================= */}
-      <header className="md:hidden bg-gradient-to-r from-[#013349] via-[#01425c] to-[#015575] text-white px-5 py-4 shadow-md sticky top-0 z-30">
+      <header className="md:hidden bg-gradient-to-r from-[#013349] via-[#01425c] to-[#015575] text-white px-5 py-4 shadow-md shrink-0 z-30">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20">
@@ -121,9 +121,9 @@ const OnboardingLayout = ({
       </header>
 
       {/* ========================================================================= */}
-      {/* Desktop Left Rail — 340–380px Sticky Anchor                              */}
+      {/* Desktop Left Rail — 340–380px Fixed Anchor                               */}
       {/* ========================================================================= */}
-      <aside className="hidden md:flex md:w-[340px] lg:w-[360px] xl:w-[380px] bg-[#013349] text-white p-7 lg:p-9 flex-col justify-between relative overflow-hidden shadow-2xl z-20 shrink-0 min-h-screen">
+      <aside className="hidden md:flex md:w-[340px] lg:w-[360px] xl:w-[380px] bg-[#013349] text-white p-6 lg:p-7 xl:p-8 flex-col justify-between relative shadow-2xl z-20 shrink-0 h-full overflow-y-auto">
         {/* Ambient Decorative Shapes */}
         <div
           className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-[#01B0F1]/15 blur-3xl pointer-events-none"
@@ -135,7 +135,7 @@ const OnboardingLayout = ({
         />
 
         {/* Top: Brand Logo Only (matching Login/Signup layout) */}
-        <div className="relative z-10">
+        <div className="relative z-10 shrink-0">
           <Link
             to="/"
             className="inline-flex items-center gap-3 group transition-transform hover:scale-[1.02]"
@@ -151,8 +151,8 @@ const OnboardingLayout = ({
           </Link>
         </div>
 
-        {/* Middle: 4-Step Vertical Stepper */}
-        <div className="relative z-10 my-8 py-2">
+        {/* Middle: 4-Step Vertical Stepper (Auto-centered vertically) */}
+        <div className="relative z-10 my-auto py-4">
           <nav aria-label="Onboarding Progress" className="space-y-0">
             {ONBOARDING_STEPS_CONFIG.map((step, idx) => {
               const isCompleted = step.number < currentStep;
@@ -164,7 +164,7 @@ const OnboardingLayout = ({
                   {/* Vertical Connector Line */}
                   {!isLast && (
                     <div
-                      className={`absolute left-[18px] top-9 w-[2px] h-10 transition-colors duration-300 ${
+                      className={`absolute left-[17px] top-8 w-[2px] h-8 lg:h-9 transition-colors duration-300 ${
                         isCompleted ? "bg-[#01B0F1]" : "bg-white/20"
                       }`}
                       aria-hidden="true"
@@ -177,7 +177,7 @@ const OnboardingLayout = ({
                         onStepClick(step.number);
                       }
                     }}
-                    className={`flex items-start gap-4 pb-7 transition-all ${
+                    className={`flex items-start gap-3.5 pb-5 lg:pb-6 transition-all ${
                       isCompleted ? "cursor-pointer group" : ""
                     }`}
                   >
@@ -294,9 +294,9 @@ const OnboardingLayout = ({
       {/* ========================================================================= */}
       {/* Right Focus Surface — Clean #F8FAFC Canvas with Top Bar                    */}
       {/* ========================================================================= */}
-      <main className="flex-1 flex flex-col min-h-screen overflow-y-auto">
+      <main className="flex-1 flex flex-col h-full overflow-y-auto">
         {/* Desktop Top Header Bar */}
-        <div className="hidden md:flex h-16 items-center justify-between px-8 lg:px-12 border-b border-slate-200/80 bg-white/70 backdrop-blur-md sticky top-0 z-10 font-josefin">
+        <div className="hidden md:flex h-16 items-center justify-between px-8 lg:px-12 border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-10 shrink-0 font-josefin">
           {/* Left: Step Indicator & Mini Progress Bar */}
           <div className="flex items-center gap-5">
             <div>
