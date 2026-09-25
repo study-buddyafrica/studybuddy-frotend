@@ -61,6 +61,9 @@ const AuthLayout = ({
   subtitle,
 }) => {
   const isLoginMode = mode === "login";
+  const isSignupMode = mode === "signup";
+  const isSimpleHero = isLoginMode || isSignupMode;
+  const isStepperMode = !isSimpleHero;
   const currentStep = Math.max(1, Math.min(4, Number(activeStep) || 1));
 
   return (
@@ -85,12 +88,16 @@ const AuthLayout = ({
           </Link>
 
           <span className="text-xs font-josefin text-cyan-200 tracking-wide font-medium">
-            {isLoginMode ? "Learn. Teach. Excel." : `Step ${currentStep} of 4`}
+            {isLoginMode
+              ? "Learn. Teach. Excel."
+              : isSignupMode
+                ? "Join StudyBuddy"
+                : `Step ${currentStep} of 4`}
           </span>
         </div>
 
-        {/* Mobile Step Progress Indicator */}
-        {!isLoginMode && (
+        {/* Mobile Step Progress Indicator (Only in onboarding/stepper mode) */}
+        {isStepperMode && (
           <div className="mt-3">
             <div className="flex items-center justify-between text-xs font-josefin mb-1 text-white/90">
               <span className="font-semibold">
@@ -163,8 +170,8 @@ const AuthLayout = ({
 
         {/* Dynamic Context: /login vs /signup & onboarding */}
         <div className="relative z-10 my-8 lg:my-auto py-4">
-          {isLoginMode ? (
-            /* ---------------- Login Hero Context ---------------- */
+          {isSimpleHero ? (
+            /* ---------------- Login & Signup Hero Context ---------------- */
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -173,17 +180,19 @@ const AuthLayout = ({
             >
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold bg-[#01B0F1]/20 text-cyan-200 border border-[#01B0F1]/40 tracking-wider uppercase font-josefin">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#01B0F1] animate-pulse" />
-                Learn. Teach. Excel.
+                {isLoginMode ? "Learn. Teach. Excel." : "Start Your Journey"}
               </div>
 
               <h1 className="text-3xl lg:text-4xl xl:text-5xl font-lilita text-white tracking-tight leading-[1.15]">
-                Your place to learn, teach, and grow.
+                {isLoginMode
+                  ? "Your place to learn, teach, and grow."
+                  : "Join Africa's leading collaborative learning network."}
               </h1>
 
               <p className="font-josefin text-white/85 text-base lg:text-lg leading-relaxed max-w-md">
-                Empowering students, parents, and educators across Africa with
-                high-impact, curriculum-aligned interactive learning and peer
-                collaboration.
+                {isLoginMode
+                  ? "Empowering students, parents, and educators across Africa with high-impact, curriculum-aligned interactive learning and peer collaboration."
+                  : "Connect with certified African educators, master your national syllabus, and collaborate with thousands of ambitious learners."}
               </p>
 
               {/* Clean Educational Vector Illustration */}
@@ -198,7 +207,7 @@ const AuthLayout = ({
                         Curriculum-Aligned Learning
                       </p>
                       <p className="font-josefin text-xs text-white/70">
-                        CBC, 8-4-4, University & Vocational tracks
+                        CBC, 8-4-4, Cambridge & IGCSE tracks
                       </p>
                     </div>
                   </div>
@@ -223,7 +232,7 @@ const AuthLayout = ({
                     </div>
                     <div>
                       <p className="font-lilita text-sm text-white">
-                        Interactive Collaboration
+                        Interactive Live Classrooms
                       </p>
                       <p className="font-josefin text-xs text-white/70">
                         Live sessions, smart quizzes & peer study groups
