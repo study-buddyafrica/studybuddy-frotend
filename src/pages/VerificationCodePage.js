@@ -272,7 +272,7 @@ const VerificationCodePage = () => {
                   regData.username || regData.email?.split("@")[0] || "",
                 password: regData.password,
                 confirm_password: regData.confirm_password || regData.password,
-                role: regData.role,
+                role: regData.role || "student",
                 education_level_id: regData.education_level || null,
               };
             } else if (regData.name) {
@@ -291,7 +291,7 @@ const VerificationCodePage = () => {
                     firstName.toLowerCase(),
                 password: regData.password,
                 confirm_password: regData.confirm_password || regData.password,
-                role: regData.role,
+                role: regData.role || "student",
                 education_level_id: regData.education_level || null,
               };
             } else {
@@ -304,7 +304,7 @@ const VerificationCodePage = () => {
                 username: regData.username || emailPrefix,
                 password: regData.password,
                 confirm_password: regData.confirm_password || regData.password,
-                role: regData.role,
+                role: regData.role || "student",
                 education_level_id: regData.education_level || null,
               };
             }
