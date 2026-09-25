@@ -300,19 +300,31 @@ const OnboardingLayout = ({
           {/* Left: Step Indicator & Mini Progress Bar */}
           <div className="flex items-center gap-5">
             <div>
-              <p className="font-lilita text-[12px] text-[#00658C] tracking-wider uppercase leading-none">
-                STEP {currentStep} OF 4
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="font-lilita text-[12px] text-[#00658C] tracking-wider uppercase leading-none">
+                  STEP {currentStep} OF 4
+                </p>
+                {currentStep === 4 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold font-josefin">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    100% Ready to Launch
+                  </span>
+                )}
+              </div>
               <p className="font-josefin font-semibold text-xs text-slate-600 mt-1 leading-none">
-                {stepPercentage}% Completed
+                {currentStep === 4
+                  ? "Dashboard Launch & AI Tutor Setup"
+                  : `${stepPercentage}% Completed`}
               </p>
             </div>
-            <div className="w-36 h-2 bg-[#D2ECFF] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#2ABCFE] rounded-full transition-all duration-500"
-                style={{ width: `${stepPercentage}%` }}
-              />
-            </div>
+            {currentStep < 4 && (
+              <div className="w-36 h-2 bg-[#D2ECFF] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#2ABCFE] rounded-full transition-all duration-500"
+                  style={{ width: `${stepPercentage}%` }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Right: Global Actions (Help + Save & Exit) */}

@@ -4,6 +4,7 @@ import OnboardingLayout from "./OnboardingLayout";
 import Step1AccountOtp from "./Step1AccountOtp";
 import Step2AcademicProfile from "./Step2AcademicProfile";
 import Step3SubjectsGoals from "./Step3SubjectsGoals";
+import Step4DashboardLaunch from "./Step4DashboardLaunch";
 
 /**
  * OnboardingWizard: Master container for the 4-step student onboarding experience.
@@ -95,31 +96,7 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
       )}
 
       {currentStep === 4 && (
-        <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-[#D2ECFF] text-[#00658C] flex items-center justify-center mx-auto text-2xl font-lilita">
-            🎉
-          </div>
-          <h2 className="text-2xl font-lilita text-slate-900 tracking-wide">
-            Step 4: Launch Student Dashboard
-          </h2>
-          <p className="text-slate-600 max-w-md mx-auto text-sm font-josefin">
-            Celebration screen & instant student workspace initialization.
-          </p>
-          <div className="pt-4 flex justify-center gap-3 font-josefin">
-            <button
-              onClick={() => goToStep(3)}
-              className="px-5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Back to Step 3
-            </button>
-            <button
-              onClick={() => navigate("/dashboard/student")}
-              className="px-6 py-2.5 rounded-xl bg-[#003D55] text-white text-sm font-bold hover:bg-[#015575] transition-all shadow-md"
-            >
-              Launch Dashboard Now 🚀
-            </button>
-          </div>
-        </div>
+        <Step4DashboardLaunch onBack={() => goToStep(3)} />
       )}
     </OnboardingLayout>
   );
