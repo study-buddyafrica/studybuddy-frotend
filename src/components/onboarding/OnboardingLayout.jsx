@@ -39,6 +39,60 @@ export const ONBOARDING_STEPS_CONFIG = [
   },
 ];
 
+export const TEACHER_ONBOARDING_STEPS_CONFIG = [
+  {
+    number: 1,
+    title: "Account Verification",
+    subtitle: "Phone & Email OTP",
+    icon: FaShieldAlt,
+  },
+  {
+    number: 2,
+    title: "Professional Identity",
+    subtitle: "TSC & National ID",
+    icon: FaGraduationCap,
+  },
+  {
+    number: 3,
+    title: "Qualifications & Rates",
+    subtitle: "Curriculum & Subjects",
+    icon: FaBook,
+  },
+  {
+    number: 4,
+    title: "Dashboard Launch",
+    subtitle: "AI Studio Setup",
+    icon: FaRocket,
+  },
+];
+
+export const PARENT_ONBOARDING_STEPS_CONFIG = [
+  {
+    number: 1,
+    title: "Account Verification",
+    subtitle: "Phone & Email OTP",
+    icon: FaShieldAlt,
+  },
+  {
+    number: 2,
+    title: "Ward Association",
+    subtitle: "Link Student Profile",
+    icon: FaGraduationCap,
+  },
+  {
+    number: 3,
+    title: "Family Wallet",
+    subtitle: "M-PESA & Spend Limits",
+    icon: FaBook,
+  },
+  {
+    number: 4,
+    title: "Parent Monitor",
+    subtitle: "Dashboard & Alerts",
+    icon: FaRocket,
+  },
+];
+
 /**
  * OnboardingLayout: Streamlined container matching the StudyBuddy design tokens.
  * Uses font-lilita for headers/steps and font-josefin for body/labels.
@@ -46,11 +100,19 @@ export const ONBOARDING_STEPS_CONFIG = [
 const OnboardingLayout = ({
   children,
   currentStep = 1,
+  role = "student",
   onStepClick = null,
   onSaveAndExit = null,
 }) => {
   const navigate = useNavigate();
   const stepPercentage = Math.round((currentStep / 4) * 100);
+
+  const stepsConfig =
+    role === "teacher"
+      ? TEACHER_ONBOARDING_STEPS_CONFIG
+      : role === "parent"
+        ? PARENT_ONBOARDING_STEPS_CONFIG
+        : ONBOARDING_STEPS_CONFIG;
 
   const handleDefaultSaveAndExit = () => {
     if (onSaveAndExit) {
@@ -93,14 +155,14 @@ const OnboardingLayout = ({
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs font-josefin mb-1 text-white/90">
             <span className="font-semibold">
-              {ONBOARDING_STEPS_CONFIG[currentStep - 1]?.title || "Onboarding"}
+              {stepsConfig[currentStep - 1]?.title || "Onboarding"}
             </span>
             <span className="text-cyan-200">
-              {ONBOARDING_STEPS_CONFIG[currentStep - 1]?.subtitle}
+              {stepsConfig[currentStep - 1]?.subtitle}
             </span>
           </div>
           <div className="grid grid-cols-4 gap-1.5 h-1.5 w-full">
-            {ONBOARDING_STEPS_CONFIG.map((step) => {
+            {stepsConfig.map((step) => {
               const isCompleted = step.number < currentStep;
               const isActive = step.number === currentStep;
               return (
@@ -134,11 +196,11 @@ const OnboardingLayout = ({
           aria-hidden="true"
         />
 
-        {/* Top: Brand Logo Only (matching Login/Signup layout) */}
+        {/* Top: Brand Logo + Role Portal Identifier */}
         <div className="relative z-10 shrink-0">
           <Link
             to="/"
-            className="inline-flex items-center gap-3 group transition-transform hover:scale-[1.02]"
+            className="inline-flex flex-col items-start gap-2 group transition-transform hover:scale-[1.02]"
             aria-label="StudyBuddy Africa Home"
           >
             <div className="bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/20 shadow-md">
@@ -148,16 +210,26 @@ const OnboardingLayout = ({
                 className="h-9 w-auto object-contain drop-shadow"
               />
             </div>
+            {role === "teacher" && (
+              <span className="text-[10px] tracking-wider uppercase font-josefin font-bold text-[#81CFFF] bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15">
+                Teacher &amp; Educator Portal
+              </span>
+            )}
+            {role === "parent" && (
+              <span className="text-[10px] tracking-wider uppercase font-josefin font-bold text-[#81CFFF] bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15">
+                Parent &amp; Guardian Portal
+              </span>
+            )}
           </Link>
         </div>
 
         {/* Middle: 4-Step Vertical Stepper (Auto-centered vertically) */}
         <div className="relative z-10 my-auto py-4">
           <nav aria-label="Onboarding Progress" className="space-y-0">
-            {ONBOARDING_STEPS_CONFIG.map((step, idx) => {
+            {stepsConfig.map((step, idx) => {
               const isCompleted = step.number < currentStep;
               const isActive = step.number === currentStep;
-              const isLast = idx === ONBOARDING_STEPS_CONFIG.length - 1;
+              const isLast = idx === stepsConfig.length - 1;
 
               return (
                 <div key={step.number} className="relative">
@@ -232,46 +304,80 @@ const OnboardingLayout = ({
 
         {/* Bottom: Social Proof Testimonial Card & Help Link */}
         <div className="relative z-10 space-y-4">
-          <div className="backdrop-blur-md bg-white/5 border border-white/15 rounded-2xl p-4 space-y-2.5 shadow-inner">
-            {/* Star Rating */}
-            <div className="flex items-center gap-1.5">
-              {[...Array(5)].map((_, i) => (
-                <FaStar key={i} className="w-3 h-3 text-[#FFB800]" />
-              ))}
-              <span className="font-josefin font-bold text-xs text-white ml-1">
-                4.9/5
-              </span>
-            </div>
-
-            {/* Quote */}
-            <p className="font-josefin text-xs text-[#C4E7FF] leading-relaxed">
-              "StudyBuddy helped me prepare for my KCSE revision with pinpoint precision. Highly recommended!"
-            </p>
-
-            {/* Reviewer Portraits + Count */}
-            <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-              <div className="flex -space-x-2 overflow-hidden">
-                <img
-                  src="/images/std1.jpeg"
-                  alt="Student reviewer"
-                  className="inline-block h-6 w-6 rounded-full ring-2 ring-[#003d55] object-cover"
-                />
-                <img
-                  src="/images/std2.jpeg"
-                  alt="Student reviewer"
-                  className="inline-block h-6 w-6 rounded-full ring-2 ring-[#003d55] object-cover"
-                />
-                <img
-                  src="/images/std3.jpeg"
-                  alt="Student reviewer"
-                  className="inline-block h-6 w-6 rounded-full ring-2 ring-[#003d55] object-cover"
-                />
+          {role === "teacher" ? (
+            <div className="backdrop-blur-md bg-white/5 border border-white/15 rounded-2xl p-4 space-y-2.5 shadow-inner">
+              {/* Star Rating */}
+              <div className="flex items-center gap-1.5">
+                {[...Array(5)].map((_, i) => (
+                  <FaStar key={i} className="w-3 h-3 text-[#FFB800]" />
+                ))}
+                <span className="font-josefin font-bold text-xs text-white ml-1">
+                  4.9/5
+                </span>
               </div>
-              <span className="font-josefin font-semibold text-[11px] text-[#81CFFF]">
-                45,000+ students
-              </span>
+
+              {/* Quote */}
+              <p className="font-josefin text-xs text-[#C4E7FF] leading-relaxed">
+                "Empower the next generation of African learners with quality CBC and national curriculum tutoring."
+              </p>
+
+              {/* Reviewer Details */}
+              <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="font-josefin font-bold text-xs text-white">
+                    Mwalimu Eli Muthoka
+                  </p>
+                  <p className="font-josefin text-[10px] text-[#8CA5BE]">
+                    Senior STEM Lead, Nairobi
+                  </p>
+                </div>
+                <span className="font-josefin font-semibold text-[10px] text-[#81CFFF] bg-[#01B0F1]/15 px-2 py-0.5 rounded-full border border-[#01B0F1]/30">
+                  TSC Verified
+                </span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="backdrop-blur-md bg-white/5 border border-white/15 rounded-2xl p-4 space-y-2.5 shadow-inner">
+              {/* Star Rating */}
+              <div className="flex items-center gap-1.5">
+                {[...Array(5)].map((_, i) => (
+                  <FaStar key={i} className="w-3 h-3 text-[#FFB800]" />
+                ))}
+                <span className="font-josefin font-bold text-xs text-white ml-1">
+                  4.9/5
+                </span>
+              </div>
+
+              {/* Quote */}
+              <p className="font-josefin text-xs text-[#C4E7FF] leading-relaxed">
+                "StudyBuddy helped me prepare for my KCSE revision with pinpoint precision. Highly recommended!"
+              </p>
+
+              {/* Reviewer Portraits + Count */}
+              <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                <div className="flex -space-x-2 overflow-hidden">
+                  <img
+                    src="/images/std1.jpeg"
+                    alt="Student reviewer"
+                    className="inline-block h-6 w-6 rounded-full ring-2 ring-[#003d55] object-cover"
+                  />
+                  <img
+                    src="/images/std2.jpeg"
+                    alt="Student reviewer"
+                    className="inline-block h-6 w-6 rounded-full ring-2 ring-[#003d55] object-cover"
+                  />
+                  <img
+                    src="/images/std3.jpeg"
+                    alt="Student reviewer"
+                    className="inline-block h-6 w-6 rounded-full ring-2 ring-[#003d55] object-cover"
+                  />
+                </div>
+                <span className="font-josefin font-semibold text-[11px] text-[#81CFFF]">
+                  45,000+ students
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Need Assistance Action */}
           <div className="flex items-center justify-between px-1 text-xs font-josefin">
@@ -302,19 +408,26 @@ const OnboardingLayout = ({
             <div>
               <div className="flex items-center gap-2">
                 <p className="font-lilita text-[12px] text-[#00658C] tracking-wider uppercase leading-none">
-                  STEP {currentStep} OF 4
+                  {role === "teacher"
+                    ? "TEACHER ONBOARDING"
+                    : role === "parent"
+                      ? "PARENT ONBOARDING"
+                      : "STUDENT ONBOARDING"}{" "}
+                  &bull; STEP {currentStep} OF 4
                 </p>
                 {currentStep === 4 && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold font-josefin">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    100% Ready to Launch
+                    {role === "teacher" ? "Ready for Studio Launch" : "100% Ready to Launch"}
                   </span>
                 )}
               </div>
               <p className="font-josefin font-semibold text-xs text-slate-600 mt-1 leading-none">
                 {currentStep === 4
-                  ? "Dashboard Launch & AI Tutor Setup"
-                  : `${stepPercentage}% Completed`}
+                  ? role === "teacher"
+                    ? "Verification & AI Studio Sandbox"
+                    : "Dashboard Launch & AI Tutor Setup"
+                  : `${stepsConfig[currentStep - 1]?.title} • ${stepPercentage}% Completed`}
               </p>
             </div>
             {currentStep < 4 && (
@@ -351,7 +464,7 @@ const OnboardingLayout = ({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 px-4 sm:px-6 md:px-10 lg:px-14 py-8 lg:py-10 max-w-5xl w-full mx-auto">
+        <div className="flex-1 px-4 sm:px-6 md:px-10 lg:px-14 py-8 lg:py-10 max-w-5xl w-full mx-auto flex flex-col">
           {children}
         </div>
       </main>
