@@ -8,6 +8,7 @@ import Step4DashboardLaunch from "./Step4DashboardLaunch";
 import Step1TeacherAccountOtp from "./Step1TeacherAccountOtp";
 import Step2TeacherProfile from "./Step2TeacherProfile";
 import Step3TeacherQualifications from "./Step3TeacherQualifications";
+import Step4TeacherDashboardLaunch from "./Step4TeacherDashboardLaunch";
 import { FaGraduationCap, FaArrowLeft } from "react-icons/fa";
 
 /**
@@ -138,24 +139,31 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
             />
           )}
 
-          {currentStep >= 4 && (
+          {currentStep === 4 && (
+            <Step4TeacherDashboardLaunch
+              registrationData={registrationData}
+              onBack={() => goToStep(3)}
+            />
+          )}
+
+          {currentStep > 4 && (
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 text-center max-w-lg mx-auto">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#01B0F1]/20 to-[#015575]/20 flex items-center justify-center text-[#015575] mx-auto mb-5">
                 <FaGraduationCap className="text-3xl" />
               </div>
               <h2 className="text-2xl font-lilita text-slate-900 mb-2">
-                Teacher Step {currentStep} In Progress
+                Teacher Onboarding Complete
               </h2>
               <p className="text-slate-500 font-josefin text-sm mb-6">
-                Step {currentStep} (Dashboard Launch &amp; AI Studio Setup) is currently being connected to the studio engine.
+                Your educator account is active. Click below to enter your Teacher Dashboard.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => goToStep(currentStep - 1)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-josefin font-semibold text-sm hover:bg-slate-50 transition-colors"
+                  onClick={() => navigate("/teacher-dashboard")}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#003D55] text-white font-lilita text-base shadow-md hover:bg-[#015575] transition-all"
                 >
-                  <FaArrowLeft className="text-xs" /> Back to Step {currentStep - 1}
+                  Go to Teacher Dashboard
                 </button>
               </div>
             </div>
