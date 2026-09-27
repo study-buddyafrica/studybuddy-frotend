@@ -13,7 +13,9 @@ import {
   FaRedo,
   FaShareAlt,
   FaUsers,
+  FaVideo,
   FaVideoSlash,
+  FaVolumeUp,
 } from "react-icons/fa";
 import axios from "axios";
 import { FHOST } from "../constants/Functions";
@@ -174,10 +176,53 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
   const [shareOn, setShareOn] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
+  const jitsiApiRef = useRef(null);
+  const jitsiContainerRef = useRef(null);
+  const [jitsiReady, setJitsiReady] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [speakerOn, setSpeakerOn] = useState(true);
+  const [leftClass, setLeftClass] = useState(false);
+
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!meetingUrl) {
+      disposeJitsi();
+      return;
+    }
+
+    const initJitsi = async () => {
+      try {
+        await loadJitsiScript();
+        if (cancelled) return;
+        const api = new window.JitsiMeetExternalAPI(meetingUrl, {
+          roomName: parseJitsiRoom(meetingUrl).roomName || "",
+          parentNode: jitsiContainerRef.current,
+          configOverwrite: { startWithAudioMuted: false, startWithVideoMuted: false },
+          interfaceConfigOverwrite: { TOOLBAR_BUTTONS: [] },
+        });
+        jitsiApiRef.current = api;
+        setJitsiReady(true);
+        api.addEventListener("disconnected", () => {
+          if (!cancelled) disposeJitsi();
+        });
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Jitsi init failed:", err);
+          disposeJitsi();
+        }
+      }
+    };
+
+    initJitsi();
+    return () => { cancelled = true; };
+  }, [meetingUrl]);
 
   const handleShareScreen = async () => {
     if (!shareOn) {
@@ -268,6 +313,16 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     });
     const link = response.data?.link || null;
     return isUsableMeetingUrl(link) ? link : null;
+  };
+
+  const disposeJitsi = () => {
+    if (jitsiApiRef.current) {
+      try {
+        jitsiApiRef.current.dispose();
+      } catch (_) {}
+      jitsiApiRef.current = null;
+      setJitsiReady(false);
+    }
   };
 
   const openRoom = async (session, shouldJoinCall = true) => {
