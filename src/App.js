@@ -125,7 +125,7 @@ const App = () => {
   return (
     <Router>
       <CookieConsent />
-       <ToastContainer />
+      <ToastContainer />
       <Suspense
         fallback={
           <div className="text-center text-blue-500">
@@ -264,16 +264,15 @@ const App = () => {
             path="/cookies-policy"
             element={
               <MainLayout>
-                {" "}
-                <Route
-                  path="/confirm-email/:token"
-                  element={
-                    <MainLayout>
-                      <ConfirmEmail />
-                    </MainLayout>
-                  }
-                />
                 <CookiesPolicy />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/confirm-email/:token"
+            element={
+              <MainLayout>
+                <ConfirmEmail />
               </MainLayout>
             }
           />
@@ -301,7 +300,14 @@ const App = () => {
               </MainLayout>
             }
           />
-          <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
+          <Route
+            path="/admin"
+            element={
+              <AdminProtectedRoute>
+                <AdminLayout />
+              </AdminProtectedRoute>
+            }
+          >
             <Route index element={<Dashboard />} />
             <Route path="users" element={<Users />} />
             <Route path="teachers" element={<AdminTeachers />} />
@@ -326,9 +332,10 @@ const App = () => {
 
           <Route path="/student-dashboard/*" element={<StudentDashboard />} />
 
-
-
-          <Route path="/teacher-dashboard/*" element={<TeacherDashboard/>}></Route>
+          <Route
+            path="/teacher-dashboard/*"
+            element={<TeacherDashboard />}
+          ></Route>
 
           <Route
             path="/parent-dashboard/home"
