@@ -173,133 +173,33 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
   const [cameraOn, setCameraOn] = useState(true);
   const [shareOn, setShareOn] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState("");
-  const [jitsiReady, setJitsiReady] = useState(false);
-
-  const jitsiContainerRef = useRef(null);
-  const jitsiApiRef = useRef(null);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const disposeJitsi = () => {
-    if (jitsiApiRef.current) {
-      try {
-        jitsiApiRef.current.dispose();
-      } catch (_) {}
-      jitsiApiRef.current = null;
-    }
-    if (jitsiContainerRef.current) {
-      jitsiContainerRef.current.innerHTML = "";
-    }
-    setJitsiReady(false);
-  };
-
-  useEffect(() => {
-    if (!meetingUrl || view !== "room") return undefined;
-
-    let cancelled = false;
-
-    const start = async () => {
-      setMeetingLoading(true);
-      setJitsiReady(false);
-      try {
-        await loadJitsiScript();
-        if (cancelled || !jitsiContainerRef.current) return;
-
-        const { domain, roomName } = parseJitsiRoom(meetingUrl);
-        if (!roomName || !window.JitsiMeetExternalAPI) {
-          setError("Could not start in-app meeting. Use Open in new tab.");
-          return;
+  const handleShareScreen = async () => {
+    if (!shareOn) {
+      if (navigator.mediaDevices?.getDisplayMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          setShareOn(true);
+          const track = stream.getVideoTracks()[0];
+          if (track) {
+            track.onended = () => setShareOn(false);
+          }
+        } catch (err) {
+          console.warn("Screen share cancelled or not allowed:", err);
+          setShareOn(false);
         }
-
-        disposeJitsi();
-
-        const api = new window.JitsiMeetExternalAPI(domain, {
-          roomName,
-          parentNode: jitsiContainerRef.current,
-          width: "100%",
-          height: "100%",
-          configOverwrite: {
-            prejoinPageEnabled: false,
-            startWithAudioMuted: false,
-            startWithVideoMuted: false,
-            disableDeepLinking: true,
-            toolbarButtons: [],
-          },
-          interfaceConfigOverwrite: {
-            TOOLBAR_BUTTONS: [],
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false,
-            DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-          },
-          // Optional: set a cleaner display name if you have the user
-          // userInfo: { displayName: "Student" },
-        });
-
-        jitsiApiRef.current = api;
-        setJitsiReady(true);
-
-        api.addListener("audioMuteStatusChanged", ({ muted }) => {
-          setMicOn(!muted);
-        });
-        api.addListener("videoMuteStatusChanged", ({ muted }) => {
-          setCameraOn(!muted);
-        });
-        api.addListener("readyToClose", () => {
-          disposeJitsi();
-        });
-
-        // Jitsi chat → your UI
-        api.addListener("incomingMessage", (message) => {
-          const author = message.nick || message.from || "Participant";
-          const text = message.message || message.text || "";
-          if (!text) return;
-
-          // Skip if it looks like our own optimistic message (simple heuristic)
-          setChatMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (
-              last &&
-              last.author === "You" &&
-              last.text === text &&
-              Date.now() - new Date(last.at).getTime() < 2000
-            ) {
-              return prev;
-            }
-            return [
-              ...prev,
-              {
-                id: `${Date.now()}-${author}`,
-                author,
-                text,
-                at: new Date().toISOString(),
-              },
-            ];
-          });
-        });
-      } catch (err) {
-        console.error("Jitsi External API failed:", err);
-        if (!cancelled) {
-          setError(
-            "In-app meeting controls failed. Use “Open in new tab” for the call.",
-          );
-        }
-      } finally {
-        if (!cancelled) setMeetingLoading(false);
+      } else {
+        setShareOn(true);
       }
-    };
-
-    start();
-
-    return () => {
-      cancelled = true;
-      disposeJitsi();
-    };
-  }, [meetingUrl, view]);
+    } else {
+      setShareOn(false);
+    }
+  };
 
   const loadSessions = async () => {
     setLoading(true);
@@ -724,14 +624,106 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-2.5">
-              <p className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-                <span className="text-[#01B0F1]">💬</span> Class chat
-              </p>
-              {joinCount != null && (
-                <p className="text-xs text-gray-500">{joinCount} people</p>
-              )}
-            </div>
+                  <div className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(250px,0.75fr)]">
+                    <div className="rounded-xl bg-[#102a43] p-5 text-white">
+                      <div className="flex min-h-[210px] flex-col items-center justify-center text-center">
+                        <FaVideo className="text-4xl text-[#8bdcf7]" />
+                        <h3 className="mt-4 text-lg font-semibold">
+                          {leftClass
+                            ? "You left this classroom"
+                            : "Meeting controls"}
+                        </h3>
+                        <p className="mt-2 max-w-sm text-sm text-blue-100">
+                          The meeting opens in a secure browser tab. Use these
+                          controls to prepare locally, then use the meeting
+                          provider controls for the live call.
+                        </p>
+                      </div>
+                      <div className="mt-4 flex flex-wrap justify-center gap-2 border-t border-white/20 pt-4">
+                        <button
+                          type="button"
+                          onClick={() => setMicOn((value) => !value)}
+                          aria-label={
+                            micOn ? "Mute microphone" : "Unmute microphone"
+                          }
+                          className={`rounded-full p-3 ${micOn ? "bg-white/15" : "bg-red-500"}`}
+                        >
+                          <FaMicrophone />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCameraOn((value) => !value)}
+                          aria-label={
+                            cameraOn ? "Turn camera off" : "Turn camera on"
+                          }
+                          className={`rounded-full p-3 ${cameraOn ? "bg-white/15" : "bg-red-500"}`}
+                        >
+                          {cameraOn ? <FaCamera /> : <FaVideoSlash />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSpeakerOn((value) => !value)}
+                          aria-label={
+                            speakerOn ? "Mute speakers" : "Unmute speakers"
+                          }
+                          className={`rounded-full p-3 ${speakerOn ? "bg-white/15" : "bg-red-500"}`}
+                        >
+                          <FaVolumeUp />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleShareScreen}
+                          aria-label={shareOn ? "Stop sharing" : "Share screen"}
+                          className={`rounded-full p-3 ${shareOn ? "bg-[#01B0F1]" : "bg-white/15"}`}
+                        >
+                          <FaShareAlt />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLeftClass(true)}
+                          aria-label="Leave classroom"
+                          className="rounded-full bg-red-500 p-3 hover:bg-red-600"
+                        >
+                          <FaPhoneSlash />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-semibold text-gray-800">
+                          Whiteboard
+                        </h3>
+                        {selectedSession.whiteboard_link && (
+                          <FaExternalLinkAlt className="text-gray-400" />
+                        )}
+                      </div>
+                      {selectedSession.whiteboard_link ? (
+                        <>
+                          <div className="mt-3 aspect-video overflow-hidden rounded-lg bg-gray-100">
+                            <iframe
+                              title={`${selectedSession.title || "Class"} whiteboard`}
+                              src={selectedSession.whiteboard_link}
+                              className="h-full w-full border-0"
+                            />
+                          </div>
+                          <a
+                            href={selectedSession.whiteboard_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#015575] hover:underline"
+                          >
+                            <FaExternalLinkAlt /> Open in a new tab
+                          </a>
+                        </>
+                      ) : (
+                        <p className="mt-4 text-sm text-gray-500">
+                          Your teacher has not shared a whiteboard for this
+                          class.
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
               {chatMessages.map((msg) => (
