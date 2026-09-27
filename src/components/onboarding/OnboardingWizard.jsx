@@ -6,6 +6,7 @@ import Step2AcademicProfile from "./Step2AcademicProfile";
 import Step3SubjectsGoals from "./Step3SubjectsGoals";
 import Step4DashboardLaunch from "./Step4DashboardLaunch";
 import Step1TeacherAccountOtp from "./Step1TeacherAccountOtp";
+import Step2TeacherProfile from "./Step2TeacherProfile";
 import { FaGraduationCap, FaArrowLeft } from "react-icons/fa";
 
 /**
@@ -120,7 +121,15 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
             />
           )}
 
-          {currentStep >= 2 && (
+          {currentStep === 2 && (
+            <Step2TeacherProfile
+              registrationData={registrationData}
+              onNext={handleStep2Success}
+              onBack={() => goToStep(1)}
+            />
+          )}
+
+          {currentStep >= 3 && (
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 text-center max-w-lg mx-auto">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#01B0F1]/20 to-[#015575]/20 flex items-center justify-center text-[#015575] mx-auto mb-5">
                 <FaGraduationCap className="text-3xl" />
@@ -129,7 +138,7 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
                 Teacher Step {currentStep} In Progress
               </h2>
               <p className="text-slate-500 font-josefin text-sm mb-6">
-                Step {currentStep} (Professional Identity &amp; KYC Verification) is currently being connected to the KYC engine.
+                Step {currentStep} (Qualifications &amp; Specializations) is currently being connected to the curriculum engine.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button
