@@ -29,6 +29,7 @@ import axios from "axios";
 import { FHOST } from "./constants/Functions";
 import DashboardHeader from "./layout/DashboardHeader";
 import { authStorage } from "../services/authStorage";
+import { authService } from "../services/authService";
 
 const DashboardHome = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -43,6 +44,7 @@ const DashboardHome = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [profileComplete, setProfileComplete] = useState(true);
   const [showProfileUpdateModal, setShowProfileUpdateModal] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
 
   // Helper function to get profile_id from JWT token if not in userInfo
   const getProfileId = (user) => {
@@ -124,41 +126,64 @@ const DashboardHome = () => {
       initializeDarkMode();
       
       // Check profile completion
-      const checkProfileCompletion = async () => {
-        try {
-          const profileId = getProfileId(storedUserInfo);
-          console.log("Checking profile completion for ID:", profileId);
+            const checkProfileCompletion = async () => {
+              try {
+                const profileId = getProfileId(storedUserInfo);
+                console.log("Checking profile completion for ID:", profileId);
 
-          const profileResponse = await axios.get(
-            `${FHOST}/api/student/profile/update/${profileId}/`,
-            {
-              headers: {
-                Authorization: `Bearer ${authStorage.getAccessToken()}`,
-              },
-            },
-          );
-          if (profileResponse.data) {
-            const profileData = profileResponse.data;
-            // Check if profile has required fields
-            const isComplete = !!(profileData.profile_picture && profileData.birth_date && profileData.grade && profileData.school);
-            setProfileComplete(isComplete);
-            if (!isComplete && !localStorage.getItem("profilePromptShown")) {
-              setShowProfileUpdateModal(true);
-              setActiveComponent("profileupdate");
-              localStorage.setItem("profilePromptShown", "true");
-            }
-          }
-        } catch (error) {
-          console.error("Profile completion check failed:", error);
-          // Profile doesn't exist or error - profile is incomplete
-          setProfileComplete(false);
-          if (!localStorage.getItem("profilePromptShown")) {
-            setShowProfileUpdateModal(true);
-            setActiveComponent("profileupdate");
-            localStorage.setItem("profilePromptShown", "true");
-          }
-        }
-      };
+                let token = authStorage.getAccessToken();
+                if (!token && authStorage.getRefreshToken()) {
+                  try {
+                    token = await authService.refreshToken();
+                  } catch (_) {
+                    /* ignore */
+                  }
+                }
+                if (!token) {
+                  console.warn("Profile check skipped — no access token");
+                  return;
+                }
+
+                const profileResponse = await axios.get(
+                  `${FHOST}/api/student/profile/update/${profileId}/`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                    },
+                  },
+                );
+                if (profileResponse.data) {
+                  const profileData = profileResponse.data;
+                  const isComplete = !!(
+                    profileData.profile_picture &&
+                    profileData.birth_date &&
+                    profileData.grade &&
+                    profileData.school
+                  );
+                  setProfileComplete(isComplete);
+                  if (
+                    !isComplete &&
+                    !localStorage.getItem("profilePromptShown")
+                  ) {
+                    setShowProfileUpdateModal(true);
+                    setActiveComponent("profileupdate");
+                    localStorage.setItem("profilePromptShown", "true");
+                  }
+                }
+              } catch (error) {
+                if (error.response?.status === 401) {
+                  console.warn("Profile check skipped (unauthorized).");
+                  return;
+                }
+                console.error("Profile completion check failed:", error);
+                setProfileComplete(false);
+                if (!localStorage.getItem("profilePromptShown")) {
+                  setShowProfileUpdateModal(true);
+                  setActiveComponent("profileupdate");
+                  localStorage.setItem("profilePromptShown", "true");
+                }
+              }
+            };
       checkProfileCompletion();
       return;
     }
@@ -306,9 +331,13 @@ const DashboardHome = () => {
                     <FaBookOpen className="text-xl" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs md:text-sm">Active Lessons</p>
+                    <p className="text-gray-500 text-xs md:text-sm">
+                      Active Lessons
+                    </p>
                     <div className="flex items-baseline">
-                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">0</h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">
+                        0
+                      </h3>
                     </div>
                   </div>
                 </div>
@@ -320,9 +349,13 @@ const DashboardHome = () => {
                     <FaGraduationCap className="text-xl" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs md:text-sm">Completed Lessons</p>
+                    <p className="text-gray-500 text-xs md:text-sm">
+                      Completed Lessons
+                    </p>
                     <div className="flex items-baseline">
-                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">0</h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">
+                        0
+                      </h3>
                     </div>
                   </div>
                 </div>
@@ -334,9 +367,13 @@ const DashboardHome = () => {
                     <FaWallet className="text-xl" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs md:text-sm">Wallet Balance</p>
+                    <p className="text-gray-500 text-xs md:text-sm">
+                      Wallet Balance
+                    </p>
                     <div className="flex items-baseline">
-                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">Ksh 0</h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">
+                        Ksh 0
+                      </h3>
                     </div>
                   </div>
                 </div>
@@ -348,9 +385,13 @@ const DashboardHome = () => {
                     <FaCalendarAlt className="text-xl" />
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs md:text-sm">Upcoming Sessions</p>
+                    <p className="text-gray-500 text-xs md:text-sm">
+                      Upcoming Sessions
+                    </p>
                     <div className="flex items-baseline">
-                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">0</h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-gray-800">
+                        0
+                      </h3>
                     </div>
                   </div>
                 </div>
@@ -370,7 +411,9 @@ const DashboardHome = () => {
                   </div>
                   <h2 className="text-xl font-lilita">Book a Lesson</h2>
                 </div>
-                <p className="mb-6 text-blue-100">Schedule your next learning session</p>
+                <p className="mb-6 text-blue-100">
+                  Schedule your next learning session
+                </p>
                 <button className="bg-white text-sky-600 py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-gray-100 transition text-sm md:text-base">
                   Book Now
                 </button>
@@ -385,9 +428,13 @@ const DashboardHome = () => {
                   <div className="bg-sky-500/10 p-3 rounded-full mr-4 text-sky-500">
                     <FaGraduationCap className="text-xl" />
                   </div>
-                  <h2 className="text-xl font-lilita text-gray-800">Browse Teachers</h2>
+                  <h2 className="text-xl font-lilita text-gray-800">
+                    Browse Teachers
+                  </h2>
                 </div>
-                <p className="mb-6 text-gray-600">Find and connect with qualified tutors</p>
+                <p className="mb-6 text-gray-600">
+                  Find and connect with qualified tutors
+                </p>
                 <button className="bg-sky-500 text-white py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-sky-600 transition text-sm md:text-base">
                   View Teachers
                 </button>
@@ -402,9 +449,13 @@ const DashboardHome = () => {
                   <div className="bg-green-500/10 p-3 rounded-full mr-4 text-green-500">
                     <FaWallet className="text-xl" />
                   </div>
-                  <h2 className="text-xl font-lilita text-gray-800">Make Payment</h2>
+                  <h2 className="text-xl font-lilita text-gray-800">
+                    Make Payment
+                  </h2>
                 </div>
-                <p className="mb-6 text-gray-600">Add funds to your wallet for lessons</p>
+                <p className="mb-6 text-gray-600">
+                  Add funds to your wallet for lessons
+                </p>
                 <button className="bg-green-500 text-white py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-green-600 transition text-sm md:text-base">
                   Add Funds
                 </button>
@@ -422,7 +473,9 @@ const DashboardHome = () => {
                   </h2>
                 </div>
                 <div className="p-4 md:p-6">
-                  <div className="space-y-4 text-center text-gray-500 py-6">No recent teachers</div>
+                  <div className="space-y-4 text-center text-gray-500 py-6">
+                    No recent teachers
+                  </div>
                   <div className="mt-4 text-center">
                     <button
                       onClick={() => setActiveComponent("teachers")}
@@ -443,7 +496,9 @@ const DashboardHome = () => {
                   </h2>
                 </div>
                 <div className="p-4 md:p-6">
-                  <div className="space-y-4 text-center text-gray-500 py-6">No upcoming lessons</div>
+                  <div className="space-y-4 text-center text-gray-500 py-6">
+                    No upcoming lessons
+                  </div>
                   <div className="mt-4 text-center">
                     <button
                       onClick={() => setActiveComponent("lessons")}
@@ -460,7 +515,14 @@ const DashboardHome = () => {
       case "mywallet":
         return <MyWallet userInfo={userInfo} darkMode={darkMode} />;
       case "lessons":
-        return <MyLessons userInfo={userInfo} darkMode={darkMode} />;
+        return (
+          <MyLessons
+            userInfo={userInfo}
+            darkMode={darkMode}
+            onEnterRoom={() => setFocusMode(true)}
+            onLeaveRoom={() => setFocusMode(false)}
+          />
+        );
       case "teachers":
         return <TeacherProfiles userInfo={userInfo} darkMode={darkMode} />;
       case "videofeed":
@@ -468,18 +530,19 @@ const DashboardHome = () => {
       case "profileupdate":
         return <StudentProfileUpdate userInfo={userInfo} />;
       case "myaccount":
-        return <StudentViewProfile userInfo={userInfo} onEditProfile={() => setActiveComponent("profileupdate")} />;
+        return (
+          <StudentViewProfile
+            userInfo={userInfo}
+            onEditProfile={() => setActiveComponent("profileupdate")}
+          />
+        );
       case "performance":
         return <Performance userInfo={userInfo} darkMode={darkMode} />;
       case "history":
         return (
           <div className="max-w-4xl mx-auto">
-            <div
-              className="p-6 rounded-2xl shadow-lg bg-white transition-all duration-300"
-            >
-              <h2
-                className="text-2xl font-bold mb-6 text-gray-800 font-lilita"
-              >
+            <div className="p-6 rounded-2xl shadow-lg bg-white transition-all duration-300">
+              <h2 className="text-2xl font-bold mb-6 text-gray-800 font-lilita">
                 Activity History
               </h2>
               <div className="py-10 text-center text-gray-500">
@@ -491,9 +554,7 @@ const DashboardHome = () => {
       case "settings":
         return (
           <div className="max-w-3xl mx-auto space-y-6">
-            <div
-              className="p-6 rounded-2xl shadow-lg flex justify-between items-center bg-white transition-all duration-300"
-            >
+            <div className="p-6 rounded-2xl shadow-lg flex justify-between items-center bg-white transition-all duration-300">
               <span
                 className={`flex items-center ${
                   darkMode ? "text-white" : "text-gray-800"
@@ -510,9 +571,7 @@ const DashboardHome = () => {
               </button>
             </div>
 
-            <div
-              className="p-6 rounded-2xl shadow-lg flex justify-between items-center bg-white transition-all duration-300"
-            >
+            <div className="p-6 rounded-2xl shadow-lg flex justify-between items-center bg-white transition-all duration-300">
               <span
                 className={`flex items-center ${
                   darkMode ? "text-white" : "text-gray-800"
@@ -575,8 +634,12 @@ const DashboardHome = () => {
     >
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 z-50 transform lg:translate-x-0 transition-transform duration-300 ease-in-out w-64 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 z-50 transform transition-transform duration-300 ease-in-out w-64 ${
+          focusMode
+            ? "-translate-x-full pointer-events-none"
+            : sidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full lg:translate-x-0"
         } bg-sky-500 shadow-xl`}
       >
         <div className="px-6 py-8 lg:py-12">
@@ -604,7 +667,8 @@ const DashboardHome = () => {
             {/* My Account Button */}
             <button
               className={`flex items-center w-full px-4 py-3 rounded-xl transition-all text-left ${
-                activeComponent === "myaccount" || activeComponent === "profileupdate"
+                activeComponent === "myaccount" ||
+                activeComponent === "profileupdate"
                   ? "bg-white/20 text-white"
                   : "text-indigo-100 dark:text-gray-300 hover:bg-white/10"
               }`}
@@ -642,7 +706,8 @@ const DashboardHome = () => {
                 Complete Your Profile
               </h2>
               <p className="text-gray-600 font-josefin text-lg mb-6">
-                Before you can continue, please complete your profile information.
+                Before you can continue, please complete your profile
+                information.
               </p>
               <div className="flex gap-4 justify-center">
                 <button
@@ -660,16 +725,29 @@ const DashboardHome = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:pl-64">
-        <DashboardHeader
-          title={navigation.find((n) => n.key === activeComponent)?.name || "Dashboard"}
-          userInfo={userInfo}
-          onLogout={handleLogout}
-          onToggleSidebar={() => setSidebarOpen(true)}
-          onViewProfile={() => setActiveComponent("myaccount")}
-          onEditProfile={() => setActiveComponent("profileupdate")}
-        />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-6 lg:p-8 space-y-6 transition-all duration-300">
+      <div
+        className={`flex-1 flex flex-col ${focusMode ? "lg:pl-0" : "lg:pl-64"}`}
+      >
+        {!focusMode && (
+          <DashboardHeader
+            title={
+              navigation.find((n) => n.key === activeComponent)?.name ||
+              "Dashboard"
+            }
+            userInfo={userInfo}
+            onLogout={handleLogout}
+            onToggleSidebar={() => setSidebarOpen(true)}
+            onViewProfile={() => setActiveComponent("myaccount")}
+            onEditProfile={() => setActiveComponent("profileupdate")}
+          />
+        )}
+        <main
+          className={
+            focusMode
+              ? "flex-1 overflow-hidden bg-gray-50 p-0"
+              : "flex-1 overflow-y-auto bg-gray-50 p-4 md:p-6 lg:p-8 space-y-6 transition-all duration-300"
+          }
+        >
           {renderActiveComponent()}
         </main>
       </div>

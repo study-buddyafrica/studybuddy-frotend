@@ -1,223 +1,200 @@
-import React from "react";
-import { FaGraduationCap, FaComments } from "react-icons/fa";
+import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  FaCheckCircle,
+  FaStar,
+  FaGraduationCap,
+  FaArrowRight,
+} from "react-icons/fa";
 import { motion } from "framer-motion";
 
-const TutorProfilesPage = () => {
-  const tutors = [
-    {
-      id: 1,
-      name: "Kwamboka Abigael",
-      bio: "A passionate educator with over 10 years of experience teaching mathematics and science. Committed to helping students reach their full potential.",
-      qualifications: [
-        "M.Sc. in Mathematics",
-        "Certified Science Teacher",
-        "10+ Years Experience",
-      ],
-      subjects: ["Math", "Physics", "Chemistry"],
-      rating: 4.5,
-      reviews: [
-        {
-          student: "Alice",
-          comment: "Great teacher, explains concepts clearly!",
-        },
-        { student: "Bob", comment: "Very patient and knowledgeable." },
-        {
-          student: "Charlie",
-          comment: "Helped me improve my grades significantly.",
-        },
-      ],
-      image: "images/teacher4.jpg",
-    },
-    {
-      id: 2,
-      name: "Peace Omondi",
-      bio: "Specializing in languages, Peace brings 3 years of teaching experience and a unique approach to learning.",
-      qualifications: [
-        "B.A. in English Literature",
-        "TESOL Certification",
-        "3+ Years Experience",
-      ],
-      subjects: ["English", "Spanish", "French"],
-      rating: 4.7,
-      reviews: [
-        {
-          student: "David",
-          comment: "A fantastic teacher who makes learning fun!",
-        },
-        {
-          student: "Emma",
-          comment: "Her lessons are engaging and well-structured.",
-        },
-      ],
-      image: "images/teacher2.jpg",
-    },
-    {
-      id: 3,
-      name: "Kamau Mwangi",
-      bio: "An experienced coding instructor who helps students build real-world projects with Python and JavaScript.",
-      qualifications: [
-        "B.S. in Computer Science",
-        "Certified Web Developer",
-        "8+ Years Experience",
-      ],
-      subjects: ["Programming", "Web Development", "Python"],
-      rating: 4.8,
-      reviews: [
-        {
-          student: "Michael",
-          comment:
-            "Samuel is an excellent tutor. His explanations are easy to follow!",
-        },
-        {
-          student: "Sarah",
-          comment: "I learned a lot from his programming tutorials.",
-        },
-      ],
-      image: "images/teacher3.jpg",
-    },
-  ];
+const tutors = [
+  {
+    id: 1,
+    name: "Kwamboka Abigael",
+    bio: "Mathematics & science · 10+ years in the classroom.",
+    qualifications: [
+      "M.Sc. in Mathematics",
+      "Certified Science Teacher",
+      "10+ Years Experience",
+    ],
+    subjects: ["Math", "Physics", "Chemistry"],
+    rating: 4.5,
+    school: "Verified educator",
+    image: "/images/teacher4.jpg",
+  },
+  {
+    id: 2,
+    name: "Peace Omondi",
+    bio: "Languages specialist · engaging, structured lessons.",
+    qualifications: [
+      "B.A. in English Literature",
+      "TESOL Certification",
+      "3+ Years Experience",
+    ],
+    subjects: ["English", "Spanish", "French"],
+    rating: 4.7,
+    school: "Verified educator",
+    image: "/images/teacher2.jpg",
+  },
+  {
+    id: 3,
+    name: "Kamau Mwangi",
+    bio: "Coding & web · real projects with Python & JavaScript.",
+    qualifications: [
+      "B.S. in Computer Science",
+      "Certified Web Developer",
+      "8+ Years Experience",
+    ],
+    subjects: ["Programming", "Web Development", "Python"],
+    rating: 4.8,
+    school: "Verified educator",
+    image: "/images/teacher3.jpg",
+  },
+];
 
-  const cardVariants = {
-    hidden: { opacity: 0, y: 50 },
-    visible: { opacity: 1, y: 0 },
-  };
+const TutorProfilesPage = () => {
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return tutors;
+    return tutors.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        t.bio.toLowerCase().includes(q) ||
+        t.subjects.some((s) => s.toLowerCase().includes(q)),
+    );
+  }, [query]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff] pt-24">
-      {/* Header with Animated Gradient */}
-      <motion.header
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="bg-gradient-to-r from-[#015575] to-[#01B0F1] text-white py-20 text-center relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 relative z-10">
-          <h1 className="text-4xl md:text-5xl font-bold font-lilita mb-4">
-            Meet Our <span className="text-[#aadfff]">Expert Tutors</span>
+    <div className="min-h-screen bg-[#f8fcff] pt-20">
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#015575] to-[#027a9e] pb-16 pt-12 text-white">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-15"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 15% 40%, #fff 0, transparent 40%), radial-gradient(circle at 85% 20%, #01B0F1 0, transparent 35%)",
+          }}
+        />
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#7dd3f0]">
+            Educators
+          </p>
+          <h1 className="mt-2 font-lilita text-3xl font-bold sm:text-4xl lg:text-5xl">
+            Meet verified teachers across Africa
           </h1>
-          <p className="text-lg font-josefin max-w-2xl mx-auto">
-            Connect with certified educators passionate about your success
+          <p className="mt-3 max-w-xl font-josefin text-base text-white/85">
+            Certified educators with real classroom experience — ready for
+            one-to-one and live classes.
           </p>
 
-          {/* Search Bar */}
-          <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            className="mt-8 max-w-3xl mx-auto bg-white/20 backdrop-blur-sm rounded-full p-2 flex gap-2">
+          <div className="mt-8 flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center">
             <input
-              type="text"
-              placeholder="Search tutors or subjects..."
-              className="flex-1 bg-transparent border-none outline-none text-white placeholder-white/80 px-6 focus:ring-0"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name or subject…"
+              className="w-full flex-1 rounded-full border-0 bg-white/15 px-5 py-3 font-josefin text-white placeholder-white/60 outline-none ring-1 ring-white/25 focus:bg-white/20 focus:ring-2 focus:ring-white/40"
             />
-            <button className="bg-white text-[#015575] px-8 py-3 rounded-full font-semibold hover:bg-[#e1f3ff] transition-all">
-              Search
-            </button>
-          </motion.div>
+            <Link
+              to="/signup"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#015575] shadow hover:bg-[#e1f3ff]"
+            >
+              Start learning
+              <FaArrowRight className="text-xs" />
+            </Link>
+          </div>
         </div>
-      </motion.header>
+      </section>
 
-      {/* Tutor Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-        {tutors.map((tutor, index) => (
-          <motion.div
-            key={tutor.id}
-            variants={cardVariants}
-            initial="hidden"
-            animate="visible"
-            transition={{ delay: index * 0.1 }}
-            className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all overflow-hidden border border-white/20">
-            {/* Profile Header */}
-            <div className="relative h-40 bg-gradient-to-r from-[#01B0F1]/10 to-[#015575]/10">
-              <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
-                <img
-                  src={tutor.image}
-                  alt={tutor.name}
-                  className="w-24 h-24 rounded-full border-4 border-white shadow-lg hover:scale-110 transition-transform"
-                />
-              </div>
-            </div>
-
-            {/* Tutor Content */}
-            <div className="pt-16 px-6 pb-6 space-y-6">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-[#015575] font-lilita">
-                  {tutor.name}
-                </h2>
-                <p className="text-sm text-gray-600 mt-2 font-josefin">
-                  {tutor.bio}
-                </p>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="bg-[#01B0F1]/10 p-3 rounded-xl">
-                  <div className="text-xl font-bold text-[#015575] font-lilita">
-                    {tutor.rating}
-                  </div>
-                  <div className="text-xs text-[#015575] font-josefin">
-                    Rating
+      {/* Grid */}
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+        {filtered.length === 0 ? (
+          <p className="py-16 text-center font-josefin text-[#4a6b7d]">
+            No educators match “{query}”. Try another subject or name.
+          </p>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((tutor, index) => (
+              <motion.article
+                key={tutor.id}
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.08 }}
+                className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-gray-100 transition hover:-translate-y-1 hover:shadow-xl"
+              >
+                <div className="relative h-48 overflow-hidden bg-[#e1f3ff]">
+                  <img
+                    src={tutor.image}
+                    alt={tutor.name}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+                  <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#01B0F1] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+                    <FaCheckCircle className="text-[10px]" />
+                    Verified
+                  </span>
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <h2 className="font-lilita text-xl text-white drop-shadow">
+                      {tutor.name}
+                    </h2>
+                    <p className="flex items-center gap-1 text-sm text-white/90">
+                      <FaStar className="text-xs text-amber-300" />
+                      {tutor.rating} · {tutor.subjects.join(" · ")}
+                    </p>
                   </div>
                 </div>
-                <div className="bg-[#01B0F1]/10 p-3 rounded-xl">
-                  <div className="text-xl font-bold text-[#015575] font-lilita">
-                    {tutor.subjects.length}+
-                  </div>
-                  <div className="text-xs text-[#015575] font-josefin">
-                    Subjects
-                  </div>
-                </div>
-                <div className="bg-[#01B0F1]/10 p-3 rounded-xl">
-                  <div className="text-xl font-bold text-[#015575] font-lilita">
-                    {tutor.qualifications.length}
-                  </div>
-                  <div className="text-xs text-[#015575] font-josefin">
-                    Certs
-                  </div>
-                </div>
-              </div>
 
-              {/* Qualifications */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 text-[#015575] font-lilita">
-                  <FaGraduationCap className="text-xl" />
-                  <h3 className="text-lg font-semibold">Qualifications</h3>
-                </div>
-                <ul className="space-y-2 font-josefin text-gray-700">
-                  {tutor.qualifications.map((qual, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-[#01B0F1] rounded-full" />
-                      {qual}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                <div className="flex flex-1 flex-col p-5">
+                  <p className="font-josefin text-sm text-[#4a6b7d]">
+                    {tutor.bio}
+                  </p>
 
-              {/* Reviews */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 text-[#015575] font-lilita">
-                  <FaComments className="text-xl" />
-                  <h3 className="text-lg font-semibold">Student Feedback</h3>
-                </div>
-                <div className="space-y-3">
-                  {tutor.reviews.map((review, i) => (
-                    <div key={i} className="bg-[#01B0F1]/5 p-3 rounded-lg">
-                      <p className="text-sm font-josefin text-gray-700">
-                        "{review.comment}"
-                      </p>
-                      <p className="text-xs text-[#015575] mt-2 font-semibold">
-                        - {review.student}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                  <div className="mt-4">
+                    <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#015575]">
+                      <FaGraduationCap />
+                      Qualifications
+                    </p>
+                    <ul className="space-y-1.5">
+                      {tutor.qualifications.map((q) => (
+                        <li
+                          key={q}
+                          className="flex items-start gap-2 font-josefin text-sm text-[#4a6b7d]"
+                        >
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#01B0F1]" />
+                          {q}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-              {/* CTA Button */}
-              <button className="w-full bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white py-3 rounded-xl font-lilita hover:shadow-md transition-all">
-                Book a Session
-              </button>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {tutor.subjects.map((s) => (
+                      <span
+                        key={s}
+                        className="rounded-full bg-[#01B0F1]/10 px-2.5 py-0.5 text-xs font-medium text-[#015575]"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+
+                  <Link
+                    to="/signup"
+                    state={{ role: "student" }}
+                    className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#015575] py-2.5 text-sm font-semibold text-white transition hover:bg-[#01B0F1]"
+                  >
+                    Book a session
+                  </Link>
+                </div>
+              </motion.article>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 };
