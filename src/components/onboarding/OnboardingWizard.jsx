@@ -10,7 +10,7 @@ import Step2TeacherProfile from "./Step2TeacherProfile";
 import Step3TeacherQualifications from "./Step3TeacherQualifications";
 import Step4TeacherDashboardLaunch from "./Step4TeacherDashboardLaunch";
 import Step1ParentAccountOtp from "./Step1ParentAccountOtp";
-import Step2ParentWardDetails from "./Step2ParentWardDetails";
+import Step2ParentLearnerDetails from "./Step2ParentLearnerDetails";
 import Step3ParentCurriculumGoals from "./Step3ParentCurriculumGoals";
 import Step4ParentDashboardLaunch from "./Step4ParentDashboardLaunch";
 import { FaGraduationCap, FaArrowLeft } from "react-icons/fa";
@@ -192,7 +192,7 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
           )}
 
           {currentStep === 2 && (
-            <Step2ParentWardDetails
+            <Step2ParentLearnerDetails
               registrationData={registrationData}
               onNext={handleStep2Success}
               onBack={() => goToStep(1)}

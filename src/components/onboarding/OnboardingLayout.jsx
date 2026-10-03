@@ -76,19 +76,19 @@ export const PARENT_ONBOARDING_STEPS_CONFIG = [
   {
     number: 2,
     title: "Learner & Child Details",
-    subtitle: "Ward & School Profile",
+    subtitle: "Grade, School & ID",
     icon: FaGraduationCap,
   },
   {
     number: 3,
-    title: "Curriculum & Goals",
-    subtitle: "CBC & Focus Subjects",
+    title: "Goals & Curriculum",
+    subtitle: "CBC, 8-4-4 & Cambridge",
     icon: FaBook,
   },
   {
     number: 4,
-    title: "Family Wallet & Launch",
-    subtitle: "M-PESA & Escrow Setup",
+    title: "Portal Launch",
+    subtitle: "WhatsApp Sync & Reports",
     icon: FaRocket,
   },
 ];
