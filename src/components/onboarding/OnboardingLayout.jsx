@@ -75,20 +75,20 @@ export const PARENT_ONBOARDING_STEPS_CONFIG = [
   },
   {
     number: 2,
-    title: "Ward Association",
-    subtitle: "Link Student Profile",
+    title: "Learner & Child Details",
+    subtitle: "Ward & School Profile",
     icon: FaGraduationCap,
   },
   {
     number: 3,
-    title: "Family Wallet",
-    subtitle: "M-PESA & Spend Limits",
+    title: "Curriculum & Goals",
+    subtitle: "CBC & Focus Subjects",
     icon: FaBook,
   },
   {
     number: 4,
-    title: "Parent Monitor",
-    subtitle: "Dashboard & Alerts",
+    title: "Family Wallet & Launch",
+    subtitle: "M-PESA & Escrow Setup",
     icon: FaRocket,
   },
 ];
@@ -333,6 +333,38 @@ const OnboardingLayout = ({
                 </div>
                 <span className="font-josefin font-semibold text-[10px] text-[#81CFFF] bg-[#01B0F1]/15 px-2 py-0.5 rounded-full border border-[#01B0F1]/30">
                   TSC Verified
+                </span>
+              </div>
+            </div>
+          ) : role === "parent" ? (
+            <div className="backdrop-blur-md bg-white/5 border border-white/15 rounded-2xl p-4 space-y-2.5 shadow-inner">
+              {/* Star Rating */}
+              <div className="flex items-center gap-1.5">
+                {[...Array(5)].map((_, i) => (
+                  <FaStar key={i} className="w-3 h-3 text-[#FFB800]" />
+                ))}
+                <span className="font-josefin font-bold text-xs text-white ml-1">
+                  5.0/5
+                </span>
+              </div>
+
+              {/* Quote */}
+              <p className="font-josefin text-xs text-[#C4E7FF] leading-relaxed">
+                "StudyBuddy gives me peace of mind knowing my child's CBC curriculum progress is tracked daily and sessions are fully escrow-protected."
+              </p>
+
+              {/* Reviewer Details */}
+              <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="font-josefin font-bold text-xs text-white">
+                    Wanjiku Mwangi
+                  </p>
+                  <p className="font-josefin text-[10px] text-[#8CA5BE]">
+                    Nairobi Parent • Grade 7 CBC
+                  </p>
+                </div>
+                <span className="font-josefin font-semibold text-[10px] text-[#81CFFF] bg-[#01B0F1]/15 px-2 py-0.5 rounded-full border border-[#01B0F1]/30">
+                  Escrow Protected
                 </span>
               </div>
             </div>
