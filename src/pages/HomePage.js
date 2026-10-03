@@ -102,37 +102,40 @@ const users = [
 ];
 const teachers = [
   {
-    name: " Vincent makaya ",
-    subject: " Mathematics and Integrated science ",
-    school: " Lower kihara school",
-    Experience: "15yr",
+    name: "Vincent Makaya",
+    subject: "Mathematics & Integrated Science",
+    school: "Lower Kihara School",
+    grade: "Grades 4–8",
+    curriculum: "CBC",
+    country: "Kenya",
     imgSrc: "/images/vin.jpeg",
     experience: 15,
     rating: 4.9,
     students: 200,
-    subjects: 2,
   },
   {
     name: "Mary Wanjiku",
     subject: "Mathematics",
-    school: " Green Valley Secondary School",
-    Experience: "7yr",
+    school: "Green Valley Secondary School",
+    grade: "Forms 1–4",
+    curriculum: "KCSE / 8-4-4",
+    country: "Kenya",
     imgSrc: "/images/teacher4.jpg",
     experience: 7,
     rating: 4.5,
     students: 100,
-    subjects: 1,
   },
   {
     name: "Kamau Mwangi",
-    subject: "Computer Tutor",
-    school: "High School",
-    grade: "All Grades",
+    subject: "Computer Studies",
+    school: "Nairobi High School",
+    grade: "All grades",
+    curriculum: "CBC & KCSE",
+    country: "Kenya",
     imgSrc: "/images/teacher3.jpg",
     experience: 8,
     rating: 4.9,
     students: 70,
-    subjects: 1,
   },
 ];
 
@@ -762,36 +765,59 @@ function HomePage() {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {teachers.map((teacher, index) => (
               <article
-                key={index}
+                key={teacher.name}
                 className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-xl shadow-black/20 ring-1 ring-white/20 transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
               >
-                {/* Photo band */}
-                <div className="relative h-44 overflow-hidden bg-[#e1f3ff] sm:h-48">
+                {/* Photo */}
+                <div className="relative h-48 overflow-hidden bg-[#e1f3ff] sm:h-52">
                   <img
                     src={teacher.imgSrc}
-                    alt={teacher.name.trim()}
+                    alt={teacher.name}
                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                     loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
                   <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#01B0F1] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow">
                     <FaCheckCircle className="text-[10px]" />
                     Verified
                   </span>
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <h3 className="font-lilita text-xl text-white drop-shadow">
-                      {teacher.name.trim()}
-                    </h3>
-                    <p className="truncate text-sm text-white/90">
-                      {teacher.subject.trim()}
-                    </p>
-                  </div>
                 </div>
 
+                {/* Always visible: name, school, grade, curriculum, country */}
                 <div className="flex flex-1 flex-col p-5">
-                  <p className="font-josefin text-sm text-[#4a6b7d]">
-                    {teacher.school.trim()}
+                  <h3 className="font-lilita text-xl leading-tight text-[#015575]">
+                    {teacher.name}
+                  </h3>
+                  <p className="mt-1 font-josefin text-sm font-medium text-[#01B0F1]">
+                    {teacher.subject}
                   </p>
+
+                  <dl className="mt-4 space-y-2 font-josefin text-sm text-[#4a6b7d]">
+                    <div className="flex gap-2">
+                      <dt className="w-24 shrink-0 font-semibold text-[#015575]">
+                        School
+                      </dt>
+                      <dd>{teacher.school}</dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="w-24 shrink-0 font-semibold text-[#015575]">
+                        Grade
+                      </dt>
+                      <dd>{teacher.grade}</dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="w-24 shrink-0 font-semibold text-[#015575]">
+                        Curriculum
+                      </dt>
+                      <dd>{teacher.curriculum}</dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="w-24 shrink-0 font-semibold text-[#015575]">
+                        Country
+                      </dt>
+                      <dd>{teacher.country}</dd>
+                    </div>
+                  </dl>
 
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     <div className="rounded-xl bg-[#f0f9ff] px-2 py-2.5 text-center">
