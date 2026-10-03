@@ -458,7 +458,9 @@ const OnboardingLayout = ({
                 {currentStep === 4
                   ? role === "teacher"
                     ? "Verification & AI Studio Sandbox"
-                    : "Dashboard Launch & AI Tutor Setup"
+                    : role === "parent"
+                      ? "Family Wallet & Portal Launch"
+                      : "Dashboard Launch & AI Tutor Setup"
                   : `${stepsConfig[currentStep - 1]?.title} • ${stepPercentage}% Completed`}
               </p>
             </div>
