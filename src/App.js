@@ -19,8 +19,6 @@ import AdminLayout from "./components/layout/AdminLayout";
 // Services & Components
 import { authStorage } from "./services/authStorage";
 import { authService } from "./services/authService";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
 import RoleSelection from "./components/RoleSelection";
 import Scheduler from "./components/teachers/Scheduler";
 import HomePage from "./pages/HomePage";
@@ -35,26 +33,9 @@ import AdminTeachers from "./components/admin/TeachersAdmin";
 import AdminStudents from "./components/admin/StudentsAdmin";
 import AdminParents from "./components/admin/ParentsAdmin";
 import AdminWithdrawals from "./components/admin/Withdrawals";
-import StudentLayout from "./components/layout/StudentLayout";
-import MyWallet from "./components/students/MyWallet";
-import MyLessons from "./components/students/MyLessons";
-import TeacherProfiles from "./components/students/TeachersProfiles";
 
-
-import StudentsHome from "./components/students/studentsHome";
-
-// Teachers components
-import TeacherLessons from "./components/teachers/MyLessons";
-import TeacherLiveclass from "./components/teachers/Liveclass";
-import TeacherAccount from "./components/teachers/MyAccount";
-import TeacherUpcomingClasses from "./components/teachers/UpcomingClasses";
-import TeacherScheduler from "./components/teachers/Scheduler";
-import TeacherWallet from "./components/teachers/mywallet";
-
-//Cookie Consent
+// Cookie Consent
 import CookieConsent from "./components/CookieConsent";
-import TeacherLayout from "./components/layout/TeacherLayout";
-import UpcomingClasses from "./components/teachers/UpcomingClasses";
 
 // Lazy-loaded Pages
 const TutorProfilesPage = lazy(() => import("./pages/TutorProfilesPage"));
@@ -71,19 +52,22 @@ const VerificationCodePage = lazy(() => import("./pages/VerificationCodePage"));
 const AboutUsPage = lazy(() => import("./pages/AboutUsPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const CookiesPolicy = lazy(() => import("./pages/CookiesPolicy"));
-const ChildrenSafetyGuidelines = lazy(() =>
-  import("./pages/Children-Safety-Guidelines")
+const ChildrenSafetyGuidelines = lazy(
+  () => import("./pages/Children-Safety-Guidelines"),
 );
 const TermsAndConditions = lazy(() => import("./pages/Terms-and-Conditions"));
 const ConfirmEmail = lazy(() => import("./pages/ConfirmEmail"));
-
-// Not Found Page
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Lazy-loaded Dashboards
 const StudentDashboard = lazy(() => import("./components/StudentDashboard"));
 const TeacherDashboard = lazy(() => import("./components/TeacherDashboard"));
 const ParentDashboard = lazy(() => import("./components/ParentDashboard"));
+
+// Onboarding wizard (student + teacher 4-step flows)
+const OnboardingWizard = lazy(
+  () => import("./components/onboarding/OnboardingWizard"),
+);
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -98,7 +82,6 @@ const AdminProtectedRoute = ({ children }) => {
     return <Navigate to="/login" />;
   }
 
-  // Check if user is superuser (admin)
   const userInfo = localStorage.getItem("userInfo");
   if (userInfo) {
     try {
@@ -168,7 +151,6 @@ const App = () => {
           <div className="text-center text-blue-500">
             <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff]">
               <div className="relative flex flex-col items-center justify-center space-y-6">
-                {/* Animated Circles */}
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -179,7 +161,6 @@ const App = () => {
                   <div className="absolute inset-8 border-4 border-blue-400 rounded-full"></div>
                 </motion.div>
 
-                {/* Animated Text */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -207,7 +188,6 @@ const App = () => {
                   </div>
                 </motion.div>
 
-                {/* Floating Particles */}
                 <div className="absolute -top-8 -left-8 w-16 h-16 bg-[#01B0F1]/20 rounded-full blur-xl animate-float"></div>
                 <div className="absolute -top-8 -right-8 w-16 h-16 bg-[#015575]/20 rounded-full blur-xl animate-float-delayed"></div>
               </div>
@@ -337,6 +317,8 @@ const App = () => {
               </MainLayout>
             }
           />
+
+          {/* Admin */}
           <Route
             path="/admin"
             element={
@@ -357,23 +339,9 @@ const App = () => {
             <Route path="tutors" element={<Tutors />} />
           </Route>
 
-          {/* 404 Not Found Page wrapped with BlankLayout */}
-          <Route
-            path="*"
-            element={
-              <BlankLayout>
-                <NotFound />
-              </BlankLayout>
-            }
-          />
-
+          {/* Dashboards */}
           <Route path="/student-dashboard/*" element={<StudentDashboard />} />
-
-          <Route
-            path="/teacher-dashboard/*"
-            element={<TeacherDashboard />}
-          ></Route>
-
+          <Route path="/teacher-dashboard/*" element={<TeacherDashboard />} />
           <Route
             path="/parent-dashboard/home"
             element={
@@ -402,20 +370,8 @@ const App = () => {
               </MainLayout>
             }
           />
-          <Route
-            path="/student-signup"
-            element={
-              <Navigate to="/signup" replace />
-            }
-          />
-          <Route
-            path="/teacher-signup"
-            element={
-              <Navigate to="/signup" replace />
-            }
-          />
-          
-          {/* Pages without Navbar/Footer */}
+
+          {/* Auth pages (no Navbar/Footer) */}
           <Route
             path="/login"
             element={
@@ -453,6 +409,42 @@ const App = () => {
             element={
               <BlankLayout>
                 <VerificationCodePage />
+              </BlankLayout>
+            }
+          />
+
+          {/* Onboarding wizard — student (default) or ?role=teacher */}
+          <Route
+            path="/onboarding"
+            element={
+              <BlankLayout>
+                <OnboardingWizard />
+              </BlankLayout>
+            }
+          />
+          <Route
+            path="/onboarding/student"
+            element={
+              <BlankLayout>
+                <OnboardingWizard />
+              </BlankLayout>
+            }
+          />
+          <Route
+            path="/onboarding/teacher"
+            element={
+              <BlankLayout>
+                <OnboardingWizard />
+              </BlankLayout>
+            }
+          />
+
+          {/* 404 — keep last */}
+          <Route
+            path="*"
+            element={
+              <BlankLayout>
+                <NotFound />
               </BlankLayout>
             }
           />

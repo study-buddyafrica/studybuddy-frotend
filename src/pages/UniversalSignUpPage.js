@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
-  FaChalkboardTeacher,
-  FaUserGraduate,
-  FaUserFriends,
-  FaUserTie,
   FaEnvelope,
   FaLock,
   FaUser,
@@ -18,7 +14,6 @@ import {
   AuthInput,
   AuthPasswordInput,
   AuthAlert,
-  authInputBaseClass,
   authLinkClass,
 } from "../components/auth";
 
@@ -26,7 +21,7 @@ const UniversalSignupPage = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
 
-  // CTO UPGRADE: Extract Google Data if the user was redirected from the Login Page
+  // Prefill Google Data if the user was redirected from the Login Page
   const initialFirstName = state?.prefillName
     ? state.prefillName.split(" ")[0]
     : "";
@@ -34,25 +29,21 @@ const UniversalSignupPage = () => {
     ? state.prefillName.split(" ").slice(1).join(" ")
     : "";
   const initialUsername = initialFirstName
-    ? `${initialFirstName.toLowerCase()}${Math.floor(Math.random() * 1000)}`
+    ? `${initialFirstName.toLowerCase().replace(/[^a-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}`
     : "";
 
   const [formData, setFormData] = useState({
     first_name: initialFirstName,
     last_name: initialLastName,
     username: initialUsername,
-    email: state?.prefillEmail || "", // Auto-fills the Google Email!
-    role: state?.role || "",
+    email: state?.prefillEmail || "",
+    role: state?.role || "student",
     password: "",
     confirmPassword: "",
-    education_level: "",
   });
 
   const [errorMessage, setErrorMessage] = useState("");
   const [informationalMessage, setInformationalMessage] = useState("");
-  const [educationLevels, setEducationLevels] = useState([]);
-  const [educationLevelIsLoading, setEducationLevelIsLoading] = useState(false);
-  const [educationLevelError, setEducationLevelError] = useState("");
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState("");
@@ -63,24 +54,6 @@ const UniversalSignupPage = () => {
     number: false,
     special: false,
   });
-
-  const roles = [
-    {
-      id: "parent",
-      label: "Parent",
-      icon: <FaUserFriends className="w-6 h-6" />,
-    },
-    {
-      id: "teacher",
-      label: "Teacher",
-      icon: <FaChalkboardTeacher className="w-6 h-6" />,
-    },
-    {
-      id: "student",
-      label: "Student",
-      icon: <FaUserGraduate className="w-6 h-6" />,
-    },
-  ];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -129,8 +102,22 @@ const UniversalSignupPage = () => {
     setErrorMessage("");
     setInformationalMessage("");
 
+    const firstNameTrimmed = formData.first_name.trim();
+    const lastNameTrimmed = formData.last_name.trim();
+    const emailTrimmed = formData.email.trim();
+
+    if (!firstNameTrimmed || !lastNameTrimmed) {
+      setErrorMessage("Please enter both your first and last name.");
+      return;
+    }
+
+    if (!emailTrimmed) {
+      setErrorMessage("Please enter a valid email address.");
+      return;
+    }
+
     if (passwordStrength !== "strong") {
-      setErrorMessage("Password is too weak. Please meet all requirements.");
+      setErrorMessage("Password is too weak. Please satisfy all requirements.");
       return;
     }
 
@@ -139,10 +126,11 @@ const UniversalSignupPage = () => {
       return;
     }
 
-    if (!formData.role) {
-      setErrorMessage("Please select a role.");
-      return;
-    }
+    // Auto-derive username if not already provided
+    const cleanFirst = firstNameTrimmed.toLowerCase().replace(/[^a-z0-9]/g, "") || "user";
+    const derivedUsername =
+      formData.username ||
+      `${cleanFirst}${Math.floor(100 + Math.random() * 900)}`;
 
     setLoading(true);
     try {
@@ -155,7 +143,7 @@ const UniversalSignupPage = () => {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ email: formData.email }),
+          body: JSON.stringify({ email: emailTrimmed }),
         },
       );
 
@@ -206,13 +194,19 @@ const UniversalSignupPage = () => {
 
         // Bundle the form data so the next page can submit the final registration
         const registrationData = {
-          ...formData,
+          first_name: firstNameTrimmed,
+          last_name: lastNameTrimmed,
+          username: derivedUsername,
+          email: emailTrimmed,
+          password: formData.password,
           confirm_password: formData.confirmPassword,
-          role: formData.role,
+          role: formData.role || "student",
         };
+
         if (sendCodeData && sendCodeData.code) {
           registrationData.verification_code = sendCodeData.code;
         }
+
         sessionStorage.setItem(
           "pendingRegistration",
           JSON.stringify(registrationData),
@@ -221,7 +215,7 @@ const UniversalSignupPage = () => {
         setTimeout(() => {
           navigate("/verify-code", {
             state: {
-              email: formData.email,
+              email: emailTrimmed,
               registrationData: registrationData,
             },
           });
@@ -237,65 +231,6 @@ const UniversalSignupPage = () => {
       setLoading(false);
     }
   };
-
-  // Known default levels so user is never blocked by temporary backend/network blips
-  const DEFAULT_EDUCATION_LEVELS = [
-    {
-      id: "9a77c63d-5249-4360-9a7d-7cbb18993811",
-      name: "K-12 (Primary & Secondary)",
-    },
-    {
-      id: "d1c74a1c-7a2f-4671-9a26-9e83a67bc4e7",
-      name: "University & Tertiary",
-    },
-    {
-      id: "50605ec9-ca30-4202-830c-24d225baf1ec",
-      name: "Continuous & Vocational Learning",
-    },
-  ];
-
-  // Learning levels for students
-  async function fetchLearningLevels() {
-    setEducationLevelIsLoading(true);
-    setEducationLevelError("");
-    try {
-      const apiBase = FHOST || "http://127.0.0.1:8000";
-      const response = await fetch(`${apiBase}/api/education-levels/`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch learning levels");
-      }
-      const data = await response.json();
-      if (!data?.results?.length) throw new Error("No learning levels found");
-      setEducationLevels(data.results);
-      if (state?.education_level) {
-        const match = data.results.find((level) =>
-          level.name
-            ?.toLowerCase()
-            .includes(state.education_level.toLowerCase()),
-        );
-        if (match) {
-          setFormData((prev) => ({ ...prev, education_level: match.id }));
-        }
-      }
-    } catch (error) {
-      console.warn("Unable to fetch live education levels, using fallback options:", error);
-      setEducationLevelError("Could not reach server. Using standard curriculum levels.");
-      setEducationLevels((prev) => (prev.length > 0 ? prev : DEFAULT_EDUCATION_LEVELS));
-    } finally {
-      setEducationLevelIsLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (formData.role === "student") {
-      if (educationLevels.length === 0) {
-        fetchLearningLevels();
-      }
-    } else {
-      setFormData((prev) => ({ ...prev, education_level: "" }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.role]);
 
   const handleGoogleSignup = async () => {
     const provider = new GoogleAuthProvider();
@@ -322,7 +257,7 @@ const UniversalSignupPage = () => {
       const firstName = nameParts[0] || "";
       const lastName = nameParts.slice(1).join(" ") || "";
       const generatedUsername = firstName
-        ? `${firstName.toLowerCase()}${Math.floor(Math.random() * 1000)}`
+        ? `${firstName.toLowerCase().replace(/[^a-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}`
         : "";
 
       setFormData((prev) => ({
@@ -334,7 +269,7 @@ const UniversalSignupPage = () => {
       }));
 
       setInformationalMessage(
-        "Google account connected! Please choose your role and password to complete registration.",
+        "Google account connected! Please enter a password to finish securing your account.",
       );
     } catch (err) {
       console.error("Google sign-in error:", err);
@@ -351,14 +286,18 @@ const UniversalSignupPage = () => {
     return "Weak Password";
   };
 
-  const activeStep = formData.role ? 2 : 1;
+  const isFormValid =
+    formData.first_name.trim().length >= 2 &&
+    formData.last_name.trim().length >= 2 &&
+    formData.email.trim().length > 3 &&
+    passwordStrength === "strong" &&
+    formData.password === formData.confirmPassword;
 
   return (
     <AuthLayout
       mode="signup"
-      activeStep={activeStep}
       title="Create Your Account"
-      subtitle="Join our community of learners and educators"
+      subtitle="Join Africa's leading collaborative learning network"
     >
       <div className="mb-5">
         <button
@@ -399,7 +338,7 @@ const UniversalSignupPage = () => {
             placeholder="First Name"
             value={formData.first_name}
             onChange={handleInputChange}
-            icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+            icon={<FaUser className="w-4 h-4" aria-hidden="true" />}
             autoComplete="given-name"
             required
           />
@@ -409,14 +348,14 @@ const UniversalSignupPage = () => {
             placeholder="Last Name"
             value={formData.last_name}
             onChange={handleInputChange}
-            icon={<FaUserTie className="w-4 h-4" aria-hidden="true" />}
+            icon={<FaUser className="w-4 h-4" aria-hidden="true" />}
             autoComplete="family-name"
             required
           />
         </div>
 
-        {/* Row 2: Email & Username (Consistent 2-column layout) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+        {/* Row 2: Email Address (Full Width) */}
+        <div>
           <AuthInput
             type="email"
             name="email"
@@ -427,325 +366,219 @@ const UniversalSignupPage = () => {
             autoComplete="email"
             required
           />
-          <AuthInput
-            type="text"
-            name="username"
-            placeholder="Username"
-            value={formData.username}
+        </div>
+
+        {/* Row 3: Password & Confirm Password */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <AuthPasswordInput
+            name="password"
+            placeholder="Password"
+            value={formData.password}
             onChange={handleInputChange}
-            icon={<FaUser className="w-4 h-4" aria-hidden="true" />}
-            autoComplete="username"
+            icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
+            autoComplete="new-password"
+            required
+          />
+          <AuthPasswordInput
+            name="confirmPassword"
+            placeholder="Confirm Password"
+            value={formData.confirmPassword}
+            onChange={handleInputChange}
+            icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
+            revealLabel="Show confirm password"
+            hideLabel="Hide confirm password"
+            autoComplete="new-password"
             required
           />
         </div>
 
-        {/* Row 3: Role Selection (Clean full width, stable grid) */}
-        <div className="relative w-full">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-            <FaUser className="w-4 h-4" aria-hidden="true" />
-          </div>
-          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </div>
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleInputChange}
-            className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer`}
-            required
-          >
-            <option value="">Select Role (Student, Teacher, Parent)</option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Password Strength Indicator */}
+        {formData.password && (
+          <div className="bg-gray-50 p-3 md:p-4 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-josefin font-medium text-gray-700 text-sm md:text-base">
+                Password Strength
+              </span>
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                  passwordStrength === "strong"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                }`}>
+                {getStrengthLabel(passwordStrength)}
+              </span>
+            </div>
 
-        {/* Row 4: Education Level (Only shown for students, with smooth reveal, icon, and fallback) */}
-        {formData.role === "student" && (
-          <div className="relative w-full transition-all duration-300">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#01B0F1]">
-              <FaUserGraduate className="w-4 h-4" aria-hidden="true" />
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-2 md:mb-3">
+              <div
+                className={`h-full transition-all duration-500 ${
+                  passwordStrength === "strong"
+                    ? "bg-green-500"
+                    : "bg-red-500"
+                }`}
+                style={{
+                  inlineSize:
+                    passwordStrength === "strong" ? "100%" : "40%",
+                }}></div>
             </div>
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </div>
-            <select
-              name="education_level"
-              value={formData.education_level}
-              onChange={handleInputChange}
-              disabled={educationLevelIsLoading}
-              className={`${authInputBaseClass} pl-11 pr-10 py-3 appearance-none cursor-pointer border-[#01B0F1]/40 focus:border-[#01B0F1]`}
-              required
-            >
-              <option value="">
-                {educationLevelIsLoading
-                  ? "Loading education levels..."
-                  : "Select Education Level (CBC, 8-4-4, University)"}
-              </option>
-              {educationLevels.map((level) => (
-                <option key={level.id} value={level.id}>
-                  {level.name}
-                </option>
-              ))}
-            </select>
-            {educationLevelError && (
-              <div className="flex items-center justify-between text-xs text-amber-600 mt-1 px-1 font-josefin">
-                <span>Network error loading live levels; using standard defaults.</span>
-                <button
-                  type="button"
-                  onClick={fetchLearningLevels}
-                  className="text-[#015575] hover:underline font-semibold ml-2"
-                >
-                  Retry
-                </button>
+
+            <div className="grid grid-cols-2 gap-1 md:gap-2">
+              <div className="flex items-center">
+                <span
+                  className={`w-3 h-3 rounded-full mr-2 ${
+                    passwordRequirements.length
+                      ? "bg-green-500"
+                      : "bg-gray-300"
+                  }`}></span>
+                <span
+                  className={`text-xs ${
+                    passwordRequirements.length
+                      ? "text-green-700"
+                      : "text-gray-500"
+                  }`}>
+                  8+ characters
+                </span>
               </div>
-            )}
+              <div className="flex items-center">
+                <span
+                  className={`w-3 h-3 rounded-full mr-2 ${
+                    passwordRequirements.uppercase
+                      ? "bg-green-500"
+                      : "bg-gray-300"
+                  }`}></span>
+                <span
+                  className={`text-xs ${
+                    passwordRequirements.uppercase
+                      ? "text-green-700"
+                      : "text-gray-500"
+                  }`}>
+                  Uppercase
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span
+                  className={`w-3 h-3 rounded-full mr-2 ${
+                    passwordRequirements.lowercase
+                      ? "bg-green-500"
+                      : "bg-gray-300"
+                  }`}></span>
+                <span
+                  className={`text-xs ${
+                    passwordRequirements.lowercase
+                      ? "text-green-700"
+                      : "text-gray-500"
+                  }`}>
+                  Lowercase
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span
+                  className={`w-3 h-3 rounded-full mr-2 ${
+                    passwordRequirements.number
+                      ? "bg-green-500"
+                      : "bg-gray-300"
+                  }`}></span>
+                <span
+                  className={`text-xs ${
+                    passwordRequirements.number
+                      ? "text-green-700"
+                      : "text-gray-500"
+                  }`}>
+                  Number
+                </span>
+              </div>
+              <div className="flex items-center col-span-2">
+                <span
+                  className={`w-3 h-3 rounded-full mr-2 ${
+                    passwordRequirements.special
+                      ? "bg-green-500"
+                      : "bg-gray-300"
+                  }`}></span>
+                <span
+                  className={`text-xs ${
+                    passwordRequirements.special
+                      ? "text-green-700"
+                      : "text-gray-500"
+                  }`}>
+                  Special character
+                </span>
+              </div>
+            </div>
           </div>
         )}
 
-            {/* Password Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <AuthPasswordInput
-                name="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleInputChange}
-                icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
-                autoComplete="new-password"
-                required
-              />
-              <AuthPasswordInput
-                name="confirmPassword"
-                placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                icon={<FaLock className="w-4 h-4" aria-hidden="true" />}
-                revealLabel="Show confirm password"
-                hideLabel="Hide confirm password"
-                autoComplete="new-password"
-                required
-              />
-            </div>
+        {/* Messages and Submit Button */}
+        <div className="space-y-3">
+          {errorMessage && (
+            <AuthAlert
+              message={errorMessage}
+              variant="error"
+              onDismiss={() => setErrorMessage("")}
+              onRetry={
+                /connection|network|timeout|try again|failed to send/i.test(
+                  errorMessage,
+                )
+                  ? () => setErrorMessage("")
+                  : undefined
+              }
+            />
+          )}
 
-            {/* Password Strength Indicator */}
-            {formData.password && (
-              <div className="bg-gray-50 p-3 md:p-4 rounded-xl">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-josefin font-medium text-gray-700 text-sm md:text-base">
-                    Password Strength
-                  </span>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      passwordStrength === "strong"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}>
-                    {getStrengthLabel(passwordStrength)}
-                  </span>
-                </div>
+          {informationalMessage && (
+            <AuthAlert
+              message={informationalMessage}
+              variant="success"
+              onDismiss={() => setInformationalMessage("")}
+              action={null}
+            />
+          )}
 
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-2 md:mb-3">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      passwordStrength === "strong"
-                        ? "bg-green-500"
-                        : "bg-red-500"
-                    }`}
-                    style={{
-                      inlineSize:
-                        passwordStrength === "strong" ? "100%" : "40%",
-                    }}></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1 md:gap-2">
-                  <div className="flex items-center">
-                    <span
-                      className={`w-3 h-3 rounded-full mr-2 ${
-                        passwordRequirements.length
-                          ? "bg-green-500"
-                          : "bg-gray-300"
-                      }`}></span>
-                    <span
-                      className={`text-xs ${
-                        passwordRequirements.length
-                          ? "text-green-700"
-                          : "text-gray-500"
-                      }`}>
-                      8+ characters
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <span
-                      className={`w-3 h-3 rounded-full mr-2 ${
-                        passwordRequirements.uppercase
-                          ? "bg-green-500"
-                          : "bg-gray-300"
-                      }`}></span>
-                    <span
-                      className={`text-xs ${
-                        passwordRequirements.uppercase
-                          ? "text-green-700"
-                          : "text-gray-500"
-                      }`}>
-                      Uppercase
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <span
-                      className={`w-3 h-3 rounded-full mr-2 ${
-                        passwordRequirements.lowercase
-                          ? "bg-green-500"
-                          : "bg-gray-300"
-                      }`}></span>
-                    <span
-                      className={`text-xs ${
-                        passwordRequirements.lowercase
-                          ? "text-green-700"
-                          : "text-gray-500"
-                      }`}>
-                      Lowercase
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <span
-                      className={`w-3 h-3 rounded-full mr-2 ${
-                        passwordRequirements.number
-                          ? "bg-green-500"
-                          : "bg-gray-300"
-                      }`}></span>
-                    <span
-                      className={`text-xs ${
-                        passwordRequirements.number
-                          ? "text-green-700"
-                          : "text-gray-500"
-                      }`}>
-                      Number
-                    </span>
-                  </div>
-                  <div className="flex items-center col-span-2">
-                    <span
-                      className={`w-3 h-3 rounded-full mr-2 ${
-                        passwordRequirements.special
-                          ? "bg-green-500"
-                          : "bg-gray-300"
-                      }`}></span>
-                    <span
-                      className={`text-xs ${
-                        passwordRequirements.special
-                          ? "text-green-700"
-                          : "text-gray-500"
-                      }`}>
-                      Special character
-                    </span>
-                  </div>
-                </div>
-              </div>
+          <button
+            type="submit"
+            disabled={loading || !isFormValid}
+            className={`w-full py-2.5 md:py-3.5 rounded-xl font-lilita text-base md:text-lg transition-all ${
+              loading || !isFormValid
+                ? "bg-gray-300 cursor-not-allowed text-gray-500"
+                : "bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white hover:shadow-lg hover:from-[#01B0F1] hover:to-[#015575] cursor-pointer"
+            }`}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center text-sm md:text-base">
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4 md:h-5 md:w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24">
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Creating Account...
+              </span>
+            ) : (
+              "Create Account"
             )}
+          </button>
+        </div>
+      </form>
 
-            {/* Messages and Submit Button */}
-            <div className="space-y-3">
-              {errorMessage && (
-                <AuthAlert
-                  message={errorMessage}
-                  variant="error"
-                  onDismiss={() => setErrorMessage("")}
-                  onRetry={
-                    /connection|network|timeout|try again|failed to send/i.test(
-                      errorMessage,
-                    )
-                      ? () => setErrorMessage("")
-                      : undefined
-                  }
-                />
-              )}
-
-              {informationalMessage && (
-                <AuthAlert
-                  message={informationalMessage}
-                  variant="success"
-                  onDismiss={() => setInformationalMessage("")}
-                  action={null}
-                />
-              )}
-
-              <button
-                type="submit"
-                disabled={
-                  loading || passwordStrength !== "strong" || !formData.role
-                }
-                className={`w-full py-2.5 md:py-3.5 rounded-xl font-lilita text-base md:text-lg transition-all ${
-                  loading || passwordStrength !== "strong" || !formData.role
-                    ? "bg-gray-400 cursor-not-allowed text-white"
-                    : "bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white hover:shadow-lg hover:from-[#01B0F1] hover:to-[#015575]"
-                }`}>
-                {loading ? (
-                  <span className="flex items-center justify-center text-sm md:text-base">
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 md:h-5 md:w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24">
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Creating Account...
-                  </span>
-                ) : (
-                  "Create Account"
-                )}
-              </button>
-            </div>
-          </form>
-
-          <p className="text-center font-josefin text-gray-600 mt-5 text-sm">
-            Already have an account?{" "}
-            <Link
-              to="/login"
-              className={`${authLinkClass} font-semibold underline underline-offset-2`}
-            >
-              Log in here
-            </Link>
-          </p>
+      <p className="text-center font-josefin text-gray-600 mt-5 text-sm">
+        Already have an account?{" "}
+        <Link
+          to="/login"
+          className={`${authLinkClass} font-semibold underline underline-offset-2`}
+        >
+          Log in here
+        </Link>
+      </p>
     </AuthLayout>
   );
 };
