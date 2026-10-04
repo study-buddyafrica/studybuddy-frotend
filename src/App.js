@@ -11,16 +11,17 @@ import { motion } from "framer-motion";
 import { ToastContainer } from "react-toastify";
 import "./components/constants/axiosConfig";
 
-// Layouts
 import MainLayout from "./components/layouts/MainLayout";
 import BlankLayout from "./components/layouts/BlankLayout";
 import AdminLayout from "./components/layout/AdminLayout";
 
-// Services & Components
 import { authStorage } from "./services/authStorage";
 import { authService } from "./services/authService";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
+import {
+  getPostAuthRedirect,
+  isOnboardingComplete,
+  readStoredUser,
+} from "./utils/onboardingRoutes";
 import RoleSelection from "./components/RoleSelection";
 import Scheduler from "./components/teachers/Scheduler";
 import HomePage from "./pages/HomePage";
@@ -35,28 +36,9 @@ import AdminTeachers from "./components/admin/TeachersAdmin";
 import AdminStudents from "./components/admin/StudentsAdmin";
 import AdminParents from "./components/admin/ParentsAdmin";
 import AdminWithdrawals from "./components/admin/Withdrawals";
-import StudentLayout from "./components/layout/StudentLayout";
-import MyWallet from "./components/students/MyWallet";
-import MyLessons from "./components/students/MyLessons";
-import TeacherProfiles from "./components/students/TeachersProfiles";
 
-
-import StudentsHome from "./components/students/studentsHome";
-
-// Teachers components
-import TeacherLessons from "./components/teachers/MyLessons";
-import TeacherLiveclass from "./components/teachers/Liveclass";
-import TeacherAccount from "./components/teachers/MyAccount";
-import TeacherUpcomingClasses from "./components/teachers/UpcomingClasses";
-import TeacherScheduler from "./components/teachers/Scheduler";
-import TeacherWallet from "./components/teachers/mywallet";
-
-//Cookie Consent
 import CookieConsent from "./components/CookieConsent";
-import TeacherLayout from "./components/layout/TeacherLayout";
-import UpcomingClasses from "./components/teachers/UpcomingClasses";
 
-// Lazy-loaded Pages
 const TutorProfilesPage = lazy(() => import("./pages/TutorProfilesPage"));
 const BlogPage = lazy(() => import("./pages/BlogPage"));
 const FAQPage = lazy(() => import("./pages/FAQPage"));
@@ -71,51 +53,61 @@ const VerificationCodePage = lazy(() => import("./pages/VerificationCodePage"));
 const AboutUsPage = lazy(() => import("./pages/AboutUsPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const CookiesPolicy = lazy(() => import("./pages/CookiesPolicy"));
-const ChildrenSafetyGuidelines = lazy(() =>
-  import("./pages/Children-Safety-Guidelines")
+const ChildrenSafetyGuidelines = lazy(
+  () => import("./pages/Children-Safety-Guidelines"),
 );
 const TermsAndConditions = lazy(() => import("./pages/Terms-and-Conditions"));
 const ConfirmEmail = lazy(() => import("./pages/ConfirmEmail"));
-
-// Not Found Page
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-// Lazy-loaded Dashboards
 const StudentDashboard = lazy(() => import("./components/StudentDashboard"));
 const TeacherDashboard = lazy(() => import("./components/TeacherDashboard"));
 const ParentDashboard = lazy(() => import("./components/ParentDashboard"));
 
-// Protected Route Component
+const OnboardingWizard = lazy(
+  () => import("./components/onboarding/OnboardingWizard"),
+);
+
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = authStorage.isAuthenticated();
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const user = readStoredUser();
+  if (user && !isOnboardingComplete(user)) {
+    return <Navigate to={getPostAuthRedirect(user)} replace />;
+  }
+
+  return children;
 };
 
-// Admin Protected Route Component - checks authentication and is_superuser
 const AdminProtectedRoute = ({ children }) => {
   const isAuthenticated = authStorage.isAuthenticated();
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
-  // Check if user is superuser (admin)
   const userInfo = localStorage.getItem("userInfo");
   if (userInfo) {
     try {
       const user = JSON.parse(userInfo);
       if (user.is_superuser !== true && user.role !== "admin") {
         const role = user.role;
-        if (role === "teacher") return <Navigate to="/teacher-dashboard" />;
-        if (role === "student") return <Navigate to="/student-dashboard/" />;
-        if (role === "parent") return <Navigate to="/parent-dashboard/home" />;
-        return <Navigate to="/login" />;
+        if (role === "teacher")
+          return <Navigate to="/teacher-dashboard" replace />;
+        if (role === "student")
+          return <Navigate to="/student-dashboard/" replace />;
+        if (role === "parent")
+          return <Navigate to="/parent-dashboard/home" replace />;
+        return <Navigate to="/login" replace />;
       }
     } catch (e) {
       console.error("Error parsing userInfo:", e);
-      return <Navigate to="/login" />;
+      return <Navigate to="/login" replace />;
     }
   } else {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
   return children;
@@ -136,22 +128,24 @@ const App = () => {
         .finally(() => {
           setIsHydrating(false);
         });
+    } else {
+      setIsHydrating(false);
     }
   }, []);
 
   if (isHydrating) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff]">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff]">
         <div className="relative flex flex-col items-center justify-center space-y-6">
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
             className="relative h-24 w-24"
           >
-            <div className="absolute inset-0 border-4 border-blue-200 rounded-full animate-pulse"></div>
-            <div className="absolute inset-2 border-4 border-t-[#01B0F1] border-r-transparent border-b-transparent border-l-transparent rounded-full"></div>
+            <div className="absolute inset-0 animate-pulse rounded-full border-4 border-blue-200" />
+            <div className="absolute inset-2 rounded-full border-4 border-t-[#01B0F1] border-r-transparent border-b-transparent border-l-transparent" />
           </motion.div>
-          <p className="text-gray-600 font-medium animate-pulse">
+          <p className="animate-pulse font-medium text-gray-600">
             Restoring session...
           </p>
         </div>
@@ -165,58 +159,25 @@ const App = () => {
       <ToastContainer />
       <Suspense
         fallback={
-          <div className="text-center text-blue-500">
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff]">
-              <div className="relative flex flex-col items-center justify-center space-y-6">
-                {/* Animated Circles */}
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="relative h-24 w-24"
-                >
-                  <div className="absolute inset-0 border-4 border-blue-200 rounded-full animate-pulse"></div>
-                  <div className="absolute inset-4 border-4 border-blue-300 rounded-full animate-ping"></div>
-                  <div className="absolute inset-8 border-4 border-blue-400 rounded-full"></div>
-                </motion.div>
-
-                {/* Animated Text */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5 }}
-                  className="flex items-center space-x-2"
-                >
-                  <span className="text-2xl font-bold text-[#015575] font-lilita">
-                    Loading
-                  </span>
-                  <div className="flex space-x-1">
-                    {[...Array(3)].map((_, i) => (
-                      <motion.span
-                        key={i}
-                        animate={{ y: [-5, 0] }}
-                        transition={{
-                          duration: 0.6,
-                          repeat: Infinity,
-                          delay: i * 0.2,
-                        }}
-                        className="text-2xl text-[#01B0F1]"
-                      >
-                        .
-                      </motion.span>
-                    ))}
-                  </div>
-                </motion.div>
-
-                {/* Floating Particles */}
-                <div className="absolute -top-8 -left-8 w-16 h-16 bg-[#01B0F1]/20 rounded-full blur-xl animate-float"></div>
-                <div className="absolute -top-8 -right-8 w-16 h-16 bg-[#015575]/20 rounded-full blur-xl animate-float-delayed"></div>
-              </div>
+          <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f8fcff] to-[#e1f3ff]">
+            <div className="relative flex flex-col items-center justify-center space-y-6">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="relative h-24 w-24"
+              >
+                <div className="absolute inset-0 animate-pulse rounded-full border-4 border-blue-200" />
+                <div className="absolute inset-4 animate-ping rounded-full border-4 border-blue-300" />
+                <div className="absolute inset-8 rounded-full border-4 border-blue-400" />
+              </motion.div>
+              <span className="font-lilita text-2xl font-bold text-[#015575]">
+                Loading...
+              </span>
             </div>
           </div>
         }
       >
         <Routes>
-          {/* Public Routes wrapped with MainLayout */}
           <Route
             path="/"
             element={
@@ -337,6 +298,7 @@ const App = () => {
               </MainLayout>
             }
           />
+
           <Route
             path="/admin"
             element={
@@ -357,23 +319,22 @@ const App = () => {
             <Route path="tutors" element={<Tutors />} />
           </Route>
 
-          {/* 404 Not Found Page wrapped with BlankLayout */}
           <Route
-            path="*"
+            path="/student-dashboard/*"
             element={
-              <BlankLayout>
-                <NotFound />
-              </BlankLayout>
+              <ProtectedRoute>
+                <StudentDashboard />
+              </ProtectedRoute>
             }
           />
-
-          <Route path="/student-dashboard/*" element={<StudentDashboard />} />
-
           <Route
             path="/teacher-dashboard/*"
-            element={<TeacherDashboard />}
-          ></Route>
-
+            element={
+              <ProtectedRoute>
+                <TeacherDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/parent-dashboard/home"
             element={
@@ -385,7 +346,6 @@ const App = () => {
             }
           />
 
-          {/* Additional Features */}
           <Route
             path="/live-chat"
             element={
@@ -402,20 +362,7 @@ const App = () => {
               </MainLayout>
             }
           />
-          <Route
-            path="/student-signup"
-            element={
-              <Navigate to="/signup" replace />
-            }
-          />
-          <Route
-            path="/teacher-signup"
-            element={
-              <Navigate to="/signup" replace />
-            }
-          />
-          
-          {/* Pages without Navbar/Footer */}
+
           <Route
             path="/login"
             element={
@@ -449,10 +396,37 @@ const App = () => {
             element={<Navigate to="/signup" replace />}
           />
           <Route
+            path="/parent-signup"
+            element={<Navigate to="/signup" replace />}
+          />
+          <Route
             path="/verify-code"
             element={
               <BlankLayout>
                 <VerificationCodePage />
+              </BlankLayout>
+            }
+          />
+
+          {/* SAD: /onboarding/:role?step=n */}
+          <Route
+            path="/onboarding/:role"
+            element={
+              <BlankLayout>
+                <OnboardingWizard />
+              </BlankLayout>
+            }
+          />
+          <Route
+            path="/onboarding"
+            element={<Navigate to="/onboarding/student?step=2" replace />}
+          />
+
+          <Route
+            path="*"
+            element={
+              <BlankLayout>
+                <NotFound />
               </BlankLayout>
             }
           />
