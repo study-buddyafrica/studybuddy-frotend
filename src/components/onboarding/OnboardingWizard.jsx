@@ -83,15 +83,18 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
     (role === "teacher" || role === "parent" ? "+254 712 345 678" : "");
 
   // Keep URL in sync with step and role
-  const goToStep = (stepNumber) => {
-    setCurrentStep(stepNumber);
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.set("step", stepNumber);
-    if (role && role !== "student") {
-      nextParams.set("role", role);
-    }
-    setSearchParams(nextParams);
-  };
+const goToStep = (stepNumber) => {
+  setCurrentStep(stepNumber);
+  const nextParams = new URLSearchParams(searchParams);
+  nextParams.set("step", String(stepNumber));
+  nextParams.delete("role"); // role is in the path
+  setSearchParams(nextParams, { replace: true });
+
+  const base = `/onboarding/${role === "teacher" || role === "parent" ? role : "student"}`;
+  if (!location.pathname.startsWith(base)) {
+    navigate(`${base}?step=${stepNumber}`, { replace: true });
+  }
+};
 
   const handleStep1Success = () => {
     goToStep(2);

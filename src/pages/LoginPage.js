@@ -8,6 +8,7 @@ import { jwtDecode } from "jwt-decode";
 import { checkUser, FHOST } from "../components/constants/Functions";
 import { firebaseAuth } from "../firebaseConfig";
 import { authStorage } from "../services/authStorage"; // ← added
+import { getPostAuthRedirect } from "../utils/onboardingRoutes";
 import {
   AuthLayout,
   AuthInput,
@@ -37,9 +38,7 @@ const getUserFromToken = (accessToken) => {
   }
 };
 
-// Centralised redirect – no more hardcoded admin@gmail.com
 const redirectByRole = ({ userInfo, navigate, setErrorMessage }) => {
-  // Keep userInfo in localStorage for now (non-token data)
   const safeUserInfo = { ...userInfo };
   delete safeUserInfo.access;
   delete safeUserInfo.refresh;
@@ -47,24 +46,12 @@ const redirectByRole = ({ userInfo, navigate, setErrorMessage }) => {
   delete safeUserInfo.refresh_token;
   localStorage.setItem("userInfo", JSON.stringify(safeUserInfo));
 
-  if (userInfo.is_superuser || userInfo.role === "admin") {
-    navigate("/admin");
+  const path = getPostAuthRedirect(userInfo);
+  if (path === "/login") {
+    setErrorMessage("Unexpected role: " + (userInfo.role || "unknown"));
     return;
   }
-
-  switch (userInfo.role) {
-    case "student":
-      navigate("/student-dashboard/");
-      break;
-    case "parent":
-      navigate("/parent-dashboard/home");
-      break;
-    case "teacher":
-      navigate("/teacher-dashboard");
-      break;
-    default:
-      setErrorMessage("Unexpected role: " + (userInfo.role || "unknown"));
-  }
+  navigate(path);
 };
 
 const LoginPage = () => {

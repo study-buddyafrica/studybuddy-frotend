@@ -1,11 +1,28 @@
-import React from "react"; // 'React' is declared but its value is never read.
-import OnboardingWizard from "../components/onboarding/OnboardingWizard";
+import React, { useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { normalizeRole } from "../utils/onboardingRoutes";
 
 /**
- * VerificationCodePage: Mounts the 4-step student onboarding wizard at Step 1.
+ * Legacy /verify-code → canonical onboarding step 1
  */
 const VerificationCodePage = () => {
-  return <OnboardingWizard initialStep={1} />;
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const role = normalizeRole(
+      location.state?.role ||
+        location.state?.registrationData?.role ||
+        sessionStorage.getItem("userRole") ||
+        "student",
+    );
+    navigate(`/onboarding/${role}?step=1`, {
+      replace: true,
+      state: location.state,
+    });
+  }, [navigate, location.state]);
+
+  return null;
 };
 
 export default VerificationCodePage;
