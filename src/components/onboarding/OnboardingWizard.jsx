@@ -53,9 +53,13 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
     return null;
   });
 
-  // Determine active role: URL query param > location state > registration data > session storage > student default
+  // Determine active role: URL path (/onboarding/:role) > query param (?role=) > location state > registration data > session storage > student default
+  const pathRole = location.pathname.startsWith("/onboarding/")
+    ? location.pathname.replace("/onboarding/", "").split("/")[0]
+    : null;
   const roleParam = searchParams.get("role");
   const role = (
+    pathRole ||
     roleParam ||
     location.state?.role ||
     registrationData?.role ||

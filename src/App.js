@@ -405,6 +405,10 @@ const App = () => {
             element={<Navigate to="/signup" replace />}
           />
           <Route
+            path="/parent-signup"
+            element={<Navigate to="/signup" replace />}
+          />
+          <Route
             path="/verify-code"
             element={
               <BlankLayout>
@@ -432,6 +436,14 @@ const App = () => {
           />
           <Route
             path="/onboarding/teacher"
+            element={
+              <BlankLayout>
+                <OnboardingWizard />
+              </BlankLayout>
+            }
+          />
+          <Route
+            path="/onboarding/parent"
             element={
               <BlankLayout>
                 <OnboardingWizard />
