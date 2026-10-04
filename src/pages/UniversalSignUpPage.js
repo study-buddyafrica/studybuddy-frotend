@@ -4,6 +4,9 @@ import {
   FaEnvelope,
   FaLock,
   FaUser,
+  FaGraduationCap,
+  FaChalkboardTeacher,
+  FaUserFriends,
 } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
@@ -330,6 +333,38 @@ const UniversalSignupPage = () => {
       </div>
 
       <form onSubmit={handleSignup} className="space-y-4">
+        {/* Role Selector Tabs */}
+        <div>
+          <label className="block text-xs font-josefin font-bold text-gray-500 uppercase tracking-wider mb-2">
+            I am joining StudyBuddy as a:
+          </label>
+          <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-xl">
+            {[
+              { id: "student", label: "Student", icon: FaGraduationCap },
+              { id: "teacher", label: "Educator", icon: FaChalkboardTeacher },
+              { id: "parent", label: "Parent", icon: FaUserFriends },
+            ].map((r) => {
+              const Icon = r.icon;
+              const isSelected = formData.role === r.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, role: r.id }))}
+                  className={`py-2 px-2 rounded-lg text-xs font-josefin font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    isSelected
+                      ? "bg-white text-[#015575] shadow-sm"
+                      : "text-gray-500 hover:text-gray-800"
+                  }`}
+                >
+                  <Icon className={isSelected ? "text-[#01B0F1]" : "text-gray-400"} />
+                  <span>{r.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Row 1: First & Last Name */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           <AuthInput

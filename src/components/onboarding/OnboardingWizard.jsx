@@ -9,6 +9,10 @@ import Step1TeacherAccountOtp from "./Step1TeacherAccountOtp";
 import Step2TeacherProfile from "./Step2TeacherProfile";
 import Step3TeacherQualifications from "./Step3TeacherQualifications";
 import Step4TeacherDashboardLaunch from "./Step4TeacherDashboardLaunch";
+import Step1ParentAccountOtp from "./Step1ParentAccountOtp";
+import Step2ParentLearnerDetails from "./Step2ParentLearnerDetails";
+import Step3ParentCurriculumGoals from "./Step3ParentCurriculumGoals";
+import Step4ParentDashboardLaunch from "./Step4ParentDashboardLaunch";
 import { FaGraduationCap, FaArrowLeft } from "react-icons/fa";
 
 /**
@@ -49,9 +53,13 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
     return null;
   });
 
-  // Determine active role: URL query param > location state > registration data > session storage > student default
+  // Determine active role: URL path (/onboarding/:role) > query param (?role=) > location state > registration data > session storage > student default
+  const pathRole = location.pathname.startsWith("/onboarding/")
+    ? location.pathname.replace("/onboarding/", "").split("/")[0]
+    : null;
   const roleParam = searchParams.get("role");
   const role = (
+    pathRole ||
     roleParam ||
     location.state?.role ||
     registrationData?.role ||
@@ -64,13 +72,15 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
     registrationData?.email ||
     (role === "teacher"
       ? "eli.muthoka@studybuddy.africa"
-      : "amara.kamau@student.ke");
+      : role === "parent"
+        ? "parent.guardian@studybuddy.africa"
+        : "amara.kamau@student.ke");
 
   const phone =
     location.state?.phone ||
     registrationData?.phone ||
     registrationData?.phone_number ||
-    (role === "teacher" ? "+254 712 345 678" : "");
+    (role === "teacher" || role === "parent" ? "+254 712 345 678" : "");
 
   // Keep URL in sync with step and role
   const goToStep = (stepNumber) => {
@@ -172,9 +182,48 @@ const OnboardingWizard = ({ initialStep = 1 }) => {
       )}
 
       {/* ========================================================================= */}
+      {/* PARENT ONBOARDING FLOW                                                    */}
+      {/* ========================================================================= */}
+      {role === "parent" && (
+        <>
+          {currentStep === 1 && (
+            <Step1ParentAccountOtp
+              email={email}
+              phone={phone}
+              registrationData={registrationData}
+              onVerificationSuccess={handleStep1Success}
+            />
+          )}
+
+          {currentStep === 2 && (
+            <Step2ParentLearnerDetails
+              registrationData={registrationData}
+              onNext={handleStep2Success}
+              onBack={() => goToStep(1)}
+            />
+          )}
+
+          {currentStep === 3 && (
+            <Step3ParentCurriculumGoals
+              registrationData={registrationData}
+              onNext={handleStep3Success}
+              onBack={() => goToStep(2)}
+            />
+          )}
+
+          {currentStep === 4 && (
+            <Step4ParentDashboardLaunch
+              registrationData={registrationData}
+              onBack={() => goToStep(3)}
+            />
+          )}
+        </>
+      )}
+
+      {/* ========================================================================= */}
       {/* STUDENT ONBOARDING FLOW (DEFAULT)                                          */}
       {/* ========================================================================= */}
-      {role !== "teacher" && (
+      {role !== "teacher" && role !== "parent" && (
         <>
           {currentStep === 1 && (
             <Step1AccountOtp

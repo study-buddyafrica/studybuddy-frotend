@@ -35,6 +35,8 @@ import AdminParents from "./components/admin/ParentsAdmin";
 import AdminWithdrawals from "./components/admin/Withdrawals";
 
 // Cookie Consent
+
+// Cookie Consent
 import CookieConsent from "./components/CookieConsent";
 
 // Lazy-loaded Pages
@@ -54,6 +56,8 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const CookiesPolicy = lazy(() => import("./pages/CookiesPolicy"));
 const ChildrenSafetyGuidelines = lazy(
   () => import("./pages/Children-Safety-Guidelines"),
+const ChildrenSafetyGuidelines = lazy(
+  () => import("./pages/Children-Safety-Guidelines"),
 );
 const TermsAndConditions = lazy(() => import("./pages/Terms-and-Conditions"));
 const ConfirmEmail = lazy(() => import("./pages/ConfirmEmail"));
@@ -63,6 +67,11 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const StudentDashboard = lazy(() => import("./components/StudentDashboard"));
 const TeacherDashboard = lazy(() => import("./components/TeacherDashboard"));
 const ParentDashboard = lazy(() => import("./components/ParentDashboard"));
+
+// Onboarding wizard (student + teacher 4-step flows)
+const OnboardingWizard = lazy(
+  () => import("./components/onboarding/OnboardingWizard"),
+);
 
 // Onboarding wizard (student + teacher 4-step flows)
 const OnboardingWizard = lazy(
@@ -319,6 +328,8 @@ const App = () => {
           />
 
           {/* Admin */}
+
+          {/* Admin */}
           <Route
             path="/admin"
             element={
@@ -340,7 +351,9 @@ const App = () => {
           </Route>
 
           {/* Dashboards */}
+          {/* Dashboards */}
           <Route path="/student-dashboard/*" element={<StudentDashboard />} />
+          <Route path="/teacher-dashboard/*" element={<TeacherDashboard />} />
           <Route path="/teacher-dashboard/*" element={<TeacherDashboard />} />
           <Route
             path="/parent-dashboard/home"
@@ -370,6 +383,8 @@ const App = () => {
               </MainLayout>
             }
           />
+
+          {/* Auth pages (no Navbar/Footer) */}
 
           {/* Auth pages (no Navbar/Footer) */}
           <Route
@@ -402,6 +417,10 @@ const App = () => {
           />
           <Route
             path="/teacher-signup"
+            element={<Navigate to="/signup" replace />}
+          />
+          <Route
+            path="/parent-signup"
             element={<Navigate to="/signup" replace />}
           />
           <Route
@@ -455,3 +474,4 @@ const App = () => {
 };
 
 export default App;
+
