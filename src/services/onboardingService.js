@@ -271,21 +271,24 @@ export const onboardingPayloads = {
         "institution_attended",
         institution_attended.trim().slice(0, 255),
       );
-    if (curriculums_taught != null) {
-      fd.append(
-        "curriculums_taught",
-        typeof curriculums_taught === "string"
-          ? curriculums_taught
-          : JSON.stringify(curriculums_taught),
-      );
+    if (Array.isArray(curriculums_taught)) {
+      curriculums_taught.forEach((c) => {
+        if (c) fd.append("curriculums_taught", String(c));
+      });
+    } else if (curriculums_taught) {
+      fd.append("curriculums_taught", String(curriculums_taught));
     }
     if (hourly_rate_kes != null)
       fd.append("hourly_rate_kes", String(hourly_rate_kes));
     if (bio) fd.append("bio", bio.trim());
     if (academic_certificate instanceof File)
       fd.append("academic_certificate", academic_certificate);
-    if (Array.isArray(subjects) && subjects.length > 0) {
-      fd.append("subjects", JSON.stringify(subjects));
+    if (Array.isArray(subjects)) {
+      subjects.forEach((s) => {
+        if (s) fd.append("subjects", String(s));
+      });
+    } else if (subjects) {
+      fd.append("subjects", String(subjects));
     }
     return fd;
   },

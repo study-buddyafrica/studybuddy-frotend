@@ -15,6 +15,7 @@ import {
 import { AuthAlert } from "../auth";
 import { FHOST, decodeJwtToken } from "../constants/Functions";
 import { authStorage } from "../../services/authStorage";
+import { onboardingService } from "../../services/onboardingService";
 
 /**
  * Step1AccountOtp: Clean, minimal Step 1 matching the login/signup font styles (Lilita & Josefin)
@@ -251,31 +252,41 @@ const Step1AccountOtp = ({
 
         // 3. Obtain JWT tokens and persist in authStorage (SAD §7 & Directives)
         try {
-          const tokenRes = await fetch(`${FHOST}/api/token/request/`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({
-              email: email.trim(),
-              password: regData.password,
-            }),
-          });
-          if (tokenRes.ok) {
-            const tokenData = await tokenRes.json();
-            if (tokenData.access) {
-              authStorage.setTokens(tokenData.access, tokenData.refresh);
-              const decoded = decodeJwtToken(tokenData.access);
-              const userObj = {
+          let tokenData = null;
+          try {
+            const tokenRes = await onboardingService.requestToken(
+              email.trim(),
+              regData.password,
+            );
+            tokenData = tokenRes?.data;
+          } catch (_serviceErr) {
+            const tokenRes = await fetch(`${FHOST}/api/token/request/`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify({
                 email: email.trim(),
-                role: regData.role || "student",
-                onboarding_step: "step_2_profile",
-                ...(decoded || {}),
-              };
-              authStorage.setUserInfo(userObj);
-              sessionStorage.setItem("userRole", "student");
+                password: regData.password,
+              }),
+            });
+            if (tokenRes.ok) {
+              tokenData = await tokenRes.json();
             }
+          }
+
+          if (tokenData && tokenData.access) {
+            authStorage.setTokens(tokenData.access, tokenData.refresh);
+            const decoded = decodeJwtToken(tokenData.access);
+            const userObj = {
+              email: email.trim(),
+              role: regData.role || "student",
+              onboarding_step: "step_2_profile",
+              ...(decoded || {}),
+            };
+            authStorage.setUserInfo(userObj);
+            sessionStorage.setItem("userRole", "student");
           }
         } catch (tokenErr) {
           console.warn("JWT acquisition warning in Step 1:", tokenErr);

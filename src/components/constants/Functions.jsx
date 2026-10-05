@@ -2,7 +2,10 @@ import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import { authStorage } from "../../services/authStorage";
 
-export const FHOST = process.env.REACT_APP_API_URL;
+export const FHOST = (
+  process.env.REACT_APP_API_URL ||
+  "https://studybuddy-backend-6vya.onrender.com"
+).replace(/\/api\/?$/, "");
 
 export const checkUser = async (email) => {
   //  FIX: Pointing to the exact explicit route defined in config/urls.py

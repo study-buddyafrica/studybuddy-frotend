@@ -124,42 +124,179 @@ const goToStep = (stepNumber) => {
           return;
         }
 
-        // Hydrate draft data into sessionStorage if available
+        // Hydrate draft data into sessionStorage if available (supports nested step keys or flat backend dictionary)
         if (data.draft_data && typeof data.draft_data === "object") {
           try {
-            if (data.draft_data.step_2) {
-              if (role === "teacher") {
-                sessionStorage.setItem(
-                  "teacherKycData",
-                  JSON.stringify(data.draft_data.step_2),
-                );
-              } else if (role === "parent") {
-                sessionStorage.setItem(
-                  "parentWardData",
-                  JSON.stringify(data.draft_data.step_2),
-                );
-              } else {
-                sessionStorage.setItem(
-                  "studentOnboardingStep2",
-                  JSON.stringify(data.draft_data.step_2),
-                );
+            const draft = data.draft_data;
+            const effectiveRole = (data.role || role || "student").toLowerCase();
+
+            if (effectiveRole === "teacher") {
+              const step2 = draft.step_2 || {
+                fullName: draft.full_name || "",
+                idNumber: draft.national_identity_number || "",
+                tscNumber: draft.tsc_number || "",
+                experienceYears:
+                  draft.experience != null
+                    ? `${draft.experience} yrs`
+                    : "1–3 yrs",
+                institution: draft.institution_attended || "",
+                bio: draft.bio || "",
+                national_identity_card_url:
+                  draft.national_identity_card_url || null,
+              };
+              if (
+                draft.step_2 ||
+                draft.national_identity_number ||
+                draft.tsc_number ||
+                draft.experience != null
+              ) {
+                sessionStorage.setItem("teacherKycData", JSON.stringify(step2));
               }
-            }
-            if (data.draft_data.step_3) {
-              if (role === "teacher") {
+
+              const step3 = draft.step_3 || {
+                highestQualification:
+                  draft.highest_qualification ||
+                  "Bachelor of Education (B.Ed)",
+                institution: draft.institution_attended || "",
+                curriculums: Array.isArray(draft.curriculums_taught)
+                  ? draft.curriculums_taught
+                  : [],
+                subjects: Array.isArray(draft.subjects) ? draft.subjects : [],
+                hourlyRate: draft.hourly_rate || 1500,
+                bio: draft.bio || "",
+                academic_certificate_url:
+                  draft.academic_certificate_url || null,
+              };
+              if (
+                draft.step_3 ||
+                draft.highest_qualification ||
+                draft.curriculums_taught ||
+                draft.hourly_rate != null
+              ) {
                 sessionStorage.setItem(
                   "teacherQualificationsData",
-                  JSON.stringify(data.draft_data.step_3),
+                  JSON.stringify(step3),
                 );
-              } else if (role === "parent") {
+              }
+            } else if (effectiveRole === "parent") {
+              const primaryChild =
+                Array.isArray(draft.linked_children) &&
+                draft.linked_children.length > 0
+                  ? draft.linked_children[0]
+                  : null;
+              const childFullName = primaryChild
+                ? `${primaryChild.first_name || ""} ${primaryChild.last_name || ""}`.trim() ||
+                  primaryChild.email
+                : "";
+
+              const step2 = draft.step_2 || {
+                primaryWard: primaryChild
+                  ? {
+                      fullName: childFullName,
+                      academicStage: primaryChild.grade || "",
+                      linkedEmail: primaryChild.email || null,
+                      isAccountLinked: !!primaryChild.email,
+                      childId: primaryChild.child_id,
+                    }
+                  : null,
+                relationship: draft.relationship_type || "Guardian",
+                linked_children: draft.linked_children || [],
+              };
+              if (draft.step_2 || draft.relationship_type || primaryChild) {
+                sessionStorage.setItem("parentWardData", JSON.stringify(step2));
+                if (primaryChild) {
+                  sessionStorage.setItem(
+                    "parentLearnerData",
+                    JSON.stringify({
+                      fullName: childFullName,
+                      gradeStage: primaryChild.grade || "",
+                      school: primaryChild.school || "",
+                      avatarInitials:
+                        childFullName
+                          .split(" ")
+                          .map((w) => w[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase() || "SW",
+                    }),
+                  );
+                }
+              }
+
+              const step3 = draft.step_3 || {
+                mpesaBillingPhone: draft.mpesa_billing_phone || "",
+                weeklySpendLimit:
+                  draft.weekly_spend_limit_kes != null
+                    ? String(draft.weekly_spend_limit_kes)
+                    : "5000",
+                notification_preferences:
+                  draft.notification_preferences || {},
+              };
+              if (
+                draft.step_3 ||
+                draft.mpesa_billing_phone ||
+                draft.weekly_spend_limit_kes != null
+              ) {
                 sessionStorage.setItem(
                   "parentCurriculumData",
-                  JSON.stringify(data.draft_data.step_3),
+                  JSON.stringify(step3),
                 );
-              } else {
+              }
+            } else {
+              // Student role (default)
+              let curriculum = "cbc";
+              if (draft.curriculum_type) {
+                const ct = String(draft.curriculum_type).toUpperCase();
+                if (ct === "8_4_4" || ct === "844") curriculum = "844";
+                else if (ct === "IGCSE" || ct === "CAMBRIDGE")
+                  curriculum = "cambridge";
+                else curriculum = "cbc";
+              }
+
+              const step2 = draft.step_2 || {
+                curriculum,
+                gradeLevel:
+                  draft.grade_name ||
+                  draft.grade_id ||
+                  "Junior Secondary - Grade 8 (JSS 2)",
+                schoolName:
+                  draft.school_name || "Nairobi Academy – Karen Campus",
+                education_level_id: draft.education_level_id || null,
+                grade_id: draft.grade_id || null,
+                school_id: draft.school_id || null,
+                gender: draft.gender || "",
+              };
+              if (
+                draft.step_2 ||
+                draft.curriculum_type ||
+                draft.school_name ||
+                draft.grade_name
+              ) {
+                sessionStorage.setItem(
+                  "studentOnboardingStep2",
+                  JSON.stringify(step2),
+                );
+              }
+
+              const targetSubjects = Array.isArray(draft.target_subjects)
+                ? draft.target_subjects
+                : [];
+              const step3 = draft.step_3 || {
+                selectedSubjects: targetSubjects,
+                selectedSubjectIds: [],
+                primaryLearningGoal: draft.primary_learning_goal || "",
+                parentPhone: draft.parent_phone_number || "",
+                studyPace: "balanced",
+                targetScore: "A",
+              };
+              if (
+                draft.step_3 ||
+                targetSubjects.length > 0 ||
+                draft.primary_learning_goal
+              ) {
                 sessionStorage.setItem(
                   "studentOnboardingStep3",
-                  JSON.stringify(data.draft_data.step_3),
+                  JSON.stringify(step3),
                 );
               }
             }
