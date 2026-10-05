@@ -12,6 +12,9 @@ import {
   FaMobileAlt,
   FaUserGraduate,
 } from "react-icons/fa";
+import { AuthAlert } from "../auth";
+import { authStorage } from "../../services/authStorage";
+import { onboardingService, getErrorMessage } from "../../services/onboardingService";
 
 /**
  * Step 4 - TEACHER Dashboard Launch & Onboarding Complete
@@ -29,6 +32,7 @@ const Step4TeacherDashboardLaunch = ({
 }) => {
   const navigate = useNavigate();
   const [isLaunching, setIsLaunching] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Retrieve saved KYC data (Step 2)
   const kycData = useMemo(() => {
@@ -65,8 +69,36 @@ const Step4TeacherDashboardLaunch = ({
     "+254 712 345 678";
 
   // Handle Launch CTA
-  const handleLaunchDashboard = () => {
+  const handleLaunchDashboard = async () => {
+    if (isLaunching) return;
     setIsLaunching(true);
+    setErrorMessage("");
+
+    let targetUrl = "/teacher-dashboard";
+
+    if (onboardingService.enabled) {
+      try {
+        const res = await onboardingService.complete();
+        const resData = res?.data || {};
+        if (resData.tokens?.access) {
+          authStorage.setTokens(resData.tokens.access, resData.tokens.refresh);
+        }
+        if (resData.data?.user) {
+          authStorage.setUserInfo(resData.data.user);
+        }
+        if (resData.data?.dashboard_url) {
+          targetUrl = resData.data.dashboard_url;
+        }
+      } catch (err) {
+        console.warn("Teacher complete onboarding API warning:", err);
+        const msg = getErrorMessage(err, "Failed to complete onboarding on server.");
+        if (err.response?.status !== 400) {
+          setErrorMessage(msg);
+          setIsLaunching(false);
+          return;
+        }
+      }
+    }
 
     try {
       localStorage.setItem(
@@ -85,8 +117,8 @@ const Step4TeacherDashboardLaunch = ({
 
     // Smooth transition to Teacher Dashboard
     setTimeout(() => {
-      navigate("/teacher-dashboard");
-    }, 600);
+      navigate(targetUrl);
+    }, 400);
   };
 
   // Download Application Summary stub
@@ -96,6 +128,14 @@ const Step4TeacherDashboardLaunch = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col justify-between space-y-6 sm:space-y-8 animate-fadeIn">
+      {errorMessage && (
+        <AuthAlert
+          variant="error"
+          message={errorMessage}
+          onDismiss={() => setErrorMessage("")}
+        />
+      )}
+
       {/* Top Header Block */}
       <div className="space-y-6">
         {/* Progress & Status Banner Container */}

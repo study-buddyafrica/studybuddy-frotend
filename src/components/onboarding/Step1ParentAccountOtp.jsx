@@ -15,7 +15,9 @@ import {
   FaUserShield,
 } from "react-icons/fa";
 import { AuthAlert } from "../auth";
-import { FHOST } from "../constants/Functions";
+import { FHOST, decodeJwtToken } from "../constants/Functions";
+import { authStorage } from "../../services/authStorage";
+// import { onboardingService } from "../../services/onboardingService"; // 'onboardingService' is declared but its value is never read.
 
 /**
  * Step 1 - PARENT Account & Contact Verification
@@ -268,6 +270,78 @@ const Step1ParentAccountOtp = ({
       }
 
       setIsVerified(true);
+
+      // Complete Parent Registration if credentials exist in sessionStorage
+      let regData = registrationData;
+      if (!regData) {
+        const stored = sessionStorage.getItem("pendingRegistration");
+        if (stored) {
+          try {
+            regData = JSON.parse(stored);
+          } catch (err) {}
+        }
+      }
+
+      if (regData && regData.password) {
+        const registerPayload = {
+          email: email.trim(),
+          phone_number: phone.trim(),
+          first_name: regData.first_name || (fullName ? fullName.split(" ")[0] : "Parent"),
+          last_name: regData.last_name || (fullName && fullName.split(" ").length > 1 ? fullName.split(" ").slice(1).join(" ") : "Guardian"),
+          username: regData.username || email.split("@")[0],
+          password: regData.password,
+          confirm_password: regData.confirm_password || regData.password,
+          role: "parent",
+        };
+
+        const regResponse = await fetch(`${FHOST}/api/users/register/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(registerPayload),
+        });
+
+        if (!regResponse.ok) {
+          const regErrData = await regResponse.json().catch(() => ({}));
+          console.warn("Parent registration warning:", regErrData?.detail || regErrData?.message);
+        } else {
+          sessionStorage.setItem("userRegistered", "true");
+        }
+
+        // Obtain JWT tokens and persist in authStorage (SAD §7 & Directives)
+        try {
+          const tokenRes = await fetch(`${FHOST}/api/token/request/`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              email: email.trim(),
+              password: regData.password,
+            }),
+          });
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            if (tokenData.access) {
+              authStorage.setTokens(tokenData.access, tokenData.refresh);
+              const decoded = decodeJwtToken(tokenData.access);
+              const userObj = {
+                email: email.trim(),
+                role: "parent",
+                onboarding_step: "step_2_profile",
+                ...(decoded || {}),
+              };
+              authStorage.setUserInfo(userObj);
+              sessionStorage.setItem("userRole", "parent");
+            }
+          }
+        } catch (tokenErr) {
+          console.warn("Parent JWT acquisition warning in Step 1:", tokenErr);
+        }
+      }
 
       const parentPayload = {
         fullName: fullName.trim(),

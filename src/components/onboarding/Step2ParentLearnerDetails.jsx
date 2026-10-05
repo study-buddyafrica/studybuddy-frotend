@@ -20,6 +20,7 @@ import {
   FaUserFriends,
 } from "react-icons/fa";
 import { AuthAlert } from "../auth";
+import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
 
 /**
  * Helper to compute age & CBC academic stage recommendation from DOB string
@@ -74,7 +75,6 @@ const calculateAcademicStage = (dobString) => {
 
 /**
  * Step 2 - PARENT Learner & Child Details
- * Figma Specification:
  * 1. Intro Banner (Parent & Guardian Portal)
  * 2. Primary Ward / Child Details (Name, Gender, DOB with dynamic grade calculation)
  * 3. School Selection with quick suggestions & Ministry registry badge
@@ -111,6 +111,7 @@ const Step2ParentLearnerDetails = ({
   const [siblings, setSiblings] = useState([]);
 
   // UI Status
+  const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -158,8 +159,9 @@ const Step2ParentLearnerDetails = ({
   // ---------------------------------------------------------------------------
   // Submit & Proceed to Step 3
   // ---------------------------------------------------------------------------
-  const handleProceed = (e) => {
+  const handleProceed = async (e) => {
     if (e) e.preventDefault();
+    if (loading) return;
     setErrorMessage("");
 
     if (!childName.trim()) {
@@ -193,6 +195,35 @@ const Step2ParentLearnerDetails = ({
     };
 
     sessionStorage.setItem("parentWardData", JSON.stringify(wardPayload));
+
+    if (onboardingService.enabled) {
+      setLoading(true);
+      try {
+        const parentAccount = JSON.parse(sessionStorage.getItem("parentAccountData") || "{}");
+        let relType = parentAccount.relationship || "Guardian";
+        if (relType.toLowerCase() === "father") relType = "Father";
+        else if (relType.toLowerCase() === "mother") relType = "Mother";
+        else if (relType.toLowerCase() === "sponsor") relType = "Sponsor";
+        else relType = "Guardian";
+
+        const childId = isAccountLinked && linkedEmail ? linkedEmail.trim() : (nemisUpi.trim() || childName.trim());
+        const payload = onboardingPayloads.parentStep2({
+          child_identifier: childId,
+          relationship_type: relType,
+          child_name: childName.trim(),
+        });
+        await onboardingService.step2(payload);
+      } catch (apiErr) {
+        console.warn("Parent step2 API error:", apiErr);
+        const msg = getErrorMessage(apiErr, "Failed to link learner to parent profile.");
+        setErrorMessage(msg);
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+
     setSuccessMessage("Learner details saved successfully! Proceeding to Goals & Curriculum...");
 
     setTimeout(() => {
@@ -664,10 +695,13 @@ const Step2ParentLearnerDetails = ({
 
         <button
           type="button"
+          disabled={loading}
           onClick={handleProceed}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 rounded-xl bg-[#003D55] hover:bg-[#015575] text-white font-lilita text-sm shadow-md hover:shadow-lg transition-all cursor-pointer"
+          className={`w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 rounded-xl bg-[#003D55] hover:bg-[#015575] text-white font-lilita text-sm shadow-md hover:shadow-lg transition-all cursor-pointer ${
+            loading ? "opacity-75 cursor-wait" : ""
+          }`}
         >
-          <span>Continue to Curriculum &amp; Goals</span>
+          <span>{loading ? "Linking Learner..." : "Continue to Curriculum & Goals"}</span>
           <FaArrowRight className="text-xs text-[#01B0F1]" />
         </button>
       </div>

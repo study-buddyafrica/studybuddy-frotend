@@ -15,12 +15,12 @@ import {
   FaPlus,
 } from "react-icons/fa";
 import { AuthAlert } from "../auth";
-import { FHOST } from "../constants/Functions";
-import { authStorage } from "../../services/authStorage";
+// import { FHOST } from "../constants/Functions"; // 'FHOST' is declared but its value is never read.
+// import { authStorage } from "../../services/authStorage"; // 'authStorage' is declared but its value is never read.
+import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
 
 /**
  * Step 3 - TEACHER Qualifications, Specializations & Rates
- * Matches Figma frame 39:1134:
  * 1. Academic Background (Highest Qualification, Institution, Degree Certificate Upload)
  * 2. Curriculums Taught (CBC, 8-4-4, IGCSE / Cambridge)
  * 3. Subject Specializations (Dynamic pills with add/remove)
@@ -179,6 +179,11 @@ const Step3TeacherQualifications = ({
       return;
     }
 
+    if (degreeDoc?.file && degreeDoc.file.size > 5 * 1024 * 1024) {
+      setErrorMessage("Degree certificate file exceeds maximum allowed limit of 5MB.");
+      return;
+    }
+
     setLoading(true);
     setErrorMessage("");
 
@@ -196,33 +201,25 @@ const Step3TeacherQualifications = ({
       };
       sessionStorage.setItem("teacherQualificationsData", JSON.stringify(qualificationsData));
 
-      // Attempt non-blocking profile update sync if token or backend is active
-      const token =
-        authStorage.getAccessToken() ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token");
+      if (onboardingService.enabled) {
+        const formData = onboardingPayloads.teacherStep3FormData({
+          highest_qualification: highestQualification.trim(),
+          institution_attended: institution.trim(),
+          curriculums_taught: selectedCurriculums,
+          hourly_rate_kes: Number(hourlyRate),
+          bio: bio.trim(),
+          academic_certificate: degreeDoc?.file || null,
+          subjects: subjects,
+        });
 
-      if (token) {
         try {
-          const formData = new FormData();
-          formData.append("bio", bio.trim());
-          formData.append("hourly_rate", String(hourlyRate));
-          formData.append("school", institution.trim());
-          if (subjects.length > 0) {
-            formData.append("subjects", subjects.join(", "));
-          }
-          if (degreeDoc?.file) {
-            formData.append("cv", degreeDoc.file);
-          }
-          await fetch(`${FHOST}/api/teacher/profile/update/`, {
-            method: "PATCH",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          });
-        } catch (syncErr) {
-          console.warn("Background qualifications profile sync warning:", syncErr);
+          await onboardingService.step3(formData, { multipart: true });
+        } catch (apiErr) {
+          console.warn("Teacher step3 API error:", apiErr);
+          const msg = getErrorMessage(apiErr, "Failed to submit qualifications and tutoring rates.");
+          setErrorMessage(msg);
+          setLoading(false);
+          return;
         }
       }
 

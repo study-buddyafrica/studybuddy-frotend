@@ -14,7 +14,7 @@ import {
   FaCamera,
 } from "react-icons/fa";
 import { AuthAlert } from "../auth";
-import { FHOST } from "../constants/Functions";
+import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
 
 /**
  * Step 2 - TEACHER Professional Identity & KYC
@@ -113,6 +113,15 @@ const Step2TeacherProfile = ({
       return;
     }
 
+    if (frontIdDoc?.file && frontIdDoc.file.size > 5 * 1024 * 1024) {
+      setErrorMessage("Front ID card document exceeds maximum allowed limit of 5MB.");
+      return;
+    }
+    if (backIdDoc?.file && backIdDoc.file.size > 5 * 1024 * 1024) {
+      setErrorMessage("Back ID card document exceeds maximum allowed limit of 5MB.");
+      return;
+    }
+
     setLoading(true);
     setErrorMessage("");
 
@@ -131,26 +140,27 @@ const Step2TeacherProfile = ({
       };
       sessionStorage.setItem("teacherKycData", JSON.stringify(kycData));
 
-      // Attempt non-blocking profile update sync if token or backend is active
-      const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
-      if (token) {
+      if (onboardingService.enabled) {
+        const idCardFile = frontIdDoc?.file || backIdDoc?.file || null;
+        let expNum = parseInt(experienceYears, 10);
+        if (isNaN(expNum)) expNum = 2;
+
+        const formData = onboardingPayloads.teacherStep2FormData({
+          national_identity_number: idNumber.trim(),
+          tsc_number: tscNumber.trim(),
+          experience: expNum,
+          national_identity_card: idCardFile,
+          bio: "",
+        });
+
         try {
-          const formData = new FormData();
-          formData.append("tsc_number", tscNumber.trim());
-          formData.append("national_identity_number", idNumber.trim());
-          formData.append("experience", experienceYears);
-          if (institution.trim()) {
-            formData.append("school", institution.trim());
-          }
-          await fetch(`${FHOST}/api/users/profile/update/`, {
-            method: "PATCH",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          });
-        } catch (syncErr) {
-          console.warn("Background KYC profile sync warning:", syncErr);
+          await onboardingService.step2(formData, { multipart: true });
+        } catch (apiErr) {
+          console.warn("Teacher step2 API error:", apiErr);
+          const msg = getErrorMessage(apiErr, "Failed to submit teacher KYC verification data.");
+          setErrorMessage(msg);
+          setLoading(false);
+          return;
         }
       }
 

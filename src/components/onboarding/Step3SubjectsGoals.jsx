@@ -18,17 +18,20 @@ import {
   FaLightbulb,
   FaBullseye,
 } from "react-icons/fa";
+import { AuthAlert } from "../auth";
+import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
 
 /**
- * Step3SubjectsGoals: Subjects, Learning Goals & AI Tutor Pacing.
- * References Figma Frame 7:66 (Step 3 - Subjects, Goals & Guardian Link).
- * Styled with platform brand fonts (Lilita & Josefin) and minimal, elegant layout.
+ * Subjects, Learning Goals & AI Tutor Pacing.
  */
 const Step3SubjectsGoals = ({
   onNext = null,
   onBack = null,
   initialData = null,
 }) => {
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   // Retrieve saved Step 2 data to dynamically adapt syllabus & subject pool
   const step2Data = (() => {
     try {
@@ -351,12 +354,14 @@ const Step3SubjectsGoals = ({
   );
 
   // Form submission / Proceed to Step 4
-  const handleProceed = (e) => {
+  const handleProceed = async (e) => {
     if (e) e.preventDefault();
+    if (loading) return;
 
+    const chosenSubjects = defaultSubjects.filter((s) => selectedSubjectIds.includes(s.id));
     const step3Payload = {
       selectedSubjectIds,
-      selectedSubjects: defaultSubjects.filter((s) => selectedSubjectIds.includes(s.id)),
+      selectedSubjects: chosenSubjects,
       selectedTopics,
       studyPace,
       targetScore,
@@ -367,6 +372,28 @@ const Step3SubjectsGoals = ({
       sessionStorage.setItem("studentOnboardingStep3", JSON.stringify(step3Payload));
     } catch (err) {
       console.warn("Could not save step 3 to sessionStorage:", err);
+    }
+
+    if (onboardingService.enabled) {
+      setLoading(true);
+      setErrorMessage("");
+      try {
+        const subjectNames = chosenSubjects.map((s) => s.name);
+        const apiPayload = onboardingPayloads.studentStep3({
+          target_subjects: subjectNames.length > 0 ? subjectNames : ["Mathematics", "English"],
+          primary_learning_goal: `Target score ${targetScore} with ${studyPace} study pacing.`,
+          parent_phone_number: "",
+        });
+        await onboardingService.step3(apiPayload);
+      } catch (err) {
+        console.warn("Student step3 API sync warning:", err);
+        const msg = getErrorMessage(err, "Failed to save subjects & goals to server.");
+        setErrorMessage(msg);
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
+      }
     }
 
     if (onNext) {
@@ -394,6 +421,15 @@ const Step3SubjectsGoals = ({
           study hours to personalize AI study schedules.
         </p>
       </div>
+
+      {/* Global Alerts */}
+      {errorMessage && (
+        <AuthAlert
+          variant="error"
+          message={errorMessage}
+          onDismiss={() => setErrorMessage("")}
+        />
+      )}
 
       {/* ========================================================================= */}
       {/* Live Track Banner / Context Note                                          */}
@@ -873,10 +909,13 @@ const Step3SubjectsGoals = ({
         <div className="w-full sm:w-auto order-1 sm:order-2">
           <button
             type="button"
+            disabled={loading}
             onClick={handleProceed}
-            className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-lilita text-base tracking-wide text-white bg-[#003D55] hover:bg-[#015575] hover:shadow-lg transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            className={`w-full sm:w-auto px-7 py-3.5 rounded-xl font-lilita text-base tracking-wide text-white bg-[#003D55] hover:bg-[#015575] hover:shadow-lg transition-all shadow-md flex items-center justify-center gap-2 ${
+              loading ? "opacity-75 cursor-wait" : "cursor-pointer"
+            }`}
           >
-            <span>Next Step: Dashboard Launch</span>
+            <span>{loading ? "Saving Subjects..." : "Next Step: Dashboard Launch"}</span>
             <FaArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

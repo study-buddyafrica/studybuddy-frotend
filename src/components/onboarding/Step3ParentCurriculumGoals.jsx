@@ -18,8 +18,11 @@ import {
   FaArrowRight,
   FaUserFriends,
   FaAward,
+  FaPhoneAlt,
+  FaMoneyBillWave,
 } from "react-icons/fa";
 import { AuthAlert } from "../auth";
+import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
 
 /**
  * Step 3 - PARENT Academic Curriculum & Learning Goals
@@ -126,19 +129,43 @@ const Step3ParentCurriculumGoals = ({
   const [deliveryMode, setDeliveryMode] = useState(""); // "online" | "in-person" | "hybrid"
   const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
 
+  // Parent Account Data from Step 1 & Billing Preferences
+  const parentAccount = (() => {
+    try {
+      const stored = sessionStorage.getItem("parentAccountData");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const [mpesaBillingPhone, setMpesaBillingPhone] = useState(
+    parentAccount?.phone || registrationData?.phone_number || "+254712345678",
+  );
+  const [weeklySpendLimit, setWeeklySpendLimit] = useState("5000");
+
   // UI Status
+  const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   // ---------------------------------------------------------------------------
   // Submission & Continuation
   // ---------------------------------------------------------------------------
-  const handleProceed = (e) => {
+  const handleProceed = async (e) => {
     if (e) e.preventDefault();
+    if (loading) return;
     setErrorMessage("");
 
     if (selectedSubjects.length === 0) {
       setErrorMessage("Please select at least one focus subject for tutoring.");
+      return;
+    }
+
+    const phoneClean = mpesaBillingPhone.trim();
+    const phonePattern = /^(?:\+254|0)[17]\d{8}$/;
+    if (phoneClean && !phonePattern.test(phoneClean)) {
+      setErrorMessage("Please enter a valid Safaricom M-Pesa phone number (e.g. +254712345678 or 0712345678).");
       return;
     }
 
@@ -149,10 +176,37 @@ const Step3ParentCurriculumGoals = ({
       goals,
       deliveryMode,
       sessionsPerWeek,
+      mpesaBillingPhone: phoneClean,
+      weeklySpendLimit,
       updatedAt: new Date().toISOString(),
     };
 
     sessionStorage.setItem("parentCurriculumData", JSON.stringify(payload));
+
+    if (onboardingService.enabled) {
+      setLoading(true);
+      try {
+        const apiPayload = onboardingPayloads.parentStep3({
+          mpesa_billing_phone: phoneClean,
+          weekly_spend_limit_kes: weeklySpendLimit,
+          notification_preferences: {
+            sms_attendance: true,
+            weekly_report: true,
+            whatsapp_summary: true,
+          },
+        });
+        await onboardingService.step3(apiPayload);
+      } catch (apiErr) {
+        console.warn("Parent step3 API error:", apiErr);
+        const msg = getErrorMessage(apiErr, "Failed to save parent billing & curriculum preferences.");
+        setErrorMessage(msg);
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+
     setSuccessMessage("Curriculum goals saved! Proceeding to Family Wallet & Launch...");
 
     setTimeout(() => {
@@ -942,6 +996,71 @@ const Step3ParentCurriculumGoals = ({
       </section>
 
       {/* ========================================================================= */}
+      {/* 4. BILLING & WALLET ALLOCATION PREFERENCES                                 */}
+      {/* ========================================================================= */}
+      <section className="bg-white rounded-2xl p-6 sm:p-7 shadow-sm border border-slate-200/80 space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#DEF0FF] text-[#00658C] flex items-center justify-center text-sm">
+            <FaMoneyBillWave />
+          </div>
+          <div>
+            <h2 className="font-lilita text-lg sm:text-xl text-slate-900 tracking-wide">
+              4. M-Pesa Billing &amp; Weekly Budget
+            </h2>
+            <p className="font-josefin text-xs sm:text-sm text-slate-500">
+              Set your M-Pesa payment phone and weekly spend limit for automated tutor and subscription settlements.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div className="space-y-1.5">
+            <label className="block font-josefin text-xs font-semibold text-slate-700">
+              M-Pesa Billing Phone Number
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 text-xs">
+                <FaPhoneAlt />
+              </span>
+              <input
+                type="text"
+                value={mpesaBillingPhone}
+                onChange={(e) => setMpesaBillingPhone(e.target.value)}
+                placeholder="+254712345678"
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin text-slate-800 focus:outline-none focus:border-[#00658C]"
+              />
+            </div>
+            <p className="font-josefin text-[10px] text-slate-400">
+              Safaricom format: +254 7XX XXX XXX or 07XX XXX XXX
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block font-josefin text-xs font-semibold text-slate-700">
+              Weekly Spend Limit (KES)
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-12 flex items-center pointer-events-none text-slate-400 text-xs font-bold">
+                KES
+              </span>
+              <input
+                type="number"
+                min="500"
+                step="500"
+                value={weeklySpendLimit}
+                onChange={(e) => setWeeklySpendLimit(e.target.value)}
+                placeholder="5000"
+                className="w-full pl-20 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin text-slate-800 focus:outline-none focus:border-[#00658C]"
+              />
+            </div>
+            <p className="font-josefin text-[10px] text-slate-400">
+              Maximum weekly spend threshold for tutoring sessions
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
       {/* 5. ACTION NAVIGATION BUTTONS                                              */}
       {/* ========================================================================= */}
       <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/60">
@@ -965,10 +1084,13 @@ const Step3ParentCurriculumGoals = ({
 
           <button
             type="button"
+            disabled={loading}
             onClick={handleProceed}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 rounded-xl bg-[#003D55] hover:bg-[#015575] text-white font-lilita text-sm shadow-md hover:shadow-lg transition-all cursor-pointer"
+            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 rounded-xl bg-[#003D55] hover:bg-[#015575] text-white font-lilita text-sm shadow-md hover:shadow-lg transition-all cursor-pointer ${
+              loading ? "opacity-75 cursor-wait" : ""
+            }`}
           >
-            <span>Save &amp; Continue to Wallet</span>
+            <span>{loading ? "Saving Goals & Budget..." : "Save & Continue to Wallet"}</span>
             <FaArrowRight className="text-xs text-[#01B0F1]" />
           </button>
         </div>

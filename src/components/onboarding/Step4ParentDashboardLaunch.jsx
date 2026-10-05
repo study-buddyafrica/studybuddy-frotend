@@ -18,6 +18,8 @@ import {
   FaMobileAlt,
   FaSpinner,
 } from "react-icons/fa";
+import { authStorage } from "../../services/authStorage";
+import { onboardingService, getErrorMessage } from "../../services/onboardingService";
 
 /**
  * Step 4 - PARENT Family Wallet & Portal Launch
@@ -175,8 +177,36 @@ const Step4ParentDashboardLaunch = ({
   const [successBanner, setSuccessBanner] = useState("");
   const [errorBanner, setErrorBanner] = useState("");
 
+  const completeBackendOnboarding = async () => {
+    let targetUrl = "/parent-dashboard/home";
+    if (onboardingService.enabled) {
+      try {
+        const res = await onboardingService.complete();
+        const resData = res?.data || {};
+        if (resData.tokens?.access) {
+          authStorage.setTokens(resData.tokens.access, resData.tokens.refresh);
+        }
+        if (resData.data?.user) {
+          authStorage.setUserInfo(resData.data.user);
+        }
+        if (resData.data?.dashboard_url) {
+          targetUrl = resData.data.dashboard_url;
+        }
+      } catch (err) {
+        console.warn("Parent complete onboarding API warning:", err);
+        const msg = getErrorMessage(err, "Failed to complete onboarding on server.");
+        if (err.response?.status !== 400) {
+          setErrorBanner(msg);
+        }
+      }
+    }
+    return targetUrl;
+  };
+
   // Direct skip to dashboard
-  const handleSkipToDashboard = () => {
+  const handleSkipToDashboard = async () => {
+    setIsProcessing(true);
+    const targetUrl = await completeBackendOnboarding();
     try {
       localStorage.setItem(
         "parentOnboardingComplete",
@@ -193,7 +223,8 @@ const Step4ParentDashboardLaunch = ({
     } catch (err) {
       console.warn("Could not write onboarding completion:", err);
     }
-    navigate("/parent-dashboard/home");
+    setIsProcessing(false);
+    navigate(targetUrl);
   };
 
   // Launch Funding Flow
@@ -208,7 +239,6 @@ const Step4ParentDashboardLaunch = ({
       // Simulate Paystack Card Flow
       setIsProcessing(true);
       setTimeout(() => {
-        setIsProcessing(false);
         saveAndRedirect(currentAmount);
       }, 1500);
     }
@@ -225,7 +255,9 @@ const Step4ParentDashboardLaunch = ({
     }, 2000);
   };
 
-  const saveAndRedirect = (amount) => {
+  const saveAndRedirect = async (amount) => {
+    setIsProcessing(true);
+    const targetUrl = await completeBackendOnboarding();
     try {
       localStorage.setItem(
         "parentOnboardingComplete",
@@ -243,7 +275,8 @@ const Step4ParentDashboardLaunch = ({
     } catch (err) {
       console.warn("Could not save parent completion:", err);
     }
-    navigate("/parent-dashboard/home");
+    setIsProcessing(false);
+    navigate(targetUrl);
   };
 
   return (

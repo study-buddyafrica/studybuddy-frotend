@@ -10,6 +10,9 @@ import {
   // FaWifi, // 'FaWifi' is declared but its value is never read.
   FaCheckCircle,
 } from "react-icons/fa";
+import { AuthAlert } from "../auth";
+import { authStorage } from "../../services/authStorage";
+import { onboardingService, getErrorMessage } from "../../services/onboardingService";
 
 /**
  * Step4DashboardLaunch: Final step of student onboarding.
@@ -19,6 +22,7 @@ import {
 const Step4DashboardLaunch = ({ onBack = null }) => {
   const navigate = useNavigate();
   const [isLaunching, setIsLaunching] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Retrieve saved onboarding data from earlier steps
   // const step1Data = (() => {
@@ -77,8 +81,36 @@ const Step4DashboardLaunch = ({ onBack = null }) => {
   }, [curriculum]);
 
   // Handle Launch CTA
-  const handleLaunchDashboard = () => {
+  const handleLaunchDashboard = async () => {
+    if (isLaunching) return;
     setIsLaunching(true);
+    setErrorMessage("");
+
+    let targetUrl = "/student-dashboard";
+
+    if (onboardingService.enabled) {
+      try {
+        const res = await onboardingService.complete();
+        const resData = res?.data || {};
+        if (resData.tokens?.access) {
+          authStorage.setTokens(resData.tokens.access, resData.tokens.refresh);
+        }
+        if (resData.data?.user) {
+          authStorage.setUserInfo(resData.data.user);
+        }
+        if (resData.data?.dashboard_url) {
+          targetUrl = resData.data.dashboard_url;
+        }
+      } catch (err) {
+        console.warn("Student complete onboarding API warning:", err);
+        const msg = getErrorMessage(err, "Failed to complete onboarding on server.");
+        if (err.response?.status !== 400) {
+          setErrorMessage(msg);
+          setIsLaunching(false);
+          return;
+        }
+      }
+    }
 
     // Save final completion flag in localStorage
     try {
@@ -101,12 +133,20 @@ const Step4DashboardLaunch = ({ onBack = null }) => {
 
     // Smooth transition into Student Dashboard
     setTimeout(() => {
-      navigate("/student-dashboard");
-    }, 600);
+      navigate(targetUrl);
+    }, 400);
   };
 
   return (
     <div className="space-y-8 animate-fadeIn pb-4">
+      {errorMessage && (
+        <AuthAlert
+          variant="error"
+          message={errorMessage}
+          onDismiss={() => setErrorMessage("")}
+        />
+      )}
+
       {/* ========================================================================= */}
       {/* Hero Announcement Block                                                   */}
       {/* ========================================================================= */}

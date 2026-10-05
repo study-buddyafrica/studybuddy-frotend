@@ -13,7 +13,10 @@ import Step1ParentAccountOtp from "./Step1ParentAccountOtp";
 import Step2ParentLearnerDetails from "./Step2ParentLearnerDetails";
 import Step3ParentCurriculumGoals from "./Step3ParentCurriculumGoals";
 import Step4ParentDashboardLaunch from "./Step4ParentDashboardLaunch";
-import { FaGraduationCap, FaArrowLeft } from "react-icons/fa";
+import { FaGraduationCap } from "react-icons/fa";
+import { authStorage } from "../../services/authStorage";
+import { onboardingService } from "../../services/onboardingService";
+import { getDashboardPath, stepNumberFromOnboardingStep } from "../../utils/onboardingRoutes";
 
 /**
  * OnboardingWizard: Master container for role-based onboarding (Student, Teacher, Parent).
@@ -95,6 +98,97 @@ const goToStep = (stepNumber) => {
     navigate(`${base}?step=${stepNumber}`, { replace: true });
   }
 };
+
+  // Hydration & Resume Guard (SAD SBA-SAD-2026-006 §7 & PR #38)
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateFromStatus = async () => {
+      if (!authStorage.isAuthenticated() || !onboardingService.enabled) {
+        return;
+      }
+
+      try {
+        const res = await onboardingService.status();
+        if (!isMounted) return;
+
+        const data = res?.data?.data || res?.data || {};
+        const isComplete =
+          data.is_complete ||
+          data.onboarding_completed ||
+          data.onboarding_step === "completed";
+
+        if (isComplete) {
+          const dashboardUrl = data.dashboard_url || getDashboardPath(role);
+          navigate(dashboardUrl, { replace: true });
+          return;
+        }
+
+        // Hydrate draft data into sessionStorage if available
+        if (data.draft_data && typeof data.draft_data === "object") {
+          try {
+            if (data.draft_data.step_2) {
+              if (role === "teacher") {
+                sessionStorage.setItem(
+                  "teacherKycData",
+                  JSON.stringify(data.draft_data.step_2),
+                );
+              } else if (role === "parent") {
+                sessionStorage.setItem(
+                  "parentWardData",
+                  JSON.stringify(data.draft_data.step_2),
+                );
+              } else {
+                sessionStorage.setItem(
+                  "studentOnboardingStep2",
+                  JSON.stringify(data.draft_data.step_2),
+                );
+              }
+            }
+            if (data.draft_data.step_3) {
+              if (role === "teacher") {
+                sessionStorage.setItem(
+                  "teacherQualificationsData",
+                  JSON.stringify(data.draft_data.step_3),
+                );
+              } else if (role === "parent") {
+                sessionStorage.setItem(
+                  "parentCurriculumData",
+                  JSON.stringify(data.draft_data.step_3),
+                );
+              } else {
+                sessionStorage.setItem(
+                  "studentOnboardingStep3",
+                  JSON.stringify(data.draft_data.step_3),
+                );
+              }
+            }
+          } catch (e) {
+            console.warn("Failed to persist draft data to sessionStorage:", e);
+          }
+        }
+
+        // Determine resume step from current_step or resume_route
+        const rawStep = data.current_step || data.onboarding_step;
+        const targetStep = stepNumberFromOnboardingStep(rawStep);
+
+        // If user arrived without explicit stepParam and backend indicates a more advanced step, route to it
+        if (!stepParam && targetStep && targetStep !== currentStep) {
+          goToStep(targetStep);
+        } else if (data.resume_route && !stepParam) {
+          navigate(data.resume_route, { replace: true });
+        }
+      } catch (err) {
+        console.warn("Onboarding status check skipped or failed:", err);
+      }
+    };
+
+    hydrateFromStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleStep1Success = () => {
     goToStep(2);

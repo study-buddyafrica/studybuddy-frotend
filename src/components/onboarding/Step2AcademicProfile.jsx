@@ -11,17 +11,20 @@ import {
   FaArrowRight,
   FaChevronDown,
 } from "react-icons/fa";
+import { AuthAlert } from "../auth";
+import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
 
 /**
- * Step2AcademicProfile: Academic Curriculum & Level configuration.
- * References Figma Frame 7:30 (Step 2 - Academic Curriculum & Level).
- * Styled with platform brand fonts (Lilita & Josefin) and minimal layout.
+ * Academic Curriculum & Level configuration.
  */
 const Step2AcademicProfile = ({
   onNext = null,
   onBack = null,
   initialData = null,
 }) => {
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   // Retrieve saved Step 2 data if previously entered
   const savedData = (() => {
     try {
@@ -138,8 +141,9 @@ const Step2AcademicProfile = ({
     }
   };
 
-  const handleProceed = (e) => {
+  const handleProceed = async (e) => {
     if (e) e.preventDefault();
+    if (loading) return;
 
     const step2Payload = {
       curriculum,
@@ -151,6 +155,29 @@ const Step2AcademicProfile = ({
     };
 
     sessionStorage.setItem("studentOnboardingStep2", JSON.stringify(step2Payload));
+
+    if (onboardingService.enabled) {
+      setLoading(true);
+      setErrorMessage("");
+      try {
+        const apiPayload = onboardingPayloads.studentStep2({
+          curriculum_type: curriculum,
+          education_level_id: null,
+          grade_id: null,
+          school_name: schoolName.trim(),
+          gender: "",
+        });
+        await onboardingService.step2(apiPayload);
+      } catch (err) {
+        console.warn("Backend step2 sync warning:", err);
+        const msg = getErrorMessage(err, "Failed to save academic profile to server.");
+        setErrorMessage(msg);
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
 
     if (onNext) {
       onNext(step2Payload);
@@ -187,6 +214,15 @@ const Step2AcademicProfile = ({
           Select your active curriculum so StudyBuddy Africa can customize notes, past revision papers, and AI quizzes according to your national syllabus.
         </p>
       </div>
+
+      {/* Global Alerts */}
+      {errorMessage && (
+        <AuthAlert
+          variant="error"
+          message={errorMessage}
+          onDismiss={() => setErrorMessage("")}
+        />
+      )}
 
       {/* ========================================================================= */}
       {/* Section 1: Choose Your Syllabus (3 Selectable Cards)                       */}
@@ -517,10 +553,13 @@ const Step2AcademicProfile = ({
         <div className="w-full sm:w-auto order-1 sm:order-2">
           <button
             type="button"
+            disabled={loading}
             onClick={handleProceed}
-            className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-lilita text-base tracking-wide text-white bg-[#003D55] hover:bg-[#015575] hover:shadow-lg transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            className={`w-full sm:w-auto px-7 py-3.5 rounded-xl font-lilita text-base tracking-wide text-white bg-[#003D55] hover:bg-[#015575] hover:shadow-lg transition-all shadow-md flex items-center justify-center gap-2 ${
+              loading ? "opacity-75 cursor-wait" : "cursor-pointer"
+            }`}
           >
-            <span>Next Step: Subjects & Goals</span>
+            <span>{loading ? "Saving Profile..." : "Next Step: Subjects & Goals"}</span>
             <FaArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
