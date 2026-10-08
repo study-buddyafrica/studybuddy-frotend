@@ -21,12 +21,6 @@ import { onboardingService, onboardingPayloads, getErrorMessage } from "../../se
 
 /**
  * Step 3 - TEACHER Qualifications, Specializations & Rates
- * 1. Academic Background (Highest Qualification, Institution, Degree Certificate Upload)
- * 2. Curriculums Taught (CBC, 8-4-4, IGCSE / Cambridge)
- * 3. Subject Specializations (Dynamic pills with add/remove)
- * 4. Tutoring Rate & Pricing (KES hourly rate, preset tiers, group discount toggle)
- * 5. Professional Bio & Teaching Methodology (Textarea with word counter)
- * 6. Sticky bottom navigation matching prior onboarding button styling
  */
 const Step3TeacherQualifications = ({
   registrationData = null,
@@ -34,14 +28,20 @@ const Step3TeacherQualifications = ({
   onBack = null,
 }) => {
   // 1. Academic Background State (clean scratch state)
-  const [highestQualification, setHighestQualification] = useState(
-    "Bachelor of Education (B.Ed)",
-  );
+  const [highestQualification, setHighestQualification] = useState("Bachelor of Education (B.Ed)");
   const [institution, setInstitution] = useState(
     registrationData?.school || "",
   );
   const [degreeDoc, setDegreeDoc] = useState(null);
   const degreeInputRef = useRef(null);
+
+  // Field error states and section refs for auto-focus/scroll
+  const [fieldErrors, setFieldErrors] = useState({});
+  const institutionRef = useRef(null);
+  const curriculumsRef = useRef(null);
+  const subjectsRef = useRef(null);
+  const hourlyRateRef = useRef(null);
+  const bioRef = useRef(null);
 
   // 2. Curriculums Taught (clean scratch state - empty by default)
   const [selectedCurriculums, setSelectedCurriculums] = useState([]);
@@ -66,13 +66,23 @@ const Step3TeacherQualifications = ({
       title: "IGCSE / Cambridge International",
       description: "Global curriculum & examinations",
     },
+    {
+      id: "OTHER",
+      badge: "SPECIALIZED / ALTERNATIVE",
+      title: "Other / Specialized Curriculums",
+      description: "American, IB, TVET, or specialized accelerated tracks",
+    },
   ];
 
   // Toggle curriculum selection
   const toggleCurriculum = (id) => {
-    setSelectedCurriculums((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
+    setSelectedCurriculums((prev) => {
+      const updated = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+      if (updated.length > 0) {
+        setFieldErrors((errs) => ({ ...errs, curriculums: null }));
+      }
+      return updated;
+    });
   };
 
   // 3. Subject Specializations State (clean scratch state)
@@ -98,8 +108,13 @@ const Step3TeacherQualifications = ({
   const handleAddSubject = (subjectName) => {
     const trimmed = subjectName.trim();
     if (!trimmed) return;
+    if (subjects.length >= 3) {
+      setErrorMessage("Maximum of 3 subject specializations allowed.");
+      return;
+    }
     if (!subjects.includes(trimmed)) {
       setSubjects((prev) => [...prev, trimmed]);
+      setFieldErrors((prev) => ({ ...prev, subjects: null }));
     }
     setNewSubjectInput("");
     setShowAddSubjectModal(false);
@@ -110,14 +125,14 @@ const Step3TeacherQualifications = ({
   };
 
   // 4. Tutoring Rate & Pricing State
-  const [hourlyRate, setHourlyRate] = useState(1200);
+  const [hourlyRate, setHourlyRate] = useState(300);
   const [groupDiscount, setGroupDiscount] = useState(true);
 
   const RATE_PRESETS = [
-    { label: "Entry", rate: 800 },
-    { label: "Standard", rate: 1200 },
-    { label: "Advanced", rate: 2000 },
-    { label: "Master", rate: 2500 },
+    { label: "Starter", rate: 150 },
+    { label: "Standard", rate: 300 },
+    { label: "Senior", rate: 500 },
+    { label: "Master Cap", rate: 800 },
   ];
 
   // 5. Professional Bio & Teaching Methodology
@@ -154,30 +169,44 @@ const Step3TeacherQualifications = ({
     if (e) e.preventDefault();
     if (loading) return;
 
-    if (!highestQualification.trim()) {
-      setErrorMessage("Please select or enter your highest qualification.");
-      return;
-    }
+    const errors = {};
     if (!institution.trim()) {
-      setErrorMessage("Please enter the educational institution attended.");
-      return;
+      errors.institution = "Please enter the educational institution attended.";
     }
     if (selectedCurriculums.length === 0) {
-      setErrorMessage("Please select at least one curriculum you teach (e.g. CBC, 8-4-4, or IGCSE).");
-      return;
+      errors.curriculums = "Please select at least one curriculum you teach (e.g. CBC, 8-4-4, IGCSE, or Other).";
     }
     if (subjects.length === 0) {
-      setErrorMessage("Please select or add at least one subject specialization.");
-      return;
+      errors.subjects = "Please select or add at least one subject specialization (max 3).";
     }
-    if (!hourlyRate || Number(hourlyRate) < 500) {
-      setErrorMessage("Please enter a valid hourly rate of at least KES 500/hr.");
-      return;
+    if (!hourlyRate || Number(hourlyRate) < 50 || Number(hourlyRate) > 800) {
+      errors.hourlyRate = "Please enter a tutoring rate between KES 50 and KES 800 per hour.";
     }
     if (!bio.trim() || wordCount < 10) {
-      setErrorMessage("Please write a short professional bio (at least 10 words) explaining your teaching approach.");
+      errors.bio = "Please write a short professional bio (at least 10 words) explaining your teaching approach.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setErrorMessage("Please complete all required fields highlighted in red below.");
+      if (errors.institution && institutionRef.current) {
+        institutionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        institutionRef.current.focus();
+      } else if (errors.curriculums && curriculumsRef.current) {
+        curriculumsRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (errors.subjects && subjectsRef.current) {
+        subjectsRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (errors.hourlyRate && hourlyRateRef.current) {
+        hourlyRateRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        hourlyRateRef.current.focus();
+      } else if (errors.bio && bioRef.current) {
+        bioRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        bioRef.current.focus();
+      }
       return;
     }
+
+    setFieldErrors({});
 
     if (degreeDoc?.file && degreeDoc.file.size > 5 * 1024 * 1024) {
       setErrorMessage("Degree certificate file exceeds maximum allowed limit of 5MB.");
@@ -248,10 +277,11 @@ const Step3TeacherQualifications = ({
       <div className="space-y-6">
         <div className="space-y-2">
           {/* Progress Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
+          {/* WE CAN REMOVE THIS PILL/BADGE ENTIRELY */}
+          {/* <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
             <FaGraduationCap className="w-3.5 h-3.5 text-[#00658C]" />
             <span>Qualifications &amp; Rates Setup</span>
-          </div>
+          </div> */}
 
           <h1 className="text-3xl sm:text-4xl font-lilita text-[#001E2D] tracking-tight">
             Qualifications, Specializations &amp; Rates
@@ -293,8 +323,9 @@ const Step3TeacherQualifications = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-josefin">
               {/* Highest Qualification */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Highest Qualification
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                  <span>Highest Qualification</span>
+                  <span className="text-red-500 font-bold ml-1">*</span>
                 </label>
                 <select
                   value={highestQualification}
@@ -314,16 +345,28 @@ const Step3TeacherQualifications = ({
 
               {/* Institution Attended */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Institution Attended
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                  <span>Institution Attended</span>
+                  <span className="text-red-500 font-bold ml-1">*</span>
                 </label>
                 <input
+                  ref={institutionRef}
                   type="text"
                   value={institution}
-                  onChange={(e) => setInstitution(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 font-semibold focus:outline-none focus:border-[#01B0F1] focus:ring-2 focus:ring-[#01B0F1]/20 transition-all"
+                  onChange={(e) => {
+                    setInstitution(e.target.value);
+                    if (fieldErrors.institution) setFieldErrors(prev => ({ ...prev, institution: null }));
+                  }}
+                  className={`w-full px-3.5 py-2.5 bg-white rounded-lg text-sm text-slate-900 font-semibold focus:outline-none transition-all ${
+                    fieldErrors.institution
+                      ? "border-2 border-red-500 bg-red-50/20 ring-2 ring-red-500/20"
+                      : "border border-slate-300 focus:border-[#01B0F1] focus:ring-2 focus:ring-[#01B0F1]/20"
+                  }`}
                   placeholder="e.g. Kenyatta University, University of Nairobi"
                 />
+                {fieldErrors.institution && (
+                  <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.institution}</p>
+                )}
               </div>
             </div>
 
@@ -393,11 +436,12 @@ const Step3TeacherQualifications = ({
           {/* ========================================================================= */}
           {/* Section 2: Curriculums Taught                                             */}
           {/* ========================================================================= */}
-          <div className="pb-6 border-b border-slate-200/80 space-y-5">
+          <div ref={curriculumsRef} className="pb-6 border-b border-slate-200/80 space-y-5">
             <div className="flex items-center gap-2">
               <FaBookOpen className="w-4 h-4 text-[#00658C]" />
-              <h3 className="font-lilita text-lg text-[#001E2D]">
-                2. Curriculums Taught
+              <h3 className="font-lilita text-lg text-[#001E2D] flex items-center">
+                <span>2. Curriculums Taught</span>
+                <span className="text-red-500 font-bold text-sm ml-1">*</span>
               </h3>
             </div>
 
@@ -442,21 +486,31 @@ const Step3TeacherQualifications = ({
                 );
               })}
             </div>
+            {fieldErrors.curriculums && (
+              <p className="text-xs text-red-600 font-semibold mt-2">{fieldErrors.curriculums}</p>
+            )}
           </div>
 
           {/* ========================================================================= */}
           {/* Section 3: Subject Specializations                                        */}
           {/* ========================================================================= */}
-          <div className="pb-6 border-b border-slate-200/80 space-y-5">
+          <div ref={subjectsRef} className="pb-6 border-b border-slate-200/80 space-y-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FaTag className="w-4 h-4 text-[#00658C]" />
-                <h3 className="font-lilita text-lg text-[#001E2D]">
-                  3. Subject Specializations
+                <h3 className="font-lilita text-lg text-[#001E2D] flex items-center">
+                  <span>3. Subject Specializations</span>
+                  <span className="text-red-500 font-bold text-sm ml-1">*</span>
                 </h3>
               </div>
-              <span className="text-xs font-josefin text-slate-500">
-                {subjects.length} selected
+              <span
+                className={`text-xs font-josefin font-bold px-2 py-0.5 rounded-full ${
+                  subjects.length >= 3
+                    ? "text-amber-700 bg-amber-100/80"
+                    : "text-slate-600 bg-slate-100"
+                }`}
+              >
+                Specializations: ({subjects.length}/3 max)
               </span>
             </div>
 
@@ -489,12 +543,17 @@ const Step3TeacherQualifications = ({
               <button
                 type="button"
                 onClick={() => setShowAddSubjectModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#DEF0FF] hover:bg-[#cbe8ff] text-[#003D55] text-xs font-bold transition-colors cursor-pointer border border-[#01B0F1]/30 ml-auto"
+                disabled={subjects.length >= 3}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#DEF0FF] hover:bg-[#cbe8ff] text-[#003D55] text-xs font-bold transition-colors cursor-pointer border border-[#01B0F1]/30 ml-auto disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <FaPlus className="w-2.5 h-2.5 text-[#00658C]" />
                 <span>Add Subject</span>
               </button>
             </div>
+
+            {fieldErrors.subjects && (
+              <p className="text-xs text-red-600 font-semibold">{fieldErrors.subjects}</p>
+            )}
 
             {/* Popular Subjects Quick Picks */}
             <div className="space-y-2 font-josefin">
@@ -504,15 +563,18 @@ const Step3TeacherQualifications = ({
               <div className="flex flex-wrap gap-2">
                 {POPULAR_SUBJECTS.map((popSubj) => {
                   const alreadyAdded = subjects.includes(popSubj);
+                  const isMaxReached = subjects.length >= 3;
                   return (
                     <button
                       key={popSubj}
                       type="button"
-                      disabled={alreadyAdded}
+                      disabled={alreadyAdded || isMaxReached}
                       onClick={() => handleAddSubject(popSubj)}
                       className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all ${
                         alreadyAdded
                           ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                          : isMaxReached
+                          ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-50"
                           : "bg-white text-slate-700 border-slate-200 hover:border-[#01B0F1] hover:text-[#00658C] hover:bg-sky-50/50"
                       }`}
                     >
@@ -571,8 +633,9 @@ const Step3TeacherQualifications = ({
           <div className="pb-6 border-b border-slate-200/80 space-y-5">
             <div className="flex items-center gap-2">
               <FaMoneyBillWave className="w-4 h-4 text-[#00658C]" />
-              <h3 className="font-lilita text-lg text-[#001E2D]">
-                4. Tutoring Rate &amp; Pricing
+              <h3 className="font-lilita text-lg text-[#001E2D] flex items-center">
+                <span>4. Tutoring Rate &amp; Pricing</span>
+                <span className="text-red-500 font-bold text-sm ml-1">*</span>
               </h3>
             </div>
 
@@ -580,11 +643,12 @@ const Step3TeacherQualifications = ({
               {/* Hourly Rate Input */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Hourly Tutoring Rate (KES)
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                    <span>Hourly Tutoring Rate (KES)</span>
+                    <span className="text-red-500 font-bold ml-1">*</span>
                   </label>
                   <span className="text-[11px] font-bold text-[#00658C] bg-[#EAF5FF] px-2 py-0.5 rounded-md">
-                    Recommended: KES 800 – 2,500
+                    Recommended: KES 150 – 800
                   </span>
                 </div>
 
@@ -593,25 +657,37 @@ const Step3TeacherQualifications = ({
                     KES
                   </span>
                   <input
+                    ref={hourlyRateRef}
                     type="number"
-                    min="500"
-                    max="10000"
-                    step="100"
+                    min="50"
+                    max="800"
+                    step="25"
                     value={hourlyRate}
-                    onChange={(e) => setHourlyRate(Number(e.target.value))}
-                    className="w-full pl-14 pr-16 py-3 bg-[#EAF5FF]/40 border border-slate-300 rounded-xl text-lg text-[#001E2D] font-bold focus:outline-none focus:border-[#01B0F1] focus:ring-2 focus:ring-[#01B0F1]/20 transition-all"
+                    onChange={(e) => {
+                      setHourlyRate(Number(e.target.value));
+                      if (fieldErrors.hourlyRate) setFieldErrors((prev) => ({ ...prev, hourlyRate: null }));
+                    }}
+                    className={`w-full pl-14 pr-16 py-3 bg-[#EAF5FF]/40 rounded-xl text-lg text-[#001E2D] font-bold focus:outline-none transition-all ${
+                      fieldErrors.hourlyRate
+                        ? "border-2 border-red-500 bg-red-50/20 ring-2 ring-red-500/20"
+                        : "border border-slate-300 focus:border-[#01B0F1] focus:ring-2 focus:ring-[#01B0F1]/20"
+                    }`}
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-500">
                     / hr
                   </span>
                 </div>
+                {fieldErrors.hourlyRate && (
+                  <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.hourlyRate}</p>
+                )}
 
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Platform recommended rate for your experience tier: KES 800 - KES 2,500. You keep 85% of your lesson earnings.
+                  Platform recommended rate for standard tutoring: KES 150 - KES 800/hr. You keep 70% of your lesson earnings.
                 </p>
               </div>
 
               {/* Rate Presets & Group Discount Card */}
+              {/* FAITH SAID SOMETHING ABOUT THIS SECTION. NOT SURE WHETER TO KEPP IT OR REMOVE IT */}
               <div className="bg-[#EAF5FF]/50 border border-slate-200/80 rounded-xl p-4 sm:p-5 space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -622,7 +698,10 @@ const Step3TeacherQualifications = ({
                       <button
                         key={preset.rate}
                         type="button"
-                        onClick={() => setHourlyRate(preset.rate)}
+                        onClick={() => {
+                          setHourlyRate(preset.rate);
+                          if (fieldErrors.hourlyRate) setFieldErrors((prev) => ({ ...prev, hourlyRate: null }));
+                        }}
                         className={`px-2 py-2 rounded-lg text-xs font-bold border transition-all text-center ${
                           hourlyRate === preset.rate
                             ? "bg-[#003D55] text-white border-[#003D55] shadow-xs"
@@ -664,8 +743,9 @@ const Step3TeacherQualifications = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FaPenNib className="w-4 h-4 text-[#00658C]" />
-                <h3 className="font-lilita text-lg text-[#001E2D]">
-                  5. Teacher Bio &amp; Approach
+                <h3 className="font-lilita text-lg text-[#001E2D] flex items-center">
+                  <span>5. Teacher Bio &amp; Approach</span>
+                  <span className="text-red-500 font-bold text-sm ml-1">*</span>
                 </h3>
               </div>
               <span className="text-xs text-slate-500 font-medium">
@@ -675,12 +755,23 @@ const Step3TeacherQualifications = ({
 
             <div className="space-y-2">
               <textarea
+                ref={bioRef}
                 rows={5}
                 value={bio}
-                onChange={(e) => setBio(e.target.value)}
+                onChange={(e) => {
+                  setBio(e.target.value);
+                  if (fieldErrors.bio) setFieldErrors((prev) => ({ ...prev, bio: null }));
+                }}
                 placeholder="Share your teaching philosophy, classroom experience, mastery of CBC/KCSE or IGCSE syllabi, and how you mentor students to academic excellence..."
-                className="w-full p-4 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 leading-relaxed font-normal focus:outline-none focus:border-[#01B0F1] focus:ring-2 focus:ring-[#01B0F1]/20 transition-all placeholder:text-slate-400"
+                className={`w-full p-4 bg-white rounded-xl text-sm text-slate-900 leading-relaxed font-normal focus:outline-none transition-all placeholder:text-slate-400 ${
+                  fieldErrors.bio
+                    ? "border-2 border-red-500 bg-red-50/20 ring-2 ring-red-500/20"
+                    : "border border-slate-300 focus:border-[#01B0F1] focus:ring-2 focus:ring-[#01B0F1]/20"
+                }`}
               />
+              {fieldErrors.bio && (
+                <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.bio}</p>
+              )}
               <p className="text-xs text-slate-500 leading-relaxed">
                 This bio will be displayed publicly on your StudyBuddy Africa tutor profile to attract prospective students and parents.
               </p>

@@ -18,13 +18,6 @@ import { onboardingService, getErrorMessage } from "../../services/onboardingSer
 
 /**
  * Step 4 - TEACHER Dashboard Launch & Onboarding Complete
- * Matches Figma frame 39:2062:
- * - 100% Onboarding Completion progress indicator
- * - Amber-gold status banner: KYC Application Under Review (Est. 24-48 Hours)
- * - Hero welcome card personalized to teacher name
- * - 3 Teacher Studio Sandbox Access cards (Calendar, Whiteboard, Curriculum Builder)
- * - Payout & Verification Callout (M-PESA disbursement number)
- * - Sticky navigation action footer with canonical #003D55 navy button styling
  */
 const Step4TeacherDashboardLaunch = ({
   registrationData = null,
@@ -63,10 +56,7 @@ const Step4TeacherDashboardLaunch = ({
     "Educator";
 
   // Resolve M-PESA phone number
-  const mpesaPhone =
-    registrationData?.phone ||
-    registrationData?.phone_number ||
-    "+254 712 345 678";
+  const mpesaPhone = registrationData?.phone || registrationData?.phone_number
 
   // Handle Launch CTA
   const handleLaunchDashboard = async () => {
@@ -160,7 +150,7 @@ const Step4TeacherDashboardLaunch = ({
                 <FaClock className="w-4 h-4" />
               </div>
               <div className="font-josefin">
-                <p className="text-xs font-bold text-[#78350F] uppercase tracking-wider">
+                <p className="text-s font-bold text-[#78350F] uppercase tracking-wider">
                   KYC Application Under Review
                 </p>
                 <p className="text-xs text-amber-900/80 hidden sm:block">
@@ -169,7 +159,7 @@ const Step4TeacherDashboardLaunch = ({
               </div>
             </div>
 
-            <span className="text-xs font-josefin font-semibold text-[#92400E] bg-amber-100 px-3 py-1 rounded-full whitespace-nowrap">
+            <span className="text-s font-josefin font-semibold text-[#92400E] bg-amber-100 px-3 py-1 rounded-full whitespace-nowrap">
               Est. 24–48 Hours
             </span>
           </div>
@@ -274,7 +264,7 @@ const Step4TeacherDashboardLaunch = ({
           <div className="w-10 h-10 rounded-xl bg-[#2ABCFE]/20 flex items-center justify-center text-[#00658C] shrink-0 mt-0.5">
             <FaMobileAlt className="w-5 h-5" />
           </div>
-          <div className="space-y-1 text-xs">
+          <div className="space-y-1 text-s">
             <h4 className="font-bold text-[#001E2D] uppercase tracking-wider">
               Payout &amp; Verification Destination
             </h4>
@@ -299,6 +289,7 @@ const Step4TeacherDashboardLaunch = ({
         </button>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto order-1 sm:order-2">
+          {/* WE CAN FIND A WAY TO CREATE A CLEAN PDF FORMAT POPULATED WITH ALL THE APPLICATION DATA FOR THEM TO DOWNLOAD */}
           <button
             type="button"
             onClick={handleDownloadSummary}

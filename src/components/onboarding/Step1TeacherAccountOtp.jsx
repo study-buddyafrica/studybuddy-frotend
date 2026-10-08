@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
-  FaShieldAlt,
+  // FaShieldAlt, // 'FaShieldAlt' is declared but its value is never read.
   FaEnvelope,
   FaPhoneAlt,
   FaClock,
@@ -25,17 +25,8 @@ const Step1TeacherAccountOtp = ({
   onVerificationSuccess = null,
 }) => {
   // Contact details state
-  const [email, setEmail] = useState(
-    initialEmail ||
-      registrationData?.email ||
-      "eli.muthoka@studybuddy.africa",
-  );
-  const [phone, setPhone] = useState(
-    initialPhone ||
-      registrationData?.phone ||
-      registrationData?.phone_number ||
-      "+254 712 345 678",
-  );
+  const [email, setEmail] = useState(initialEmail || registrationData?.email);
+  const [phone, setPhone] = useState(initialPhone || registrationData?.phone || registrationData?.phone_number);
 
   // Inline editing states for Email and Phone
   const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -76,6 +67,7 @@ const Step1TeacherAccountOtp = ({
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
+  // UTIL FUNCTION COULD BE MOVED TO A utils FILE AND IMPORT
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -342,10 +334,11 @@ const Step1TeacherAccountOtp = ({
       <div className="space-y-6">
         <div className="space-y-3">
           {/* Security Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
+          {/* WE CAN REMOVE THIS PILL/BADGE ENTIRELY */}
+          {/* <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
             <FaShieldAlt className="w-3.5 h-3.5 text-[#00658C]" />
             <span>Official Educator Account Verification</span>
-          </div>
+          </div> */}
 
           {/* Heading 1 */}
           <h1 className="text-3xl sm:text-4xl font-lilita text-[#001E2D] tracking-tight">
@@ -381,6 +374,7 @@ const Step1TeacherAccountOtp = ({
           {/* Verification Target Cards (Email + M-PESA Phone) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Target Verification: Educator Email */}
+            {/* NOTE: THIS BANNER SHOULD ONLY SHOW THE EMAIL FROM THE REGISTERED USER/DATA. NOT A DUMMY/FAKE "eli.muthoka@studybuddy.africa" */}
             <div className="bg-[#EAF5FF] rounded-xl p-4 sm:p-5 flex items-center justify-between gap-3 border border-[#01B0F1]/20">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-full bg-[#00658C]/10 flex items-center justify-center text-[#00658C] shrink-0">
@@ -426,6 +420,8 @@ const Step1TeacherAccountOtp = ({
             </div>
 
             {/* M-PESA Phone Payout Line */}
+            {/* NOTE: THIS BANNER SHOULD ONLY SHOW THE PHONE NUMBER FROM THE REGISTERED TEACHER. NOT A DUMMY "+254 712 345 678" */}
+            {/* WE CAN REMOVE THE "Change" BUTTON. I DO NOT FIND IT NECESSARY HERE. LET THEM JUST USE THE EMAIL/PHONE THEY USED ON SIGNUP */}
             <div className="bg-[#EAF5FF] rounded-xl p-4 sm:p-5 flex items-center justify-between gap-3 border border-[#01B0F1]/20">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-full bg-[#00658C]/10 flex items-center justify-center text-[#00658C] shrink-0">

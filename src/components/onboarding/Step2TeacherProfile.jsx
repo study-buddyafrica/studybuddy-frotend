@@ -201,12 +201,13 @@ const Step2TeacherProfile = ({
 
       {/* Top Header Block */}
       <div className="space-y-6">
-        <div className="space-y-2">
+        <div className="space-y-3">
           {/* Security Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
+          {/* WE CAN REMOVE THIS PILL/BADGE ENTIRELY */}
+          {/* <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
             <FaShieldAlt className="w-3.5 h-3.5 text-[#00658C]" />
             <span>Identity &amp; Legal KYC Verification</span>
-          </div>
+          </div> */}
 
           <h1 className="text-3xl sm:text-4xl font-lilita text-[#001E2D] tracking-tight">
             Professional Identity &amp; Legal KYC
@@ -219,14 +220,14 @@ const Step2TeacherProfile = ({
         {/* Global Alerts */}
         {errorMessage && (
           <AuthAlert
-            type="error"
+            variant="error"
             message={errorMessage}
             onClose={() => setErrorMessage("")}
           />
         )}
         {successMessage && (
           <AuthAlert
-            type="success"
+            variant="success"
             message={successMessage}
             onClose={() => setSuccessMessage("")}
           />
@@ -510,7 +511,7 @@ const Step2TeacherProfile = ({
             <div className="w-8 h-8 rounded-lg bg-[#00658C]/15 flex items-center justify-center text-[#00658C] shrink-0 mt-0.5">
               <FaLock className="w-3.5 h-3.5" />
             </div>
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1 text-s">
               <p className="font-bold text-slate-900">
                 Kenya Data Protection Act 2019 Compliance
               </p>

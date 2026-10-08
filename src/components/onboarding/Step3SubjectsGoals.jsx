@@ -16,7 +16,6 @@ import {
   FaArrowLeft,
   FaArrowRight,
   FaLightbulb,
-  FaBullseye,
 } from "react-icons/fa";
 import { AuthAlert } from "../auth";
 import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
@@ -294,53 +293,71 @@ const Step3SubjectsGoals = ({
     }
   };
 
-  // Focus topic tags
-  const initialAvailableTopics = useMemo(() => [
-    "LinearEquations",
-    "PhotosynthesisAndCells",
-    "FractionsAndPercentages",
-    "KenyanConstitution",
-    "AlgebraicExpressions",
-    "CellDivision",
-    "EssayComposition",
-    "SoilErosionControl",
-    "ComputerHardware",
-    "MicroOrganisms",
-    "WeatherPatterns",
-    "GeometricConstructions",
-    "IndicesAndLogarithms",
-    "ChemicalBonding",
-    "ElectricCurrents",
+  // Focus topic tags catalog with parent subject associations
+  const AVAILABLE_SYLLABUS_TOPICS = useMemo(() => [
+    { id: "linear_equations", name: "Linear Equations", subject: "Mathematics", badge: "Math", color: "bg-sky-100 text-sky-800 border-sky-200" },
+    { id: "photosynthesis", name: "Photosynthesis & Plant Biology", subject: "Integrated Science", badge: "Science", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+    { id: "fractions_pct", name: "Fractions & Percentages", subject: "Mathematics", badge: "Math", color: "bg-sky-100 text-sky-800 border-sky-200" },
+    { id: "constitution", name: "Kenyan Constitution & Governance", subject: "Social Studies & CRE", badge: "Social", color: "bg-amber-100 text-amber-800 border-amber-200" },
+    { id: "algebra", name: "Algebraic Expressions", subject: "Mathematics", badge: "Math", color: "bg-sky-100 text-sky-800 border-sky-200" },
+    { id: "cell_division", name: "Cell Division & Genetics", subject: "Integrated Science", badge: "Science", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+    { id: "composition", name: "Essay Composition & Grammar", subject: "English & Literature", badge: "English", color: "bg-purple-100 text-purple-800 border-purple-200" },
+    { id: "soil_erosion", name: "Soil Conservation & Crop Production", subject: "Agriculture & Nutrition", badge: "Agri", color: "bg-lime-100 text-lime-800 border-lime-200" },
+    { id: "comp_hardware", name: "Digital Devices & Computing", subject: "Pre-Technical Studies", badge: "Pre-Tech", color: "bg-slate-100 text-slate-800 border-slate-200" },
+    { id: "chemical_bonding", name: "Chemical Reactions & Matter", subject: "Integrated Science", badge: "Science", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+    { id: "constructions", name: "Geometric Constructions", subject: "Mathematics", badge: "Math", color: "bg-sky-100 text-sky-800 border-sky-200" },
+    { id: "electricity", name: "Electric Currents & Magnetism", subject: "Integrated Science", badge: "Science", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
   ], []);
 
   const [selectedTopics, setSelectedTopics] = useState(() => {
-    if (savedData?.selectedTopics) return savedData.selectedTopics;
-    if (initialData?.selectedTopics) return initialData.selectedTopics;
-    return [
-      "LinearEquations",
-      "PhotosynthesisAndCells",
-      "FractionsAndPercentages",
-      "KenyanConstitution",
-    ];
+    const raw = savedData?.selectedTopics || initialData?.selectedTopics;
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((item) => {
+        if (typeof item === "object" && item !== null && item.id) return item;
+        const found = AVAILABLE_SYLLABUS_TOPICS.find((t) => t.id === item || t.name === item);
+        return (
+          found || {
+            id: String(item),
+            name: String(item),
+            subject: "General",
+            badge: "Topic",
+            color: "bg-slate-100 text-slate-800 border-slate-200",
+          }
+        );
+      });
+    }
+    return AVAILABLE_SYLLABUS_TOPICS.filter((t) =>
+      ["linear_equations", "photosynthesis", "fractions_pct", "constitution"].includes(t.id)
+    );
   });
 
+  const selectedTopicIds = useMemo(() => selectedTopics.map((t) => t.id), [selectedTopics]);
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("All");
   const [topicSearch, setTopicSearch] = useState("");
+
+  const subjectFilters = useMemo(() => {
+    const subs = Array.from(new Set(AVAILABLE_SYLLABUS_TOPICS.map((t) => t.subject)));
+    return ["All", ...subs];
+  }, [AVAILABLE_SYLLABUS_TOPICS]);
 
   const filteredTopics = useMemo(() => {
     const q = topicSearch.trim().toLowerCase();
-    if (!q) return initialAvailableTopics;
-    return initialAvailableTopics.filter((t) => t.toLowerCase().includes(q));
-  }, [initialAvailableTopics, topicSearch]);
+    return AVAILABLE_SYLLABUS_TOPICS.filter((t) => {
+      const matchesSearch = !q || t.name.toLowerCase().includes(q) || t.subject.toLowerCase().includes(q);
+      const matchesFilter = selectedSubjectFilter === "All" || t.subject === selectedSubjectFilter;
+      return matchesSearch && matchesFilter;
+    });
+  }, [AVAILABLE_SYLLABUS_TOPICS, topicSearch, selectedSubjectFilter]);
 
   const addTopic = (topic) => {
     if (selectedTopics.length >= 8) return;
-    if (!selectedTopics.includes(topic)) {
+    if (!selectedTopicIds.includes(topic.id)) {
       setSelectedTopics([...selectedTopics, topic]);
     }
   };
 
-  const removeTopic = (topic) => {
-    setSelectedTopics(selectedTopics.filter((t) => t !== topic));
+  const removeTopic = (topicId) => {
+    setSelectedTopics(selectedTopics.filter((t) => t.id !== topicId));
   };
 
   // Weekly study pacing: "light" | "balanced" | "intensive"
@@ -407,11 +424,6 @@ const Step3SubjectsGoals = ({
       {/* Hero Header Area                                                          */}
       {/* ========================================================================= */}
       <div className="space-y-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#DEF0FF] text-[#00658C] text-xs font-lilita tracking-wide">
-          <FaBullseye className="w-3.5 h-3.5" />
-          <span>Syllabus Tailoring & Goal Setting</span>
-        </div>
-
         <h1 className="text-2xl sm:text-3xl font-lilita text-slate-900 tracking-wide">
           Select your core subjects & study goals
         </h1>
@@ -591,21 +603,43 @@ const Step3SubjectsGoals = ({
           </div>
         </div>
 
+        {/* Quick Subject Filter Tabs */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <span className="font-josefin text-xs font-bold text-slate-500 mr-1">Filter:</span>
+          {subjectFilters.map((sub) => (
+            <button
+              key={sub}
+              type="button"
+              onClick={() => setSelectedSubjectFilter(sub)}
+              className={`px-3 py-1 rounded-lg text-xs font-josefin font-medium transition-all ${
+                selectedSubjectFilter === sub
+                  ? "bg-[#003D55] text-white shadow-xs font-semibold"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
+              }`}
+            >
+              {sub}
+            </button>
+          ))}
+        </div>
+
         {/* Selected Topics Pill Container */}
         <div>
           <p className="font-josefin text-xs font-bold text-slate-700 mb-2">
             Priority Topics ({selectedTopics.length}/8 selected):
           </p>
           <div className="flex flex-wrap gap-2">
-            {selectedTopics.map((topic) => (
+            {selectedTopics.map((topicItem) => (
               <button
-                key={topic}
+                key={topicItem.id}
                 type="button"
-                onClick={() => removeTopic(topic)}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#00658C] text-white text-xs font-josefin font-semibold hover:bg-[#004B68] transition-all shadow-sm group"
+                onClick={() => removeTopic(topicItem.id)}
+                className="inline-flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-[#003D55] text-white text-xs font-josefin font-semibold hover:bg-[#002b3d] transition-all shadow-xs group"
               >
-                <span>#{topic}</span>
-                <FaTimes className="w-2.5 h-2.5 opacity-80 group-hover:opacity-100" />
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/20 text-cyan-200 uppercase tracking-wider">
+                  {topicItem.badge}
+                </span>
+                <span>{topicItem.name}</span>
+                <FaTimes className="w-2.5 h-2.5 text-white/70 group-hover:text-white" />
               </button>
             ))}
             {selectedTopics.length === 0 && (
@@ -623,16 +657,19 @@ const Step3SubjectsGoals = ({
           </p>
           <div className="flex flex-wrap gap-2">
             {filteredTopics
-              .filter((topic) => !selectedTopics.includes(topic))
+              .filter((t) => !selectedTopicIds.includes(t.id))
               .map((topic) => (
                 <button
-                  key={topic}
+                  key={topic.id}
                   type="button"
                   onClick={() => addTopic(topic)}
                   disabled={selectedTopics.length >= 8}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#EAF5FF] text-slate-700 text-xs font-josefin font-medium hover:bg-[#DEF0FF] hover:text-[#00658C] border border-[#01B0F1]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-2 pl-2.5 pr-3 py-1.5 rounded-full bg-white hover:bg-[#EAF5FF] text-slate-700 text-xs font-josefin font-medium border border-slate-200 hover:border-[#2ABCFE] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
                 >
-                  <span>#{topic}</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${topic.color}`}>
+                    {topic.badge}
+                  </span>
+                  <span className="font-semibold text-slate-800">{topic.name}</span>
                   <FaPlus className="w-2.5 h-2.5 text-[#00658C]" />
                 </button>
               ))}
@@ -846,49 +883,6 @@ const Step3SubjectsGoals = ({
                 </button>
               );
             })}
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* Tutor AI Optimization Card (Social Proof & Performance)                   */}
-      {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#DEF0FF] text-[#00658C] flex items-center justify-center font-lilita text-lg shrink-0">
-            🤖
-          </div>
-          <div>
-            <p className="font-lilita text-xs text-[#00658C] uppercase tracking-wider">
-              TUTOR AI OPTIMIZATION
-            </p>
-            <p className="font-josefin text-xs text-slate-800 mt-0.5 leading-relaxed">
-              Students on the{" "}
-              <strong className="text-[#00658C] font-bold">
-                {studyPace === "intensive"
-                  ? "Intensive Prep"
-                  : studyPace === "light"
-                    ? "Light Pace"
-                    : "Balanced Pace"}
-              </strong>{" "}
-              recorded an average score increase of{" "}
-              <strong className="text-slate-900 font-bold">22% in Mathematics</strong> within 6
-              weeks.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto font-josefin">
-          <div className="text-right">
-            <p className="font-lilita text-xs text-slate-900 tracking-wide">
-              KCSE & CBC Predictor
-            </p>
-            <p className="text-[11px] text-slate-500">
-              Calibrated for 2025/2026
-            </p>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-[#DEF0FF] text-[#00658C] flex items-center justify-center">
-            <FaChartLine className="w-4 h-4" />
           </div>
         </div>
       </div>

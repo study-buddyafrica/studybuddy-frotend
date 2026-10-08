@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  FaShieldAlt,
+  // FaShieldAlt, // 'FaShieldAlt' is declared but its value is never read.
   FaEnvelope,
   FaClock,
   FaCheck,
@@ -30,7 +30,7 @@ const Step1AccountOtp = ({
 
   // Email context
   const [email, setEmail] = useState(
-    initialEmail || registrationData?.email || "amara.kamau@student.ke",
+    initialEmail || registrationData?.email,
   );
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [tempEmail, setTempEmail] = useState(email);
@@ -42,7 +42,7 @@ const Step1AccountOtp = ({
 
   // Account Type Selection: "student" (Self-Registration) or "parent_comanaged"
   const [accountType, setAccountType] = useState("student");
-  const [nemisUpi, setNemisUpi] = useState("NEMIS-84920-K");
+  const [nemisUpi, setNemisUpi] = useState("");
   const [whatsappDigests, setWhatsappDigests] = useState(true);
 
   // Timer states (14:55 expiry = 895 seconds, 42s resend cooldown)
@@ -73,6 +73,7 @@ const Step1AccountOtp = ({
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
+  // UTIL FUNCTION COULD BE MOVED TO A utils FILE AND IMPORT
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -327,10 +328,11 @@ const Step1AccountOtp = ({
       {/* ========================================================================= */}
       <div className="space-y-3">
         {/* Pill Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
+        {/* WE CAN REMOVE THIS PILL/BADGE ENTIRELY */}
+        {/* <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
           <FaShieldAlt className="w-3.5 h-3.5 text-[#00658C]" />
           <span>Identity & Student Account Verification</span>
-        </div>
+        </div> */}
 
         {/* Heading 1 */}
         <h1 className="text-3xl sm:text-4xl font-lilita text-[#001E2D] tracking-tight">
@@ -366,6 +368,7 @@ const Step1AccountOtp = ({
       {/* ========================================================================= */}
       <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200/80 space-y-6">
         {/* Verification Target Banner */}
+        {/* NOTE: THIS BANNER SHOULD ONLY SHOW THE EMAIL FROM THE REGISTERED USER/DATA. NOT A FAKE "amara.kamau@student.ke" */}
         <div className="bg-[#EAF5FF] rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-[#01B0F1]/20">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#00658C]/10 flex items-center justify-center text-[#00658C] shrink-0">
@@ -375,6 +378,7 @@ const Step1AccountOtp = ({
               <p className="font-josefin font-semibold text-xs text-slate-500 uppercase tracking-wider">
                 Verification Target
               </p>
+              {/* WE CAN REMOVE THE "Change Email" BUTTON. I DO NOT FIND IT NECESSARY HERE. LET THEM JUST USE THE EMAIL THEY USED ON SIGNUP */}
               {isEditingEmail ? (
                 <div className="flex items-center gap-2 mt-1">
                   <input

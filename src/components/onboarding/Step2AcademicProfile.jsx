@@ -199,10 +199,11 @@ const Step2AcademicProfile = ({
       {/* ========================================================================= */}
       <div className="space-y-3">
         {/* Pill Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
+        {/* WE CAN REMOVE THIS PILL/BADGE ENTIRELY */}
+        {/* <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
           <FaGraduationCap className="w-3.5 h-3.5 text-[#00658C]" />
           <span>Academic Personalization Engine</span>
-        </div>
+        </div> */}
 
         {/* Heading 1 */}
         <h1 className="text-3xl sm:text-4xl font-lilita text-[#001E2D] tracking-tight">

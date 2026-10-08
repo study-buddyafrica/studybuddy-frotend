@@ -9,7 +9,6 @@ import {
   FaPlus,
   FaTimes,
   FaVideo,
-  FaMapMarkerAlt,
   FaLayerGroup,
   FaComments,
   FaStar,
@@ -126,7 +125,7 @@ const Step3ParentCurriculumGoals = ({
   // ---------------------------------------------------------------------------
   // State: Delivery Mode & Frequency
   // ---------------------------------------------------------------------------
-  const [deliveryMode, setDeliveryMode] = useState(""); // "online" | "in-person" | "hybrid"
+  const [deliveryMode, setDeliveryMode] = useState("online"); // 100% Online Virtual Classroom
   const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
 
   // Parent Account Data from Step 1 & Billing Preferences
@@ -140,7 +139,7 @@ const Step3ParentCurriculumGoals = ({
   })();
 
   const [mpesaBillingPhone, setMpesaBillingPhone] = useState(
-    parentAccount?.phone || registrationData?.phone_number || "+254712345678",
+    (parentAccount?.phone || registrationData?.phone_number || "+254").replace(/\s+/g, ""),
   );
   const [weeklySpendLimit, setWeeklySpendLimit] = useState("5000");
 
@@ -162,7 +161,7 @@ const Step3ParentCurriculumGoals = ({
       return;
     }
 
-    const phoneClean = mpesaBillingPhone.trim();
+    const phoneClean = mpesaBillingPhone.replace(/\s+/g, "").trim();
     const phonePattern = /^(?:\+254|0)[17]\d{8}$/;
     if (phoneClean && !phonePattern.test(phoneClean)) {
       setErrorMessage("Please enter a valid Safaricom M-Pesa phone number (e.g. +254712345678 or 0712345678).");
@@ -807,134 +806,38 @@ const Step3ParentCurriculumGoals = ({
           </div>
         </div>
 
-        {/* Preferred Learning Delivery Mode */}
+        {/* Preferred Learning Delivery Mode - 100% Online Virtual Classroom */}
         <div className="space-y-2.5">
-          <label className="block text-xs font-josefin font-bold text-slate-700 uppercase tracking-wider">
-            Preferred Learning Delivery Mode
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-josefin font-bold text-slate-700 uppercase tracking-wider">
+              Preferred Learning Delivery Mode
+            </label>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-josefin font-bold">
+              • 100% Virtual Classroom
+            </span>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            {/* 1. Online 1-on-1 Interactive */}
-            <div
-              onClick={() => setDeliveryMode("online")}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                deliveryMode === "online"
-                  ? "border-[#003D55] bg-[#EAF5FF]/20 shadow-xs"
-                  : "border-slate-200 hover:border-slate-300 bg-white"
-              }`}
-            >
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm ${
-                      deliveryMode === "online"
-                        ? "bg-[#003D55] text-white"
-                        : "bg-[#EAF5FF] text-[#00658C]"
-                    }`}
-                  >
-                    <FaVideo />
-                  </div>
-                  {deliveryMode === "online" ? (
-                    <FaCheckCircle className="text-[#003D55] text-base" />
-                  ) : (
-                    <FaRegCircle className="text-slate-300 text-sm" />
-                  )}
-                </div>
-
-                <h3 className="font-lilita text-xs sm:text-sm text-slate-900">
-                  Online 1-on-1 Interactive
-                </h3>
-                <p className="text-xs font-josefin text-slate-600 leading-relaxed">
-                  Live WebRTC virtual classroom with collaborative whiteboards, screen sharing, and session replays.
-                </p>
+          <div className="bg-[#EAF5FF]/60 border border-[#01B0F1]/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-[#003D55] text-white flex items-center justify-center text-lg shrink-0">
+                <FaVideo />
               </div>
-
-              <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-josefin">
-                <span className="font-semibold text-slate-600">Zero commute</span>
-                <span className="font-bold text-[#00658C]">Instant Tutor Match</span>
+              <div>
+                <h3 className="font-lilita text-sm sm:text-base text-slate-900">
+                  Live 1-on-1 Interactive Virtual Classroom
+                </h3>
+                <p className="text-xs font-josefin text-slate-600 mt-0.5 leading-relaxed">
+                  WebRTC HD video, collaborative whiteboard, live problem-solving drills, and recorded session replays for revision. Zero commute required.
+                </p>
               </div>
             </div>
-
-            {/* 2. Physical In-Person Home Visits */}
-            <div
-              onClick={() => setDeliveryMode("in-person")}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                deliveryMode === "in-person"
-                  ? "border-[#003D55] bg-[#EAF5FF]/20 shadow-xs"
-                  : "border-slate-200 hover:border-slate-300 bg-white"
-              }`}
-            >
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm ${
-                      deliveryMode === "in-person"
-                        ? "bg-[#003D55] text-white"
-                        : "bg-[#EAF5FF] text-[#00658C]"
-                    }`}
-                  >
-                    <FaMapMarkerAlt />
-                  </div>
-                  {deliveryMode === "in-person" ? (
-                    <FaCheckCircle className="text-[#003D55] text-base" />
-                  ) : (
-                    <FaRegCircle className="text-slate-300 text-sm" />
-                  )}
-                </div>
-
-                <h3 className="font-lilita text-xs sm:text-sm text-slate-900">
-                  Physical In-Person Home Visits
-                </h3>
-                <p className="text-xs font-josefin text-slate-600 leading-relaxed">
-                  Verified, background-checked elite tutors visiting your residence in Nairobi (Westlands, Kilimani, Karen &amp; environs).
-                </p>
-              </div>
-
-              <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-josefin">
-                <span className="font-semibold text-slate-600">Direct Supervision</span>
-                <span className="font-bold text-[#00658C]">Police Clearance Cert</span>
-              </div>
-            </div>
-
-            {/* 3. Hybrid Flexible Model */}
-            <div
-              onClick={() => setDeliveryMode("hybrid")}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                deliveryMode === "hybrid"
-                  ? "border-[#003D55] bg-[#EAF5FF]/20 shadow-xs"
-                  : "border-slate-200 hover:border-slate-300 bg-white"
-              }`}
-            >
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm ${
-                      deliveryMode === "hybrid"
-                        ? "bg-[#003D55] text-white"
-                        : "bg-[#EAF5FF] text-[#00658C]"
-                    }`}
-                  >
-                    <FaLayerGroup />
-                  </div>
-                  {deliveryMode === "hybrid" ? (
-                    <FaCheckCircle className="text-[#003D55] text-base" />
-                  ) : (
-                    <FaRegCircle className="text-slate-300 text-sm" />
-                  )}
-                </div>
-
-                <h3 className="font-lilita text-xs sm:text-sm text-slate-900">
-                  Hybrid Flexible Model
-                </h3>
-                <p className="text-xs font-josefin text-slate-600 leading-relaxed">
-                  Online interactive sessions during school weekdays + weekend hands-on physical revision workshops.
-                </p>
-              </div>
-
-              <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-josefin">
-                <span className="font-semibold text-slate-600">Balanced Routine</span>
-                <span className="font-bold text-[#00658C]">Weekend Labs</span>
-              </div>
+            <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 font-josefin text-xs">
+              <span className="text-emerald-700 font-bold bg-emerald-100/80 px-2.5 py-1 rounded-lg">
+                Instant Tutor Match
+              </span>
+              <span className="text-slate-500 text-[11px] mt-1 hidden sm:inline">
+                Recorded for safety
+              </span>
             </div>
           </div>
         </div>
@@ -1025,7 +928,7 @@ const Step3ParentCurriculumGoals = ({
               <input
                 type="text"
                 value={mpesaBillingPhone}
-                onChange={(e) => setMpesaBillingPhone(e.target.value)}
+                onChange={(e) => setMpesaBillingPhone(e.target.value.replace(/\s+/g, ""))}
                 placeholder="+254712345678"
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin text-slate-800 focus:outline-none focus:border-[#00658C]"
               />

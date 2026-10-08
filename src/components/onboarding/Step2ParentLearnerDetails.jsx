@@ -4,7 +4,6 @@ import {
   FaUser,
   FaMale,
   FaFemale,
-  FaCalendarAlt,
   FaSchool,
   FaIdBadge,
   FaLink,
@@ -26,20 +25,20 @@ import { onboardingService, onboardingPayloads, getErrorMessage } from "../../se
  * Helper to compute age & CBC academic stage recommendation from DOB string
  */
 const calculateAcademicStage = (dobString) => {
-  if (!dobString || dobString.includes("2012") || dobString.includes("14 May 2012")) {
+  if (!dobString) {
     return {
-      age: 12,
-      headline: "12 Years Old • Junior School Candidate",
-      subline: "CBC Grade 6 to Grade 7 Transition Phase",
+      age: "--",
+      headline: "Age & Stage Calculator",
+      subline: "Select date of birth to calculate academic grade",
     };
   }
 
   const birthDate = new Date(dobString);
   if (isNaN(birthDate.getTime())) {
     return {
-      age: 12,
-      headline: "12 Years Old • Junior School Candidate",
-      subline: "CBC Grade 6 to Grade 7 Transition Phase",
+      age: "--",
+      headline: "Invalid Date Format",
+      subline: "Please select a valid date of birth",
     };
   }
 
@@ -50,24 +49,24 @@ const calculateAcademicStage = (dobString) => {
     age--;
   }
 
-  let headline = `${age} Years Old • Junior School Candidate`;
-  let subline = "CBC Grade 6 to Grade 7 Transition Phase";
+  let headline = `${age} Years Old • Candidate`;
+  let subline = "CBC Academic Track";
 
   if (age <= 5) {
     headline = `${age} Years Old • Early Years Learner`;
     subline = "CBC Pre-Primary (PP1 - PP2) Foundation";
   } else if (age >= 6 && age <= 11) {
     headline = `${age} Years Old • Primary School Learner`;
-    subline = `CBC Lower & Middle Primary (Grade ${Math.max(1, age - 5)} - Grade ${Math.min(6, age - 5)})`;
+    subline = `CBC Primary (Grade ${Math.max(1, age - 5)} - Grade ${Math.min(6, age - 5)})`;
   } else if (age >= 12 && age <= 14) {
     headline = `${age} Years Old • Junior School Candidate`;
-    subline = "CBC Grade 6 to Grade 7 Transition Phase";
+    subline = "CBC Grade 7 - Grade 9 Secondary Pathway";
   } else if (age >= 15 && age <= 18) {
     headline = `${age} Years Old • Senior School Candidate`;
-    subline = "CBC Senior School & Career Pathway Track";
+    subline = "CBC Senior School & Career Track";
   } else {
     headline = `${age} Years Old • Advanced Learner`;
-    subline = "Secondary & Pre-University Academic Track";
+    subline = "Pre-University / High School Track";
   }
 
   return { age: Math.max(3, age), headline, subline };
@@ -382,21 +381,25 @@ const Step2ParentLearnerDetails = ({
             <div className="md:col-span-6 space-y-1.5">
               <label
                 htmlFor="dobInput"
-                className="block text-xs font-josefin font-bold text-slate-700 uppercase tracking-wider"
+                className="text-xs font-josefin font-bold text-slate-700 uppercase tracking-wider flex items-center"
               >
                 Date of Birth
+                <span className="text-red-500 font-bold ml-1">*</span>
               </label>
               <div className="relative">
-                <FaCalendarAlt className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none" />
                 <input
                   id="dobInput"
-                  type="text"
+                  type="date"
+                  min="2004-01-01"
+                  max="2022-12-31"
                   value={dob}
                   onChange={(e) => setDob(e.target.value)}
-                  placeholder="e.g. 14 May 2012"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-josefin font-semibold text-slate-800 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#015575] transition-all"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-josefin font-semibold text-slate-800 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#015575] focus:ring-2 focus:ring-[#015575]/10 transition-all cursor-pointer"
                 />
               </div>
+              <p className="text-[11px] font-josefin text-slate-400">
+                Used to recommend the correct CBC or 8-4-4 grade syllabus level.
+              </p>
             </div>
 
             {/* Dynamic Stage Calculation Badge (6 cols) */}
