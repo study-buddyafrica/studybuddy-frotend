@@ -3,11 +3,9 @@ import { useNavigate } from "react-router-dom";
 import {
   FaRocket,
   FaArrowLeft,
-  // FaShieldAlt, // 'FaShieldAlt' is declared but its value is never read.
   FaGraduationCap,
   FaBook,
   FaChartLine,
-  // FaWifi, // 'FaWifi' is declared but its value is never read.
   FaCheckCircle,
 } from "react-icons/fa";
 import { AuthAlert } from "../auth";
@@ -16,23 +14,12 @@ import { onboardingService, getErrorMessage } from "../../services/onboardingSer
 
 /**
  * Step4DashboardLaunch: Final step of student onboarding.
- * References Figma Frame 7:94 (Step 4 - Dashboard Launch & Onboarding Complete).
  * Displays synthesized profile, regional cohort community banner, and launches student dashboard.
  */
 const Step4DashboardLaunch = ({ onBack = null }) => {
   const navigate = useNavigate();
   const [isLaunching, setIsLaunching] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  // Retrieve saved onboarding data from earlier steps
-  // const step1Data = (() => {
-  //   try {
-  //     const stored = sessionStorage.getItem("studentOnboardingStep1");
-  //     return stored ? JSON.parse(stored) : null;
-  //   } catch (e) {
-  //     return null;
-  //   }
-  // })(); // 'step1Data' is declared but its value is never read.
 
   const step2Data = (() => {
     try {
@@ -392,26 +379,6 @@ const Step4DashboardLaunch = ({ onBack = null }) => {
           </button>
         </div>
       </div>
-
-      {/* ========================================================================= */}
-      {/* Trust Note & Compliance Statement                                         */}
-      {/* ========================================================================= */}
-      {/* <div className="space-y-1.5 pt-2 text-center font-josefin text-xs text-slate-500">
-        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-          <span className="flex items-center gap-1.5">
-            <FaShieldAlt className="w-3.5 h-3.5 text-emerald-600" />
-            Encrypted & COPPA / Kenya Data Protection Act Compliant
-          </span>
-          <span className="hidden sm:inline text-slate-300">•</span>
-          <span className="flex items-center gap-1.5">
-            <FaWifi className="w-3.5 h-3.5 text-[#00658C]" />
-            Free offline revision sync available in app
-          </span>
-        </div>
-        <p className="text-[11px] text-slate-400">
-          StudyBuddy Africa is certified by Regional EdTech Standards and tuned specifically for {accreditation.system}.
-        </p>
-      </div> */}
     </div>
   );
 };

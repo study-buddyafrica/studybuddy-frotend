@@ -15,8 +15,7 @@ import {
   FaCheckCircle,
   FaRegCircle,
   FaInfoCircle,
-  FaTrashAlt,
-  FaUserFriends,
+  FaTrashAlt
 } from "react-icons/fa";
 import { AuthAlert } from "../auth";
 import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
@@ -74,13 +73,6 @@ const calculateAcademicStage = (dobString) => {
 
 /**
  * Step 2 - PARENT Learner & Child Details
- * 1. Intro Banner (Parent & Guardian Portal)
- * 2. Primary Ward / Child Details (Name, Gender, DOB with dynamic grade calculation)
- * 3. School Selection with quick suggestions & Ministry registry badge
- * 4. Optional NEMIS UPI / Assessment number with contextual help
- * 5. Linked StudyBuddy Student Account with live status toggle
- * 6. Sibling Registration dashed card allowing multi-child tracking
- * 7. Navigation CTAs (< Back to Parent Profile, Continue to Curriculum & Goals >)
  */
 const Step2ParentLearnerDetails = ({
   registrationData = null,
@@ -254,10 +246,6 @@ const Step2ParentLearnerDetails = ({
       {/* 1. INTRO BANNER                                                           */}
       {/* ========================================================================= */}
       <div className="space-y-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#015575]/10 text-[#015575] text-xs font-josefin font-bold w-fit">
-          <FaUserFriends className="text-xs" />
-          <span>PARENT &amp; GUARDIAN PORTAL</span>
-        </div>
 
         <h1 className="text-2xl sm:text-3xl font-lilita text-slate-900 tracking-tight leading-snug">
           Add Your Learner's Details

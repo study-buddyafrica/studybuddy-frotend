@@ -21,10 +21,6 @@ import { onboardingService } from "../../services/onboardingService";
 
 /**
  * Step 1 - PARENT Account & Contact Verification
- * Benchmarked with Teacher & Student Onboarding:
- * 1. Welcoming Hero Card (Parent Portal greeting & photo)
- * 2. Section 1: Email Verification Card (Standardized StudyBuddy OTP card pattern)
- * 3. Section 2: Parent & Guardian Identity (Full Name, verified email, phone, relationship cards)
  */
 const Step1ParentAccountOtp = ({
   email: initialEmail = "",

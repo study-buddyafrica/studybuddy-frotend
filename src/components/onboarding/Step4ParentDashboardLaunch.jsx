@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FaRocket,
   FaArrowLeft,
   FaArrowRight,
   FaWallet,
@@ -13,7 +12,6 @@ import {
   FaWhatsapp,
   FaEnvelope,
   FaCommentDots,
-  FaStar,
   FaTimes,
   FaMobileAlt,
   FaSpinner,
@@ -63,43 +61,10 @@ const Step4ParentDashboardLaunch = ({
   // Guardian details
   const guardianName =
     parentRegistrationData?.fullName ||
-    (registrationData?.first_name
-      ? `${registrationData.first_name} ${registrationData.last_name || ""}`.trim()
-      : "") ||
-    registrationData?.full_name ||
-    "Eli Keli";
+    (registrationData?.first_name ? `${registrationData.first_name} ${registrationData.last_name || ""}`.trim(): "") ||
+    registrationData?.full_name
 
-  const guardianPhone =
-    parentRegistrationData?.phone ||
-    registrationData?.phone ||
-    registrationData?.phone_number ||
-    "+254 712 345 678";
-
-  // Learner details
-  const learnerFullName = learnerData?.fullName || "Amani Baraza Kimani";
-  const learnerSchool = learnerData?.school || "Makini School, Nairobi";
-  const learnerGrade =
-    learnerData?.gradeStage || "Grade 7 CBC (Junior Secondary)";
-  const learnerInitials = learnerData?.avatarInitials || "AB";
-
-  // Curriculum details
-  const focusSubjects =
-    curriculumData?.focusSubjects && curriculumData.focusSubjects.length > 0
-      ? curriculumData.focusSubjects
-      : [
-          "Mathematics",
-          "Integrated Science",
-          "English Language",
-          "Coding & Robotics",
-        ];
-
-  const sessionsPerWeek = curriculumData?.sessionsPerWeek || 3;
-  const deliveryModeText =
-    curriculumData?.deliveryMode === "in-person"
-      ? "Physical In-Person Home Visits"
-      : curriculumData?.deliveryMode === "hybrid"
-        ? "Hybrid Flexible Model"
-        : "Online 1-on-1 Interactive";
+  const guardianPhone = parentRegistrationData?.phone || registrationData?.phone || registrationData?.phone_number
 
   // ---------------------------------------------------------------------------
   // Component State
@@ -283,11 +248,6 @@ const Step4ParentDashboardLaunch = ({
     <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-between space-y-6 sm:space-y-8 animate-fadeIn pb-12">
       {/* Top Header Block */}
       <div className="space-y-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EAF5FF] border border-[#01B0F1]/20 text-[#00658C] text-xs font-josefin font-bold">
-          <FaRocket className="text-xs text-[#01B0F1]" />
-          <span>FINAL STEP &bull; FAMILY WALLET &amp; LAUNCH</span>
-        </div>
-
         <h1 className="font-lilita text-2xl sm:text-3xl lg:text-4xl text-slate-900 tracking-tight">
           Fund Your Family Wallet &amp; Activate Your Portal
         </h1>
@@ -327,10 +287,9 @@ const Step4ParentDashboardLaunch = ({
         </div>
       )}
 
-      {/* Main 2-Column Responsive Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+      <div>
         {/* ===================================================================== */}
-        {/* LEFT COLUMN: Family Wallet, Packages, Payment & Notification Alerts   */}
+        {/* Family Wallet, Packages, Payment & Notification Alerts   */}
         {/* ===================================================================== */}
         <div className="lg:col-span-8 space-y-6">
           {/* Card 1: Family Shared Wallet & Pre-Funding */}
@@ -648,108 +607,6 @@ const Step4ParentDashboardLaunch = ({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* ===================================================================== */}
-        {/* RIGHT COLUMN (STICKY): Enrolment Overview & Instant Activation        */}
-        {/* ===================================================================== */}
-        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
-          {/* Card 1: ENROLMENT OVERVIEW */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-josefin font-bold text-slate-500 uppercase tracking-wider">
-                Enrolment Overview
-              </span>
-              <span className="bg-[#EAF5FF] text-[#00658C] font-josefin font-bold text-[10px] px-2.5 py-1 rounded-full">
-                Ready to Launch
-              </span>
-            </div>
-
-            {/* Learner Capsule */}
-            <div className="flex items-center gap-3 pt-1">
-              <div className="w-11 h-11 rounded-2xl bg-[#003D55] text-white font-lilita text-sm flex items-center justify-center shrink-0 shadow-xs">
-                {learnerInitials}
-              </div>
-              <div className="min-w-0">
-                <h4 className="font-lilita text-sm sm:text-base text-slate-900 leading-tight">
-                  {learnerFullName}
-                </h4>
-                <p className="font-josefin text-xs text-slate-500 leading-tight mt-0.5">
-                  {learnerGrade}
-                </p>
-                <p className="font-josefin text-[11px] text-[#00658C] font-semibold mt-0.5">
-                  {learnerSchool}
-                </p>
-              </div>
-            </div>
-
-            {/* Selected Focus Subjects */}
-            <div className="pt-2 border-t border-slate-100 space-y-2">
-              <span className="text-[10px] font-josefin font-bold uppercase tracking-wider text-slate-500 block">
-                Selected Curriculums
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {focusSubjects.map((sub, idx) => (
-                  <span
-                    key={idx}
-                    className="bg-[#EAF5FF] text-[#00658C] font-josefin font-bold text-[11px] px-2.5 py-1 rounded-lg"
-                  >
-                    {sub}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Session Specs Box */}
-            <div className="bg-[#EAF5FF]/60 border border-[#01B0F1]/20 rounded-2xl p-3.5 space-y-2">
-              <div className="flex items-center justify-between text-xs font-josefin">
-                <span className="text-slate-500">Session Rhythm</span>
-                <span className="font-bold text-slate-800">
-                  {sessionsPerWeek} Sessions / week
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs font-josefin">
-                <span className="text-slate-500">Delivery Mode</span>
-                <span className="font-bold text-slate-800">
-                  {deliveryModeText}
-                </span>
-              </div>
-            </div>
-
-            {/* Features Bullet List */}
-            <div className="space-y-2.5 pt-1 text-xs font-josefin text-slate-700">
-              <div className="flex items-start gap-2.5">
-                <FaCheckCircle className="text-emerald-500 text-xs mt-0.5 shrink-0" />
-                <span>Instant Match with Top 5% CBC Vetted Tutors</span>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <FaCheckCircle className="text-emerald-500 text-xs mt-0.5 shrink-0" />
-                <span>Unlimited 24/7 AI Homework Practice</span>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <FaCheckCircle className="text-emerald-500 text-xs mt-0.5 shrink-0" />
-                <span>Parent Live Progress &amp; Attendance Dashboard</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: INSTANT ACTIVATION Dark Card */}
-          <div className="bg-[#003D55] text-white rounded-3xl p-5 sm:p-6 space-y-3 shadow-md">
-            <div className="flex items-center gap-2 text-xs font-josefin font-black tracking-wider text-[#01B0F1] uppercase">
-              <div className="w-5 h-5 rounded-full bg-[#01B0F1]/20 flex items-center justify-center text-[10px]">
-                <FaStar />
-              </div>
-              <span>Instant Activation</span>
-            </div>
-
-            <p className="text-xs font-josefin text-slate-200 leading-relaxed">
-              Completing your initial pre-funding instantly launches your Parent Dashboard and books your learner's initial diagnostic session.
-            </p>
-
-            <p className="text-[10px] font-josefin text-slate-400 pt-3 border-t border-white/10">
-              Cancel or refund anytime within 14 days with zero penalties.
-            </p>
           </div>
         </div>
       </div>

@@ -15,23 +15,13 @@ import {
   FaLightbulb,
   FaArrowLeft,
   FaArrowRight,
-  FaUserFriends,
   FaAward,
-  FaPhoneAlt,
-  FaMoneyBillWave,
 } from "react-icons/fa";
 import { AuthAlert } from "../auth";
 import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
 
 /**
  * Step 3 - PARENT Academic Curriculum & Learning Goals
- * Figma Specification:
- * 1. Intro Banner with Parent Capsule & Child Info Pill
- * 2. Section 1: Select Educational Curriculum (CBC, 8-4-4, Cambridge, American/IB)
- * 3. Academic Grade Level & Target Focus Subjects (interactive multi-select + custom subject)
- * 4. Section 2: Primary Learning Support Goals (Exam prep, homework, remedial, STEM)
- * 5. Section 3: Tutoring & Session Preferences (Online, In-person, Hybrid + frequency + WhatsApp summary)
- * 6. Bottom Navigation (Back to Child Details, Save as Draft, Save & Continue to Wallet)
  */
 const Step3ParentCurriculumGoals = ({
   registrationData = null,
@@ -48,14 +38,8 @@ const Step3ParentCurriculumGoals = ({
     }
   })();
 
-  const learnerName = stagedWard?.fullName || "Amani Baraza Kimani";
-  const learnerInitials = learnerName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-  const schoolDisplay = stagedWard?.schoolName || "Makini School • Nairobi";
+  const learnerName = stagedWard?.fullName || "";
+  const schoolDisplay = stagedWard?.schoolName || "";
 
   // ---------------------------------------------------------------------------
   // State: Curriculum Selection
@@ -238,11 +222,6 @@ const Step3ParentCurriculumGoals = ({
       {/* ========================================================================= */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#015575]/10 text-[#015575] text-xs font-josefin font-bold w-fit">
-            <FaUserFriends className="text-xs" />
-            <span>PARENT &amp; GUARDIAN PORTAL</span>
-          </div>
-
           <h1 className="text-2xl sm:text-3xl font-lilita text-slate-900 tracking-tight leading-snug">
             Tailor Your Child's Learning Experience
           </h1>
@@ -250,25 +229,6 @@ const Step3ParentCurriculumGoals = ({
           <p className="text-xs sm:text-sm font-josefin text-slate-600 leading-relaxed max-w-xl">
             Select your child's educational curriculum, grade level, and primary learning objectives to match them with verified tutors and personalized AI practice.
           </p>
-        </div>
-
-        {/* Learner Info Capsule (Right aligned) */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-3 sm:p-3.5 flex items-center gap-3 shadow-xs shrink-0 self-start md:self-center">
-          <div className="w-10 h-10 rounded-xl bg-[#003D55] text-white font-lilita text-sm flex items-center justify-center shrink-0 shadow-xs">
-            {learnerInitials}
-          </div>
-          <div className="min-w-0 pr-1">
-            <p className="font-josefin font-bold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5 truncate">
-              <span>{learnerName}</span>
-              <FaCheckCircle className="text-[#01B0F1] text-xs shrink-0" />
-            </p>
-            <p className="font-josefin text-[11px] text-slate-500 truncate">
-              {schoolDisplay}
-            </p>
-            <span className="inline-block mt-1 px-2 py-0.5 rounded bg-[#DEF0FF] text-[#00658C] text-[10px] font-josefin font-bold">
-              Junior Secondary
-            </span>
-          </div>
         </div>
       </div>
 
@@ -559,7 +519,6 @@ const Step3ParentCurriculumGoals = ({
               </select>
             </div>
             <p className="text-[11px] font-josefin text-slate-400 flex items-center gap-1">
-              <span>📍</span>
               <span>Synced with registration record: {schoolDisplay}</span>
             </p>
           </div>
@@ -894,71 +853,6 @@ const Step3ParentCurriculumGoals = ({
                 </p>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 4. BILLING & WALLET ALLOCATION PREFERENCES                                 */}
-      {/* ========================================================================= */}
-      <section className="bg-white rounded-2xl p-6 sm:p-7 shadow-sm border border-slate-200/80 space-y-5">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#DEF0FF] text-[#00658C] flex items-center justify-center text-sm">
-            <FaMoneyBillWave />
-          </div>
-          <div>
-            <h2 className="font-lilita text-lg sm:text-xl text-slate-900 tracking-wide">
-              4. M-Pesa Billing &amp; Weekly Budget
-            </h2>
-            <p className="font-josefin text-xs sm:text-sm text-slate-500">
-              Set your M-Pesa payment phone and weekly spend limit for automated tutor and subscription settlements.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-          <div className="space-y-1.5">
-            <label className="block font-josefin text-xs font-semibold text-slate-700">
-              M-Pesa Billing Phone Number
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 text-xs">
-                <FaPhoneAlt />
-              </span>
-              <input
-                type="text"
-                value={mpesaBillingPhone}
-                onChange={(e) => setMpesaBillingPhone(e.target.value.replace(/\s+/g, ""))}
-                placeholder="+254712345678"
-                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin text-slate-800 focus:outline-none focus:border-[#00658C]"
-              />
-            </div>
-            <p className="font-josefin text-[10px] text-slate-400">
-              Safaricom format: +254 7XX XXX XXX or 07XX XXX XXX
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block font-josefin text-xs font-semibold text-slate-700">
-              Weekly Spend Limit (KES)
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-12 flex items-center pointer-events-none text-slate-400 text-xs font-bold">
-                KES
-              </span>
-              <input
-                type="number"
-                min="500"
-                step="500"
-                value={weeklySpendLimit}
-                onChange={(e) => setWeeklySpendLimit(e.target.value)}
-                placeholder="5000"
-                className="w-full pl-20 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin text-slate-800 focus:outline-none focus:border-[#00658C]"
-              />
-            </div>
-            <p className="font-josefin text-[10px] text-slate-400">
-              Maximum weekly spend threshold for tutoring sessions
-            </p>
           </div>
         </div>
       </section>

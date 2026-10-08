@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  // FaShieldAlt, // 'FaShieldAlt' is declared but its value is never read.
   FaEnvelope,
   FaClock,
   FaCheck,
@@ -18,8 +17,7 @@ import { authStorage } from "../../services/authStorage";
 import { onboardingService } from "../../services/onboardingService";
 
 /**
- * Step1AccountOtp: Clean, minimal Step 1 matching the login/signup font styles (Lilita & Josefin)
- * and streamlined as requested.
+ * Step1AccountOtp: Clean, minimal
  */
 const Step1AccountOtp = ({
   email: initialEmail = "",
@@ -327,13 +325,6 @@ const Step1AccountOtp = ({
       {/* Top Step Status & Heading Block                                           */}
       {/* ========================================================================= */}
       <div className="space-y-3">
-        {/* Pill Badge */}
-        {/* WE CAN REMOVE THIS PILL/BADGE ENTIRELY */}
-        {/* <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DEF0FF] text-[#00658C] font-josefin font-semibold text-xs uppercase tracking-wider shadow-sm">
-          <FaShieldAlt className="w-3.5 h-3.5 text-[#00658C]" />
-          <span>Identity & Student Account Verification</span>
-        </div> */}
-
         {/* Heading 1 */}
         <h1 className="text-3xl sm:text-4xl font-lilita text-[#001E2D] tracking-tight">
           Verify your email & student identity
@@ -368,7 +359,6 @@ const Step1AccountOtp = ({
       {/* ========================================================================= */}
       <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200/80 space-y-6">
         {/* Verification Target Banner */}
-        {/* NOTE: THIS BANNER SHOULD ONLY SHOW THE EMAIL FROM THE REGISTERED USER/DATA. NOT A FAKE "amara.kamau@student.ke" */}
         <div className="bg-[#EAF5FF] rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-[#01B0F1]/20">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#00658C]/10 flex items-center justify-center text-[#00658C] shrink-0">
@@ -378,7 +368,6 @@ const Step1AccountOtp = ({
               <p className="font-josefin font-semibold text-xs text-slate-500 uppercase tracking-wider">
                 Verification Target
               </p>
-              {/* WE CAN REMOVE THE "Change Email" BUTTON. I DO NOT FIND IT NECESSARY HERE. LET THEM JUST USE THE EMAIL THEY USED ON SIGNUP */}
               {isEditingEmail ? (
                 <div className="flex items-center gap-2 mt-1">
                   <input
