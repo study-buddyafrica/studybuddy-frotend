@@ -1,60 +1,21 @@
 import { useState, useEffect } from "react";
-import { Line, Bar, Doughnut } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
 import axios from "axios";
 import {
   HomeIcon,
   UserGroupIcon,
   WalletIcon,
-  ClockIcon,
-  ChartBarIcon,
-  Cog6ToothIcon,
   PlusIcon,
-  ArrowRightCircleIcon,
   XMarkIcon,
-  SunIcon,
-  MoonIcon,
   UserIcon,
-  ArrowRightOnRectangleIcon,
-  PencilIcon,
-  EyeIcon,
-  AcademicCapIcon,
   CalendarIcon,
-  CurrencyDollarIcon,
-  ArrowTrendingUpIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { FHOST, refreshAccessToken } from "./constants/Functions.jsx";
-import ParentFeedback from "./parents/ParentFeedback.jsx";
 import ParentProfileUpdate from "./parents/ParentProfileUpdate";
 import DashboardHeader from "./layout/DashboardHeader.jsx";
 import { authStorage } from "../services/authStorage";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-);
-
 const ParentDashboard = () => {
-  // State declarations
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showFundModal, setShowFundModal] = useState(false);
@@ -64,10 +25,8 @@ const ParentDashboard = () => {
     useState(false);
   const [showUpcomingPaymentsModal, setShowUpcomingPaymentsModal] =
     useState(false);
-  const [darkMode, setDarkMode] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
-  // State for dynamic data
   const [userInfo, setUserInfo] = useState(null);
   const [walletBalance, setWalletBalance] = useState(0);
   const [students, setStudents] = useState([]);
@@ -77,22 +36,24 @@ const ParentDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [profileComplete, setProfileComplete] = useState(true);
   const [showProfileUpdateModal, setShowProfileUpdateModal] = useState(false);
+
   const [studentForm, setStudentForm] = useState({
     fullName: "",
     dateOfBirth: "",
     className: "",
   });
-
-  // New state for smart features
-  const [fundAmount, setFundAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
   const [studentFundAmount, setStudentFundAmount] = useState("");
   const [editingStudent, setEditingStudent] = useState(null);
   const [depositAmount, setDepositAmount] = useState("");
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositInfo, setDepositInfo] = useState(null);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  // Refresh parent wallet balance and transactions (used after successful funding)
+  const [editStudentForm, setEditStudentForm] = useState({
+    fullName: "",
+    className: "",
+    email: "",
+  });
+
   const fetchParentBalance = async () => {
     try {
       if (!userInfo) return;
@@ -100,17 +61,17 @@ const ParentDashboard = () => {
       let token;
       try {
         token = await refreshAccessToken();
-      } catch (refreshError) {
+      } catch {
         authStorage.clearTokens();
         window.location.href = "/";
         return;
       }
+
       const headers = {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       };
 
-      // Fetch wallet info using new API
       const walletResponse = await axios.get(`${FHOST}/api/wallet/`, {
         headers,
       });
@@ -119,45 +80,32 @@ const ParentDashboard = () => {
         setWalletBalance(parseFloat(wallet.balance) || 0);
       }
 
-      // Fetch transactions using new API
       const transactionsResponse = await axios.get(
         `${FHOST}/api/transactions/`,
         { headers },
       );
       const transactionsData = transactionsResponse.data?.results || [];
-
-      // Transform transactions to match the expected format
-      const formattedTransactions = transactionsData.map((tx) => ({
-        id: tx.id,
-        date: new Date(tx.timestamp || tx.created_at),
-        description: tx.description || "Transaction",
-        type: tx.transaction_type,
-        amount: parseFloat(tx.amount || 0),
-        status: tx.status,
-        payment_method: tx.payment_method,
-      }));
-
-      setTransactions(formattedTransactions);
+      setTransactions(
+        transactionsData.map((tx) => ({
+          id: tx.id,
+          date: new Date(tx.timestamp || tx.created_at),
+          description: tx.description || "Transaction",
+          type: tx.transaction_type,
+          amount: parseFloat(tx.amount || 0),
+          status: tx.status,
+          payment_method: tx.payment_method,
+        })),
+      );
     } catch (error) {
       console.error("Failed to refresh parent balance:", error);
     }
   };
-  const [editStudentForm, setEditStudentForm] = useState({
-    fullName: "",
-    className: "",
-    email: "",
-  });
 
-  // New color scheme
-  const primaryColor = "#00aae8";
-
-  // Add this useEffect hook at the top of your component hooks
   useEffect(() => {
     const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (storedUserInfo) {
       setUserInfo(storedUserInfo);
 
-      // Check profile completion
       const checkProfileCompletion = async () => {
         try {
           const profileResponse = await axios.get(
@@ -170,7 +118,6 @@ const ParentDashboard = () => {
           );
           if (profileResponse.data) {
             const profileData = profileResponse.data;
-            // Check if profile has required fields
             const isComplete = !!(
               profileData.profile_picture &&
               profileData.full_name &&
@@ -182,26 +129,20 @@ const ParentDashboard = () => {
               setActiveTab("profileupdate");
             }
           }
-        } catch (error) {
-          // Profile doesn't exist or error - profile is incomplete
+        } catch {
           setProfileComplete(false);
           setShowProfileUpdateModal(true);
           setActiveTab("profileupdate");
         }
       };
       checkProfileCompletion();
-      // Fetch wallet balance and transactions
-      fetchParentBalance();
     } else {
-      // Redirect to login if no user info found
       window.location.href = "/";
     }
   }, []);
 
-  // Listen for profile updates
   useEffect(() => {
     const onProfileUpdate = () => {
-      // Update userInfo from localStorage
       const updatedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
       if (updatedUserInfo) {
         setUserInfo(updatedUserInfo);
@@ -214,87 +155,45 @@ const ParentDashboard = () => {
     return () => window.removeEventListener("profile-updated", onProfileUpdate);
   }, []);
 
-  // Fetch wallet data when userInfo changes
   useEffect(() => {
     if (userInfo?.id) {
       fetchParentBalance();
     }
   }, [userInfo?.id]);
 
-  // Fetch data on component mount
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchAll = async () => {
+      if (!userInfo) return;
+      setIsLoading(true);
       try {
-        if (!userInfo) return;
-
-        setIsLoading(true);
-
-        // Use userInfo.id from state
-        const balanceRes = await axios.get(
-          `${FHOST}/payments/wallet/${userInfo.id}`,
-        );
-        setWalletBalance(balanceRes.data.balance || 0);
-
-        // Use userInfo.id from state
-        const childrenRes = await axios.get(
+        const res = await axios.get(
           `${FHOST}/users/parent/${userInfo.id}/students`,
         );
-
-        console.log(childrenRes.data);
-        setStudents(childrenRes.data.students || []);
-
-        // Set mock data for now - replace with actual API calls
-        // setTransactions(mockTransactions);
-        // setUpcomingPayments(mockUpcomingPayments);
-
-        // If no students from API, use mock data for demonstration
-        if (
-          !childrenRes.data.students ||
-          childrenRes.data.students.length === 0
-        ) {
-          // setStudents(mockStudentsWithBalances);
-        }
+        setStudents(res.data.students || []);
       } catch (error) {
-        console.error("Failed to fetch data:", error);
+        console.error("Failed to fetch students:", error);
+        try {
+          const stored = JSON.parse(localStorage.getItem("userInfo"));
+          if (stored?.id) {
+            const res = await axios.get(
+              `${FHOST}/users/parent/${stored.id}/students`,
+            );
+            setStudents(res.data.students || []);
+          }
+        } catch (_) {
+          /* ignore */
+        }
       } finally {
         setIsLoading(false);
       }
     };
-
-    const fetchAll = async () => {
-      try {
-        const storedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
-        const res = await axios.get(
-          `${FHOST}/users/parent/${storedUserInfo.id}/students`,
-        );
-        setStudents(res.data.students || []);
-
-        // If no students from API, use mock data for demonstration
-        if (!res.data.students || res.data.students.length === 0) {
-          // setStudents(mockStudentsWithBalances);
-        }
-      } catch (error) {
-        console.error("Failed to fetch students:", error);
-        // Use mock data if API fails
-        //setStudents(mockStudentsWithBalances);
-      }
-    };
-
     fetchAll();
-    if (userInfo) {
-      fetchData();
-    }
   }, [userInfo]);
 
-  // Handle student form changes
   const handleStudentFormChange = (e) => {
-    setStudentForm({
-      ...studentForm,
-      [e.target.name]: e.target.value,
-    });
+    setStudentForm({ ...studentForm, [e.target.name]: e.target.value });
   };
 
-  // Handle edit student form changes
   const handleEditStudentFormChange = (e) => {
     setEditStudentForm({
       ...editStudentForm,
@@ -302,10 +201,8 @@ const ParentDashboard = () => {
     });
   };
 
-  // Submit new student
   const handleAddStudent = async (e) => {
     e.preventDefault();
-
     const username = studentForm.fullName.toLowerCase().replace(/\s+/g, "_");
     const payload = {
       parent_id: userInfo.id,
@@ -314,48 +211,36 @@ const ParentDashboard = () => {
       birth_date: studentForm.dateOfBirth,
       password: "defaultPassword123#",
       confirm_password: "defaultPassword123#",
-      username: username,
+      username,
     };
 
     try {
-      const response = await axios.post(
-        `${FHOST}/users/parent/register-student`,
-        payload,
-      );
-
+      await axios.post(`${FHOST}/users/parent/register-student`, payload);
       const res = await axios.get(
         `${FHOST}/users/parent/${userInfo.id}/students`,
       );
-
       setStudents(res.data.students || []);
-      console.log("New student added:", response.data);
       setShowAddStudentModal(false);
       setStudentForm({ fullName: "", dateOfBirth: "", className: "" });
       alert("Student registered successfully!");
     } catch (error) {
       if (error.response) {
-        console.error("Backend error:", error.response.data);
         alert(
           `Error: ${error.response.data.message || "Check console for details"}`,
         );
       } else {
-        console.error("Request failed:", error.message);
         alert("Network error. Please try again.");
       }
     }
   };
 
-  // Edit student
   const handleEditStudent = async (e) => {
     e.preventDefault();
     try {
-      // API call to update student
       await axios.put(
         `${FHOST}/users/student/${editingStudent.id}`,
         editStudentForm,
       );
-
-      // Update local state
       setStudents(
         students.map((student) =>
           student.id === editingStudent.id
@@ -363,15 +248,9 @@ const ParentDashboard = () => {
             : student,
         ),
       );
-
-      // Update selectedStudent if it's the same student
-      if (selectedStudent && selectedStudent.id === editingStudent.id) {
-        setSelectedStudent({
-          ...selectedStudent,
-          ...editStudentForm,
-        });
+      if (selectedStudent?.id === editingStudent.id) {
+        setSelectedStudent({ ...selectedStudent, ...editStudentForm });
       }
-
       setShowStudentDetailsModal(false);
       setEditingStudent(null);
       alert("Student updated successfully!");
@@ -381,7 +260,6 @@ const ParentDashboard = () => {
     }
   };
 
-  // Add funds to parent wallet
   const handleDeposit = async (e) => {
     e.preventDefault();
     if (!depositAmount || parseFloat(depositAmount) <= 0) {
@@ -402,7 +280,6 @@ const ParentDashboard = () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       };
-
       const payload = {
         amount: parseFloat(depositAmount),
         payment_method: "mpesa",
@@ -415,42 +292,31 @@ const ParentDashboard = () => {
       );
 
       if (response.status === 200 || response.status === 201) {
-        const data = response.data;
-
-        // store deposit info
-        setDepositInfo(data);
+        setDepositInfo(response.data);
         setShowCheckoutModal(true);
-
-        // close amount modal
         setShowFundModal(false);
-
-        // clear fields
         setDepositAmount("");
-
         fetchParentBalance();
       }
     } catch (error) {
       console.error("Error initiating deposit:", error);
-      const errorMsg =
+      alert(
         error.response?.data?.detail ||
-        error.response?.data?.message ||
-        "Failed to initiate deposit. Please try again.";
-      alert(errorMsg);
+          error.response?.data?.message ||
+          "Failed to initiate deposit. Please try again.",
+      );
     } finally {
       setDepositLoading(false);
     }
   };
 
-  // Add funds to student account
   const handleAddFundsToStudent = async (e) => {
     e.preventDefault();
     const amount = parseFloat(studentFundAmount);
-
     if (amount <= 0) {
       alert("Please enter a valid amount greater than 0.");
       return;
     }
-
     if (amount > walletBalance) {
       alert("Insufficient funds in your wallet. Please add funds first.");
       return;
@@ -460,23 +326,19 @@ const ParentDashboard = () => {
       await axios.post(`${FHOST}/payments/parent_child_transfer`, {
         parent_id: userInfo.id,
         child_id: selectedStudent.id,
-        amount: amount,
+        amount,
       });
-
-      // Update parent wallet balance (reduce by the amount transferred)
       setWalletBalance((prev) => prev - amount);
-
-      // Add transaction record for parent wallet
-      const newTransaction = {
-        id: Date.now(),
-        date: new Date(),
-        type: "withdrawal",
-        amount: -amount,
-        description: `Funds transferred to ${selectedStudent.full_name}`,
-      };
-      setTransactions((prev) => [newTransaction, ...prev]);
-
-      // Update local state to reflect the new student balance
+      setTransactions((prev) => [
+        {
+          id: Date.now(),
+          date: new Date(),
+          type: "withdrawal",
+          amount: -amount,
+          description: `Funds transferred to ${selectedStudent.full_name}`,
+        },
+        ...prev,
+      ]);
       setStudents(
         students.map((student) =>
           student.id === selectedStudent.id
@@ -484,13 +346,10 @@ const ParentDashboard = () => {
             : student,
         ),
       );
-
-      // Update selectedStudent balance for display
       setSelectedStudent({
         ...selectedStudent,
         balance: (selectedStudent.balance || 0) + amount,
       });
-
       setShowAddFundsToStudentModal(false);
       setStudentFundAmount("");
       alert(
@@ -502,1093 +361,357 @@ const ParentDashboard = () => {
     }
   };
 
-  // View student details
   const handleViewStudentDetails = (student) => {
     setSelectedStudent(student);
+    setEditingStudent(student);
     setEditStudentForm({
-      fullName: student.full_name,
+      fullName: student.full_name || "",
       className: student.class || "",
       email: student.email || "",
     });
     setShowStudentDetailsModal(true);
   };
 
-  // Handle logout
   const handleLogout = () => {
     authStorage.clearTokens();
     window.location.href = "/";
   };
 
-  // Handle account deletion
-  const handleDeleteAccount = () => {
-    setShowDeleteConfirmation(true);
-  };
-
-  const confirmAccountDeletion = () => {
-    alert("Account deletion logic");
-    setShowDeleteConfirmation(false);
-  };
-
-  // Handle edit profile
-  const handleEditProfile = () => {
-    setActiveTab("profileupdate");
-    // You can add additional logic here if needed
-  };
-
-  // Handle view profile
-  const handleViewProfile = () => {
-    setActiveTab("profileupdate");
-    // You can add additional logic here if needed
-  };
-
-  // Chart data
-  const chartData = {
-    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-    datasets: [
-      {
-        label: "Monthly Expenses",
-        data: [12000, 19000, 3000, 5000, 2000, 20000],
-        borderColor: primaryColor,
-        tension: 0.4,
-        pointBackgroundColor: "#fff",
-        pointBorderColor: primaryColor,
-      },
-    ],
-  };
-
-  const spendingByCategoryData = {
-    labels: ["Tutoring", "Materials", "Classes", "Other"],
-    datasets: [
-      {
-        data: [45, 25, 20, 10],
-        backgroundColor: ["#3B82F6", "#10B981", "#F59E0B", "#EF4444"],
-        borderWidth: 0,
-      },
-    ],
-  };
-
   const navigation = [
-    { name: "Dashboard", key: "dashboard", icon: HomeIcon },
-    { name: "Students", key: "students", icon: UserGroupIcon },
-    { name: "Wallet", key: "wallet", icon: WalletIcon },
-    { name: "History", key: "history", icon: ClockIcon },
-    { name: "Feedback", key: "feedback", icon: ChartBarIcon },
-    { name: "Analytics", key: "analytics", icon: ChartBarIcon },
-    { name: "Settings", key: "settings", icon: Cog6ToothIcon },
+    { name: "Home", key: "dashboard", icon: HomeIcon },
+    { name: "Profile", key: "profileupdate", icon: UserIcon },
   ];
 
-  // Don't render anything until auth check completes
   if (!userInfo) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-[#01B0F1]" />
       </div>
     );
   }
 
-  const renderContent = () => {
+  const displayName =
+    userInfo.first_name ||
+    userInfo.full_name?.split?.(" ")?.[0] ||
+    userInfo.username ||
+    "";
+
+  const renderHub = () => {
     if (isLoading) {
       return (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-[#01B0F1]" />
         </div>
       );
     }
 
-    try {
-      console.log("Rendering content for tab:", activeTab);
-      switch (activeTab) {
-        case "dashboard":
-          return (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="p-6 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-gray-500 text-sm">Total Students</h3>
-                    <UserGroupIcon className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-blue-600 mt-2">
-                    {students.length}
-                  </p>
-                  <button
-                    onClick={() => setShowAddStudentModal(true)}
-                    className="mt-4 flex items-center text-blue-600 hover:text-blue-700 transition-colors">
-                    <PlusIcon className="w-5 h-5 mr-1" /> Add Student
-                  </button>
-                </div>
-
-                <div className="p-6 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-gray-500 text-sm">Wallet Balance</h3>
-                    <WalletIcon className="w-6 h-6 text-green-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-green-600 mt-2">
-                    Ksh {walletBalance.toLocaleString()}
-                  </p>
-                  <button
-                    onClick={() => setShowFundModal(true)}
-                    className="mt-4 flex items-center text-green-600 hover:text-green-700 transition-colors">
-                    <PlusIcon className="w-5 h-5 mr-1" /> Add Funds
-                  </button>
-                </div>
-
-                <div className="p-6 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-gray-500 text-sm">Active Classes</h3>
-                    <AcademicCapIcon className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-purple-600 mt-2">
-                    {students.reduce(
-                      (acc, student) => acc + (student.activeClasses || 0),
-                      0,
-                    )}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Across all students
-                  </p>
-                </div>
-
-                <div className="p-6 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-gray-500 text-sm">Upcoming Payments</h3>
-                    <ExclamationTriangleIcon className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-orange-600 mt-2">
-                    {upcomingPayments.length}
-                  </p>
-                  <button
-                    onClick={() => setShowUpcomingPaymentsModal(true)}
-                    className="mt-4 text-sm text-orange-600 hover:text-orange-700 flex items-center transition-colors">
-                    View Schedule{" "}
-                    <ArrowRightCircleIcon className="w-5 h-5 ml-1" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm">
-                  <h3 className="text-xl font-semibold text-blue-600 mb-4">
-                    Spending Overview
-                  </h3>
-                  <div className="w-full h-64">
-                    <Line
-                      data={chartData}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            labels: { color: "#374151" },
-                          },
-                        },
-                        scales: {
-                          y: {
-                            ticks: { color: "#374151" },
-                          },
-                          x: {
-                            ticks: { color: "#374151" },
-                          },
-                        },
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl shadow-sm">
-                  <h3 className="text-xl font-semibold text-blue-600 mb-4">
-                    Spending by Category
-                  </h3>
-                  <div className="w-full h-64">
-                    <Doughnut
-                      data={spendingByCategoryData}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            position: "bottom",
-                            labels: { color: "#374151" },
-                          },
-                        },
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold text-blue-600">
-                      Recent Students
-                    </h3>
-                    <button
-                      onClick={() => setShowAddStudentModal(true)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                      <PlusIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    {students.length > 0 ? (
-                      students.slice(0, 3).map((student) => (
-                        <div
-                          key={student.id}
-                          className="flex items-center p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
-                          onClick={() => handleViewStudentDetails(student)}>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold truncate">
-                              {student.full_name}
-                            </h4>
-                            <p className="text-sm text-gray-500 truncate">
-                              {student.class || "No class assigned"}
-                            </p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-20 h-2 bg-gray-200 rounded-full">
-                              <div
-                                className="h-2 bg-blue-600 rounded-full transition-all duration-300"
-                                style={{ width: `${student.progress || 0}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-gray-500">
-                              {student.progress || 0}%
-                            </span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-gray-500 py-4 text-center">
-                        No students found. Add a student to get started.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl shadow-sm">
-                  <h3 className="text-xl font-semibold text-blue-600 mb-4">
-                    Recent Transactions
-                  </h3>
-                  <div className="space-y-4">
-                    {transactions.slice(0, 4).map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className={`w-3 h-3 rounded-full ${
-                              tx.amount > 0 ? "bg-green-500" : "bg-red-500"
-                            }`}
-                          />
-                          <div>
-                            <p className="font-medium">{tx.description}</p>
-                            <p className="text-sm text-gray-500">
-                              {tx.date.toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <span
-                          className={`font-semibold ${
-                            tx.amount > 0 ? "text-green-600" : "text-red-600"
-                          }`}>
-                          {tx.amount > 0 ? "+" : ""}Ksh{" "}
-                          {Math.abs(tx.amount).toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </>
-          );
-
-        case "students":
-          return (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Student Management
-                </h2>
-                <button
-                  onClick={() => setShowAddStudentModal(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors">
-                  <PlusIcon className="w-5 h-5" />
-                  <span>Add New Student</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {students.length > 0 ? (
-                  students.map((student) => (
-                    <div
-                      key={student.id}
-                      className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-xl">
-                            {student.full_name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleViewStudentDetails(student)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="View Details">
-                            <EyeIcon className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingStudent(student);
-                              setEditStudentForm({
-                                fullName: student.full_name,
-                                className: student.class || "",
-                                email: student.email || "",
-                              });
-                              setShowStudentDetailsModal(true);
-                            }}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="Edit Student">
-                            <PencilIcon className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                        {student.full_name}
-                      </h3>
-                      <p className="text-gray-600 mb-4">
-                        Class: {student.class || "Not assigned"}
-                      </p>
-
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-gray-600">Progress</span>
-                            <span className="text-blue-600 font-medium">
-                              {student.progress || 0}%
-                            </span>
-                          </div>
-                          <div className="w-full h-2 bg-gray-200 rounded-full">
-                            <div
-                              className="h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full transition-all duration-300"
-                              style={{ width: `${student.progress || 0}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Next Lesson</span>
-                          <span className="text-green-600 font-medium">
-                            {student.nextLesson
-                              ? new Date(
-                                  student.nextLesson,
-                                ).toLocaleDateString()
-                              : "None"}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Account Balance</span>
-                          <span className="text-green-600 font-medium">
-                            Ksh {(student.balance || 0).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
-                        <button
-                          onClick={() => {
-                            setSelectedStudent(student);
-                            setShowAddFundsToStudentModal(true);
-                          }}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition-colors text-sm">
-                          Add Funds to Account
-                        </button>
-                        <button
-                          onClick={() => {
-                            try {
-                              localStorage.setItem(
-                                "view_as_student_id",
-                                String(student.id),
-                              );
-                              if (student.full_name) {
-                                localStorage.setItem(
-                                  "view_as_student_name",
-                                  String(student.full_name),
-                                );
-                              }
-                              if (student.email) {
-                                localStorage.setItem(
-                                  "view_as_student_email",
-                                  String(student.email),
-                                );
-                              }
-                            } catch (e) {}
-                            const url = `/student-dashboard?student_id=${student.id}`;
-                            window.open(url, "_blank");
-                          }}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors text-sm">
-                          View Student Dashboard
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-full text-center py-12">
-                    <UserGroupIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-medium text-gray-900 mb-2">
-                      No students yet
-                    </h3>
-                    <p className="text-gray-500 mb-6">
-                      Get started by adding your first student to monitor their
-                      progress and manage their education.
-                    </p>
-                    <button
-                      onClick={() => setShowAddStudentModal(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 mx-auto transition-colors">
-                      <PlusIcon className="w-5 h-5" />
-                      <span>Add Your First Student</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+    return (
+      <div className="mx-auto max-w-5xl space-y-6">
+        {/* Greeting + wallet / M-Pesa */}
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-josefin text-sm font-semibold uppercase tracking-wide text-[#01B0F1]">
+                Parent portal
+              </p>
+              <h1 className="font-lilita text-2xl text-[#015575] sm:text-3xl">
+                Hello{displayName ? `, ${displayName}` : ""}
+              </h1>
+              <p className="mt-1 max-w-md font-josefin text-sm text-slate-500">
+                Link learners, fund the family wallet with M-Pesa, and follow
+                this week&apos;s activity.
+              </p>
             </div>
-          );
-
-        case "wallet":
-          console.log("Rendering wallet tab");
-          return (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 p-6 bg-white rounded-2xl shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold text-gray-800">
-                      Wallet Overview
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl text-white">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-blue-100 text-sm">
-                            Current Balance
-                          </p>
-                          <p className="text-3xl font-bold">
-                            Ksh {walletBalance.toLocaleString()}
-                          </p>
-                        </div>
-                        {WalletIcon ? (
-                          <WalletIcon className="w-12 h-12 text-blue-200" />
-                        ) : (
-                          <div className="w-12 h-12 bg-blue-200 rounded-full"></div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-gradient-to-br from-green-500 to-green-600 rounded-xl text-white">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-green-100 text-sm">
-                            Total Deposits
-                          </p>
-                          <p className="text-3xl font-bold">
-                            Ksh{" "}
-                            {transactions
-                              .filter((tx) => tx.type === "deposit")
-                              .reduce((sum, tx) => sum + (tx.amount || 0), 0)
-                              .toLocaleString()}
-                          </p>
-                        </div>
-                        {ArrowTrendingUpIcon ? (
-                          <ArrowTrendingUpIcon className="w-12 h-12 text-green-200" />
-                        ) : (
-                          <div className="w-12 h-12 bg-green-200 rounded-full"></div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 bg-white rounded-2xl shadow-sm">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                    Quick Actions
-                  </h4>
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => setShowFundModal(true)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition-colors flex items-center justify-center space-x-2">
-                      {PlusIcon ? (
-                        <PlusIcon className="w-5 h-5" />
-                      ) : (
-                        <span>+</span>
-                      )}
-                      <span>Add Funds</span>
-                    </button>
-                    <button
-                      onClick={() => setShowUpcomingPaymentsModal(true)}
-                      className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-lg transition-colors flex items-center justify-center space-x-2">
-                      {CalendarIcon ? (
-                        <CalendarIcon className="w-5 h-5" />
-                      ) : (
-                        <span>📅</span>
-                      )}
-                      <span>View Payments</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-2xl shadow-sm">
-                <h3 className="text-xl font-semibold text-gray-800 mb-6">
-                  Transaction History
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                          Date
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                          Description
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                          Type
-                        </th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-600">
-                          Amount
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {transactions.map((tx) => (
-                        <tr
-                          key={tx.id}
-                          className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                          <td className="py-3 px-4 text-sm text-gray-600">
-                            {tx.date.toLocaleDateString()}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-800">
-                            {tx.description}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                tx.type === "deposit"
-                                  ? "bg-green-100 text-green-800"
-                                  : tx.type === "withdrawal"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-gray-100 text-gray-800"
-                              }`}>
-                              {tx.type
-                                ? tx.type.charAt(0).toUpperCase() +
-                                  tx.type.slice(1)
-                                : "Transaction"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <span
-                              className={`font-semibold ${
-                                tx.type === "deposit"
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}>
-                              {tx.type === "deposit" ? "+" : "-"}Ksh{" "}
-                              {Math.abs(tx.amount || 0).toLocaleString()}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            <div className="min-w-[200px] rounded-2xl bg-gradient-to-br from-[#013349] to-[#015575] px-6 py-4 text-white shadow-md">
+              <p className="font-josefin text-xs uppercase tracking-wide text-white/70">
+                Wallet balance
+              </p>
+              <p className="font-lilita text-2xl">
+                KES {Number(walletBalance || 0).toLocaleString()}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowFundModal(true)}
+                className="mt-3 w-full rounded-full bg-[#01B0F1] px-4 py-2 font-josefin text-sm font-semibold text-white hover:bg-[#0199d4]"
+              >
+                Deposit with M-Pesa
+              </button>
             </div>
-          );
-
-        case "history":
-          return (
-            <div className="space-y-6">
-              {/* Active Classes Overview */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm">
-                <h3 className="text-xl font-semibold text-blue-600 mb-6">
-                  Active Classes & Student Progress
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {students.map((student) => (
-                    <div
-                      key={student.id}
-                      className="p-4 bg-gray-50 rounded-xl border-l-4 border-blue-500">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-gray-800">
-                          {student.full_name}
-                        </h4>
-                        <span className="text-sm text-gray-500">
-                          {student.class || "No class"}
-                        </span>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-gray-600">
-                              Overall Progress
-                            </span>
-                            <span className="text-blue-600 font-medium">
-                              {student.progress || 0}%
-                            </span>
-                          </div>
-                          <div className="w-full h-2 bg-gray-200 rounded-full">
-                            <div
-                              className="h-2 bg-blue-600 rounded-full transition-all duration-300"
-                              style={{ width: `${student.progress || 0}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Account Balance</span>
-                          <span className="text-green-600 font-medium">
-                            Ksh {(student.balance || 0).toLocaleString()}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Next Lesson</span>
-                          <span className="text-green-600 font-medium">
-                            {student.nextLesson
-                              ? new Date(
-                                  student.nextLesson,
-                                ).toLocaleDateString()
-                              : "None"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Transaction History */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm">
-                <h3 className="text-xl font-semibold text-blue-600 mb-4">
-                  Transaction History
-                </h3>
-                <div className="space-y-4">
-                  {transactions.map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div
-                          className={`w-3 h-3 rounded-full ${
-                            tx.amount > 0 ? "bg-green-500" : "bg-red-500"
-                          }`}
-                        />
-                        <div>
-                          <p className="font-medium">{tx.description}</p>
-                          <p className="text-sm text-gray-500">
-                            {tx.date.toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        className={`font-semibold ${
-                          tx.amount > 0 ? "text-green-600" : "text-red-600"
-                        }`}>
-                        {tx.amount > 0 ? "+" : ""}Ksh{" "}
-                        {Math.abs(tx.amount).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-
-        case "feedback":
-          return <ParentFeedback parentId={userInfo.id} students={students} />;
-
-        case "analytics":
-          return (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm">
-                  <h3 className="text-xl font-semibold text-blue-600 dark:text-blue-400 mb-4">
-                    Spending Overview
-                  </h3>
-                  <div className="w-full h-64">
-                    <Line
-                      data={chartData}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            labels: { color: darkMode ? "#e5e7eb" : "#374151" },
-                          },
-                        },
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm">
-                  <h3 className="text-xl font-semibold text-blue-600 dark:text-blue-400 mb-4">
-                    Spending by Category
-                  </h3>
-                  <div className="w-full h-64">
-                    <Doughnut
-                      data={spendingByCategoryData}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            position: "bottom",
-                            labels: { color: darkMode ? "#e5e7eb" : "#374151" },
-                          },
-                        },
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-2xl shadow-sm">
-                <h3 className="text-xl font-semibold text-blue-600 mb-4">
-                  Student Performance Overview
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {students.map((student) => (
-                    <div key={student.id} className="text-center">
-                      <div className="w-20 h-20 mx-auto mb-3">
-                        <div className="relative w-full h-full">
-                          <svg
-                            className="w-full h-full transform -rotate-90"
-                            viewBox="0 0 36 36">
-                            <path
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              fill="none"
-                              stroke="#e5e7eb"
-                              strokeWidth="2"
-                            />
-                            <path
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              fill="none"
-                              stroke="#3B82F6"
-                              strokeWidth="2"
-                              strokeDasharray={`${student.progress || 0}, 100`}
-                            />
-                          </svg>
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-lg font-bold text-gray-800">
-                              {student.progress || 0}%
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <h4 className="font-medium text-gray-800 mb-1">
-                        {student.full_name}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {student.class || "No class"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-
-        case "profileupdate":
-          return <ParentProfileUpdate userInfo={userInfo} />;
-        case "settings":
-          return (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                  Account Settings
-                </h2>
-                <p className="text-gray-600">
-                  Manage your profile and account preferences
-                </p>
-              </div>
-
-              {/* Profile Section */}
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                    Profile Management
-                  </h3>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  {/* Current Profile Info */}
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="font-medium text-blue-800 mb-3">
-                      Current Profile
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-blue-700">Email:</span>
-                        <span className="font-medium text-blue-800">
-                          {userInfo?.email || "Not set"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-blue-700">Username:</span>
-                        <span className="font-medium text-blue-800">
-                          {userInfo?.username || "Not set"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                    onClick={handleEditProfile}>
-                    <div className="flex items-center">
-                      <UserIcon className="w-6 h-6 text-blue-600 mr-3" />
-                      <div>
-                        <h4 className="font-medium text-gray-800">
-                          Edit Profile
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          Update your personal information
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRightCircleIcon className="w-5 h-5 text-gray-400" />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                    onClick={handleViewProfile}>
-                    <div className="flex items-center">
-                      <EyeIcon className="w-6 h-6 text-green-600 mr-3" />
-                      <div>
-                        <h4 className="font-medium text-gray-800">
-                          View Profile
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          See your current profile details
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRightCircleIcon className="w-5 h-5 text-gray-400" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Preferences Section */}
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                    Preferences
-                  </h3>
-                </div>
-
-                <div className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <SunIcon className="w-6 h-6 text-yellow-600 mr-3" />
-                      <MoonIcon className="w-6 h-6 text-blue-600 mr-3" />
-                      <div>
-                        <h4 className="font-medium text-gray-800">Dark Mode</h4>
-                        <p className="text-sm text-gray-500">
-                          Toggle between light and dark themes
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setDarkMode(!darkMode)}
-                      className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${
-                        darkMode ? "bg-blue-600" : "bg-gray-300"
-                      }`}>
-                      <span
-                        className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
-                          darkMode ? "translate-x-6" : "translate-x-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Account Actions Section */}
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                    Account Actions
-                  </h3>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  <div
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                    onClick={handleLogout}>
-                    <div className="flex items-center">
-                      <ArrowRightOnRectangleIcon className="w-6 h-6 text-orange-600 mr-3" />
-                      <div>
-                        <h4 className="font-medium text-gray-800">Logout</h4>
-                        <p className="text-sm text-gray-500">
-                          Sign out of your account
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRightCircleIcon className="w-5 h-5 text-gray-400" />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between p-4 bg-red-50 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
-                    onClick={handleDeleteAccount}>
-                    <div className="flex items-center">
-                      <XMarkIcon className="w-6 h-6 text-red-600 mr-3" />
-                      <div>
-                        <h4 className="font-medium text-red-800">
-                          Delete Account
-                        </h4>
-                        <p className="text-sm text-red-600">
-                          Permanently remove your account
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRightCircleIcon className="w-5 h-5 text-red-400" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-
-        default:
-          return null;
-      }
-    } catch (error) {
-      console.error("Error rendering content:", error);
-      return (
-        <div className="flex justify-center items-center h-64">
-          <div className="text-red-600 text-center">
-            <p className="text-lg font-semibold mb-2">Something went wrong</p>
-            <p className="text-sm">Please try refreshing the page</p>
           </div>
         </div>
+
+        {/* Learners */}
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-lilita text-xl text-[#015575]">
+                Your learners
+              </h2>
+              <p className="font-josefin text-sm text-slate-500">
+                Add or open a child account linked to this parent profile.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAddStudentModal(true)}
+              className="inline-flex items-center justify-center gap-1 rounded-full bg-[#015575] px-4 py-2 font-josefin text-sm font-semibold text-white hover:bg-[#01B0F1]"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add learner
+            </button>
+          </div>
+
+          {students.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-[#F8FAFC] px-4 py-10 text-center">
+              <UserGroupIcon className="mx-auto h-10 w-10 text-slate-300" />
+              <p className="mt-2 font-josefin text-sm text-slate-500">
+                No learners linked yet. Add a student to get started.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {students.map((student) => (
+                <button
+                  key={student.id}
+                  type="button"
+                  onClick={() => handleViewStudentDetails(student)}
+                  className="rounded-xl border border-slate-100 bg-[#F8FAFC] p-4 text-left transition hover:border-[#01B0F1]/40 hover:shadow-sm"
+                >
+                  <p className="font-lilita text-lg text-[#015575]">
+                    {student.full_name || student.username}
+                  </p>
+                  <p className="font-josefin text-sm text-slate-500">
+                    {student.class || student.grade || "Grade not set"}
+                  </p>
+                  <p className="mt-2 font-josefin text-xs font-semibold text-[#01B0F1]">
+                    Balance: KES {Number(student.balance || 0).toLocaleString()}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* This week */}
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-lilita text-xl text-[#015575]">This week</h2>
+              <p className="mt-1 font-josefin text-sm text-slate-500">
+                Attendance and session activity will show here as classes are
+                booked.
+              </p>
+            </div>
+            {upcomingPayments.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowUpcomingPaymentsModal(true)}
+                className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 font-josefin text-xs font-semibold text-orange-700"
+              >
+                <ExclamationTriangleIcon className="h-4 w-4" />
+                {upcomingPayments.length} payment
+                {upcomingPayments.length > 1 ? "s" : ""}
+              </button>
+            )}
+          </div>
+          <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-[#F8FAFC] px-4 py-8 text-center font-josefin text-sm text-slate-500">
+            {upcomingPayments.length > 0
+              ? `${upcomingPayments.length} upcoming payment(s) scheduled.`
+              : "No sessions or payments scheduled for this week yet."}
+          </div>
+        </div>
+
+        {/* Recent wallet activity (compact) */}
+        {transactions.length > 0 && (
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <WalletIcon className="h-5 w-5 text-[#01B0F1]" />
+              <h2 className="font-lilita text-xl text-[#015575]">
+                Recent wallet activity
+              </h2>
+            </div>
+            <ul className="divide-y divide-slate-100">
+              {transactions.slice(0, 5).map((tx) => (
+                <li
+                  key={tx.id}
+                  className="flex items-center justify-between py-3 font-josefin text-sm"
+                >
+                  <span className="text-slate-600">
+                    {tx.description}
+                    <span className="ml-2 text-xs text-slate-400">
+                      {tx.date instanceof Date
+                        ? tx.date.toLocaleDateString()
+                        : ""}
+                    </span>
+                  </span>
+                  <span
+                    className={
+                      tx.amount >= 0
+                        ? "font-semibold text-emerald-600"
+                        : "font-semibold text-slate-700"
+                    }
+                  >
+                    {tx.amount >= 0 ? "+" : ""}
+                    {Number(tx.amount).toLocaleString()} KES
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    if (activeTab === "profileupdate") {
+      return (
+        <ParentProfileUpdate
+          userInfo={userInfo}
+          onDone={() => {
+            setActiveTab("dashboard");
+            setShowProfileUpdateModal(false);
+          }}
+        />
       );
     }
+    return renderHub();
   };
 
   return (
-    <div
-      className={`${
-        darkMode ? "dark" : ""
-      } flex min-h-screen bg-gray-50 dark:bg-gray-900 font-josefin`}>
-      {/* Sidebar */}
+    <div className="flex min-h-screen bg-[#F8FAFC] font-josefin">
+      {/* Sidebar — onboarding tokens */}
       <aside
-        className={`fixed inset-y-0 z-50 transform lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-xl w-64 ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 z-50 w-[280px] transform bg-[#013349] shadow-2xl transition-transform duration-300 ease-in-out ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
-        style={{
-          background: "linear-gradient(to bottom, #e8f5ff, #d0ecff, #00abe8)",
-        }}>
-        <div className="px-6 py-8 lg:py-12">
-          <h2 className="text-2xl font-lilita text-gray-900 text-center mb-8">
-            Parent<span className="text-amber-600"> Dashboard</span>
-          </h2>
-          <nav className="mt-8 space-y-2">
-            {navigation.map((item) => (
-              <button
-                key={item.key}
-                onClick={() => {
-                  console.log("Switching to tab:", item.key);
-                  setActiveTab(item.key);
-                }}
-                className={`flex items-center w-full px-4 py-3 rounded-xl transition-colors text-left ${
-                  activeTab === item.key
-                    ? "bg-blue-200 text-gray-900"
-                    : "text-gray-900 hover:bg-blue-50"
-                }`}>
-                <item.icon className="w-6 h-6 mr-3 flex-shrink-0" />
-                <span className="truncate">{item.name}</span>
-              </button>
-            ))}
+      >
+        <div
+          className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-[#01B0F1]/15 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative z-10 flex h-full flex-col px-5 py-8 lg:py-10">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-3 inline-flex rounded-2xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-md">
+              <img
+                src="/images/logo.png"
+                alt="StudyBuddy"
+                className="h-8 w-auto object-contain"
+              />
+            </div>
+            <h2 className="font-lilita text-xl text-white">
+              Parent <span className="text-[#81CFFF]">Dashboard</span>
+            </h2>
+            <p className="mt-1 font-josefin text-[11px] uppercase tracking-wider text-white/50">
+              Family portal
+            </p>
+          </div>
+
+          <nav className="flex-1 space-y-1">
+            {navigation.map((item) => {
+              const active = activeTab === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(item.key);
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`flex w-full items-center rounded-xl px-4 py-3 text-left font-josefin text-sm transition-all ${
+                    active
+                      ? "bg-[#01B0F1] text-white shadow-lg shadow-[#01B0F1]/30"
+                      : "text-[#B4C8DC] hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <item.icon className="mr-3 h-5 w-5 shrink-0" />
+                  <span className="truncate">{item.name}</span>
+                </button>
+              );
+            })}
           </nav>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-4 flex w-full items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 font-josefin text-sm text-white/80 transition hover:bg-white/10 hover:text-white"
+          >
+            Log out
+          </button>
         </div>
       </aside>
 
-      {/* Overlay for mobile */}
       {isSidebarOpen && (
         <div
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-black opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
         />
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:pl-64">
+      <div className="flex flex-1 flex-col lg:pl-[280px]">
         <DashboardHeader
-          title={
-            navigation.find((n) => n.key === activeTab)?.name || "Dashboard"
-          }
+          title={navigation.find((n) => n.key === activeTab)?.name || "Home"}
           userInfo={userInfo}
           onLogout={handleLogout}
           onToggleSidebar={() => setIsSidebarOpen(true)}
-          onViewProfile={handleViewProfile}
-          onEditProfile={handleEditProfile}
+          onViewProfile={() => setActiveTab("profileupdate")}
+          onEditProfile={() => setActiveTab("profileupdate")}
           profilePicture={userInfo?.profile_picture}
         />
 
-        {/* Profile Update Modal */}
         {showProfileUpdateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl">
               <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-[#01B0F1]/10 mb-6">
+                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#01B0F1]/10">
                   <UserIcon className="h-10 w-10 text-[#01B0F1]" />
                 </div>
-                <h2 className="text-3xl font-lilita text-[#015575] mb-4">
+                <h2 className="mb-4 font-lilita text-3xl text-[#015575]">
                   Complete Your Profile
                 </h2>
-                <p className="text-gray-600 font-josefin text-lg mb-6">
+                <p className="mb-6 font-josefin text-lg text-gray-600">
                   Before you can continue, please complete your profile
                   information.
                 </p>
-                <div className="flex gap-4 justify-center">
-                  <button
-                    onClick={() => {
-                      setShowProfileUpdateModal(false);
-                      setActiveTab("profileupdate");
-                    }}
-                    className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all">
-                    Update Profile
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProfileUpdateModal(false);
+                    setActiveTab("profileupdate");
+                  }}
+                  className="rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] px-8 py-3 font-lilita text-white transition-all hover:shadow-lg"
+                >
+                  Update Profile
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-6">
+        <main className="flex-1 space-y-6 overflow-y-auto bg-[#F8FAFC] p-4 md:p-6 lg:p-8">
           {renderContent()}
         </main>
       </div>
 
-      {/* Add Funds Modal */}
+      {/* Deposit modal */}
       {showFundModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-blue-600">
-                Deposit Funds
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="font-lilita text-xl text-[#015575]">
+                Deposit funds
               </h3>
               <button
+                type="button"
                 onClick={() => setShowFundModal(false)}
-                className="p-2 text-gray-500 hover:text-gray-700">
-                <XMarkIcon className="w-6 h-6" />
+                className="p-2 text-gray-500 hover:text-gray-700"
+              >
+                <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
             <form onSubmit={handleDeposit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block font-josefin text-sm font-medium text-gray-700">
                   Amount (KES) *
                 </label>
                 <input
@@ -1598,13 +721,13 @@ const ParentDashboard = () => {
                   required
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter amount e.g. 500"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#01B0F1]"
+                  placeholder="e.g. 500"
                 />
               </div>
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700">
-                You'll receive an STK push on your registered M-Pesa number.
-                Confirm on your phone to complete the deposit.
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 font-josefin text-sm text-blue-700">
+                You&apos;ll receive an STK push on your registered M-Pesa
+                number.
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button
@@ -1615,14 +738,16 @@ const ParentDashboard = () => {
                       setDepositAmount("");
                     }
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                  disabled={depositLoading}>
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  disabled={depositLoading}
+                >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={depositLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-70">
+                  className="rounded-lg bg-[#015575] px-4 py-2 text-white hover:bg-[#01B0F1] disabled:opacity-70"
+                >
                   {depositLoading ? "Processing..." : "Deposit"}
                 </button>
               </div>
@@ -1631,31 +756,30 @@ const ParentDashboard = () => {
         </div>
       )}
 
-      {/* Checkout Modal */}
+      {/* Checkout modal */}
       {showCheckoutModal && depositInfo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-blue-600">
-                Deposit Initiated
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="font-lilita text-xl text-[#015575]">
+                Deposit initiated
               </h3>
               <button
+                type="button"
                 onClick={() => setShowCheckoutModal(false)}
-                className="p-2 text-gray-500 hover:text-gray-700">
-                <XMarkIcon className="w-6 h-6" />
+                className="p-2 text-gray-500 hover:text-gray-700"
+              >
+                <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
-
-            <div className="space-y-4 text-sm">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-800 font-medium">
+            <div className="space-y-4 font-josefin text-sm">
+              {depositInfo.message && (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
                   {depositInfo.message}
-                </p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                <h4 className="font-semibold text-gray-800">Payment Details</h4>
-                <div className="space-y-1 text-sm">
+                </div>
+              )}
+              {depositInfo.amount_details && (
+                <div className="space-y-1 rounded-lg bg-gray-50 p-4">
                   <p>
                     <strong>Amount:</strong> Ksh{" "}
                     {depositInfo.amount_details.original_amount}
@@ -1665,378 +789,301 @@ const ParentDashboard = () => {
                     {depositInfo.amount_details.fee_amount}
                   </p>
                   <p>
-                    <strong>Total to Pay:</strong> Ksh{" "}
+                    <strong>Total to pay:</strong> Ksh{" "}
                     {depositInfo.amount_details.you_pay}
                   </p>
                   <p>
-                    <strong>You Get:</strong> Ksh{" "}
+                    <strong>You get:</strong> Ksh{" "}
                     {depositInfo.amount_details.you_get}
                   </p>
-                  <p>
-                    <strong>Transaction ID:</strong>{" "}
-                    {depositInfo.transaction_id}
-                  </p>
+                  {depositInfo.transaction_id && (
+                    <p>
+                      <strong>Transaction ID:</strong>{" "}
+                      {depositInfo.transaction_id}
+                    </p>
+                  )}
                 </div>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800 text-sm">
-                  Click the button below to complete your payment. You'll
-                  receive an STK push on your M-Pesa number.
-                </p>
-              </div>
+              )}
             </div>
-
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="mt-6 flex justify-end gap-3">
               <button
+                type="button"
                 onClick={() => setShowCheckoutModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
+              >
                 Close
               </button>
-              <button
-                onClick={() => window.open(depositInfo.checkout_url, "_blank")}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Complete Payment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Student Modal */}
-      {showAddStudentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-blue-600">
-                Add Student
-              </h3>
-              <button
-                onClick={() => setShowAddStudentModal(false)}
-                className="p-2 text-gray-500 hover:text-gray-700">
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleAddStudent}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={studentForm.fullName}
-                  onChange={handleStudentFormChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
-                  placeholder="Student's full name"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  name="dateOfBirth"
-                  value={studentForm.dateOfBirth}
-                  onChange={handleStudentFormChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Class
-                </label>
-                <input
-                  type="text"
-                  name="className"
-                  value={studentForm.className}
-                  onChange={handleStudentFormChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
-                  placeholder="Class/Grade"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition duration-200">
-                Add Student
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Student Details Modal */}
-      {showStudentDetailsModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-blue-600">
-                Student Details
-              </h3>
-              <button
-                onClick={() => setShowStudentDetailsModal(false)}
-                className="p-2 text-gray-500 hover:text-gray-700">
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Student Information */}
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                  Student Information
-                </h4>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    name="fullName"
-                    value={editStudentForm.fullName}
-                    onChange={handleEditStudentFormChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
-                    placeholder="Student's full name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Class
-                  </label>
-                  <input
-                    type="text"
-                    name="className"
-                    value={editStudentForm.className}
-                    onChange={handleEditStudentFormChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
-                    placeholder="Class/Grade"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={editStudentForm.email}
-                    onChange={handleEditStudentFormChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
-                    placeholder="Student's email"
-                  />
-                </div>
-
+              {depositInfo.checkout_url && (
                 <button
-                  onClick={handleEditStudent}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition duration-200">
-                  Update Student
+                  type="button"
+                  onClick={() =>
+                    window.open(depositInfo.checkout_url, "_blank")
+                  }
+                  className="rounded-lg bg-[#015575] px-4 py-2 text-white hover:bg-[#01B0F1]"
+                >
+                  Complete payment
                 </button>
-              </div>
-
-              {/* Lesson Progress */}
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                  Lesson Progress
-                </h4>
-                {selectedStudent &&
-                  selectedStudent.lessons &&
-                  selectedStudent.lessons
-                    .filter((lesson) => lesson.active)
-                    .map((lesson) => (
-                      <div
-                        key={lesson.id}
-                        className="p-4 bg-gray-50 rounded-lg border-l-4 border-green-500">
-                        <div className="flex justify-between items-center mb-2">
-                          <h5 className="font-medium text-gray-800">
-                            {lesson.subject}
-                          </h5>
-                          <div className="flex items-center space-x-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Active
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              {lesson.progress}%
-                            </span>
-                          </div>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full mb-2">
-                          <div
-                            className="h-2 bg-blue-600 rounded-full transition-all duration-300"
-                            style={{ width: `${lesson.progress}%` }}
-                          />
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          <p>Teacher: {lesson.teacher}</p>
-                          <p>
-                            Next Lesson:{" "}
-                            {lesson.nextLesson
-                              ? new Date(lesson.nextLesson).toLocaleString()
-                              : "N/A"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Funds to Student Modal */}
-      {showAddFundsToStudentModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-green-600">
-                Add Funds to Student Account
-              </h3>
-              <button
-                onClick={() => setShowAddFundsToStudentModal(false)}
-                className="p-2 text-gray-500 hover:text-gray-700">
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-gray-800 mb-2">
-                {selectedStudent.full_name}
-              </h4>
-              <p className="text-sm text-gray-600">
-                Current Balance:{" "}
-                <span className="font-semibold text-green-600">
-                  Ksh {selectedStudent.balance || 0}
-                </span>
-              </p>
-            </div>
-
-            <form onSubmit={handleAddFundsToStudent}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Amount to Add (Ksh)
-                </label>
-                <input
-                  type="number"
-                  min="100"
-                  value={studentFundAmount}
-                  onChange={(e) => setStudentFundAmount(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800"
-                  placeholder="Enter amount"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg transition duration-200">
-                Add Funds to Student Account
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Upcoming Payments Modal */}
-      {showUpcomingPaymentsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-orange-600">
-                Upcoming Payments Schedule
-              </h3>
-              <button
-                onClick={() => setShowUpcomingPaymentsModal(false)}
-                className="p-2 text-gray-500 hover:text-gray-700">
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {upcomingPayments.length > 0 ? (
-                upcomingPayments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="p-4 bg-gray-50 rounded-lg border-l-4 border-orange-500">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium text-gray-800">
-                          {payment.student}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {payment.description}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Due: {new Date(payment.dueDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-orange-600">
-                          Ksh {payment.amount.toLocaleString()}
-                        </p>
-                        <button
-                          onClick={() => {
-                            setShowUpcomingPaymentsModal(false);
-                            setShowFundModal(true);
-                            // Pre-fill the amount if needed
-                            // setFundAmount(payment.amount.toString());
-                          }}
-                          className="mt-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm transition-colors">
-                          Pay Now
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <CalendarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">
-                    No upcoming payments
-                  </h4>
-                  <p className="text-gray-500">
-                    You're all caught up with payments!
-                  </p>
-                </div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-red-600">
-                Confirm Deletion
+      {/* Add student modal */}
+      {showAddStudentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="font-lilita text-xl text-[#015575]">
+                Add learner
               </h3>
               <button
-                onClick={() => setShowDeleteConfirmation(false)}
-                className="p-2 text-gray-500 hover:text-gray-700">
-                <XMarkIcon className="w-6 h-6" />
+                type="button"
+                onClick={() => setShowAddStudentModal(false)}
+                className="p-2 text-gray-500 hover:text-gray-700"
+              >
+                <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
-            <p className="mb-6 text-gray-800">
-              Are you sure you want to permanently delete your account? This
-              action cannot be undone.
-            </p>
-            <div className="flex space-x-4">
+            <form onSubmit={handleAddStudent} className="space-y-4">
+              <div>
+                <label className="mb-1 block font-josefin text-sm font-medium text-gray-700">
+                  Full name
+                </label>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={studentForm.fullName}
+                  onChange={handleStudentFormChange}
+                  className="w-full rounded-lg border border-gray-300 p-3"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block font-josefin text-sm font-medium text-gray-700">
+                  Date of birth
+                </label>
+                <input
+                  type="date"
+                  name="dateOfBirth"
+                  value={studentForm.dateOfBirth}
+                  onChange={handleStudentFormChange}
+                  className="w-full rounded-lg border border-gray-300 p-3"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block font-josefin text-sm font-medium text-gray-700">
+                  Class / grade
+                </label>
+                <input
+                  type="text"
+                  name="className"
+                  value={studentForm.className}
+                  onChange={handleStudentFormChange}
+                  className="w-full rounded-lg border border-gray-300 p-3"
+                  required
+                />
+              </div>
               <button
+                type="submit"
+                className="w-full rounded-lg bg-[#015575] py-3 font-josefin font-semibold text-white hover:bg-[#01B0F1]"
+              >
+                Add learner
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Student details modal */}
+      {showStudentDetailsModal && selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="font-lilita text-xl text-[#015575]">
+                Learner details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowStudentDetailsModal(false)}
+                className="p-2 text-gray-500 hover:text-gray-700"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            <form onSubmit={handleEditStudent} className="space-y-4">
+              <div>
+                <label className="mb-1 block font-josefin text-sm font-medium">
+                  Full name
+                </label>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={editStudentForm.fullName}
+                  onChange={handleEditStudentFormChange}
+                  className="w-full rounded-lg border border-gray-300 p-3"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block font-josefin text-sm font-medium">
+                  Class
+                </label>
+                <input
+                  type="text"
+                  name="className"
+                  value={editStudentForm.className}
+                  onChange={handleEditStudentFormChange}
+                  className="w-full rounded-lg border border-gray-300 p-3"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block font-josefin text-sm font-medium">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={editStudentForm.email}
+                  onChange={handleEditStudentFormChange}
+                  className="w-full rounded-lg border border-gray-300 p-3"
+                />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="submit"
+                  className="flex-1 rounded-lg bg-[#015575] py-3 font-josefin font-semibold text-white hover:bg-[#01B0F1]"
+                >
+                  Update
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStudentDetailsModal(false);
+                    setShowAddFundsToStudentModal(true);
+                  }}
+                  className="flex-1 rounded-lg border border-[#015575] py-3 font-josefin font-semibold text-[#015575] hover:bg-[#F8FAFC]"
+                >
+                  Transfer funds
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer to student */}
+      {showAddFundsToStudentModal && selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="font-lilita text-xl text-[#015575]">
+                Transfer to learner
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddFundsToStudentModal(false)}
+                className="p-2 text-gray-500"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            <p className="mb-4 font-josefin text-sm text-slate-600">
+              {selectedStudent.full_name} · Wallet KES{" "}
+              {Number(walletBalance || 0).toLocaleString()}
+            </p>
+            <form onSubmit={handleAddFundsToStudent} className="space-y-4">
+              <input
+                type="number"
+                min="100"
+                value={studentFundAmount}
+                onChange={(e) => setStudentFundAmount(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 p-3"
+                placeholder="Amount (KES)"
+                required
+              />
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-emerald-600 py-3 font-josefin font-semibold text-white hover:bg-emerald-700"
+              >
+                Transfer
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming payments */}
+      {showUpcomingPaymentsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="font-lilita text-xl text-[#015575]">
+                Upcoming payments
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowUpcomingPaymentsModal(false)}
+                className="p-2 text-gray-500"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            {upcomingPayments.length === 0 ? (
+              <div className="py-8 text-center">
+                <CalendarIcon className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+                <p className="font-josefin text-slate-500">
+                  No upcoming payments
+                </p>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {upcomingPayments.map((payment) => (
+                  <li
+                    key={payment.id}
+                    className="rounded-xl border border-orange-100 bg-orange-50/50 p-4 font-josefin text-sm"
+                  >
+                    <p className="font-semibold text-slate-800">
+                      {payment.student}
+                    </p>
+                    <p className="text-slate-600">{payment.description}</p>
+                    <p className="mt-1 font-semibold text-orange-700">
+                      KES {Number(payment.amount || 0).toLocaleString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <h3 className="mb-4 font-lilita text-xl text-red-600">
+              Confirm deletion
+            </h3>
+            <p className="mb-6 font-josefin text-slate-700">
+              Are you sure you want to permanently delete your account?
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
                 onClick={() => setShowDeleteConfirmation(false)}
-                className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                className="flex-1 rounded-lg border border-gray-300 py-2"
+              >
                 Cancel
               </button>
               <button
-                onClick={confirmAccountDeletion}
-                className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                Delete Account
+                type="button"
+                onClick={() => {
+                  alert("Account deletion not implemented.");
+                  setShowDeleteConfirmation(false);
+                }}
+                className="flex-1 rounded-lg bg-red-600 py-2 text-white"
+              >
+                Delete
               </button>
             </div>
           </div>

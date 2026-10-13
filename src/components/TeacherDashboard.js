@@ -3,22 +3,17 @@ import axios from "axios";
 import {
   FaHome,
   FaChalkboardTeacher,
-  FaCog,
   FaSignOutAlt,
   FaCameraRetro,
   FaTimes,
   FaWallet,
-  FaUserCircle,
   FaCalendarAlt,
-  FaChartLine,
-  FaBell,
   FaVideo,
   FaUsers,
   FaBook,
-  FaChevronDown,
   FaChevronRight,
-  FaSearch,
-  FaBars,
+  FaClipboardList,
+  FaUserCircle,
 } from "react-icons/fa";
 import { FHOST } from "./constants/Functions";
 import MyLessons from "./teachers/MyLessons";
@@ -37,8 +32,6 @@ import { authStorage } from "../services/authStorage";
 
 const TeacherDashboard = () => {
   const [isLive, setIsLive] = useState(false);
-  const [videoFiles, setVideoFiles] = useState([]);
-  const [uploadedVideos, setUploadedVideos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,12 +42,8 @@ const TeacherDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [liveSessions, setLiveSessions] = useState([]);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
   const [videoPreview, setVideoPreview] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState("");
   const [showVerificationNotice, setShowVerificationNotice] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -79,19 +68,17 @@ const TeacherDashboard = () => {
     try {
       let allSubjects = [];
       let nextUrl = `${FHOST}/api/subjects/`;
-
       while (nextUrl) {
         const response = await axios.get(nextUrl, {
           headers: {
             Authorization: `Bearer ${authStorage.getAccessToken()}`,
           },
         });
-        if (response.data && response.data.results) {
+        if (response.data?.results) {
           allSubjects = allSubjects.concat(response.data.results);
         }
         nextUrl = response.data.next;
       }
-
       setAvailableSubjects(allSubjects);
     } catch (error) {
       console.error("Error fetching subjects:", error);
@@ -102,45 +89,21 @@ const TeacherDashboard = () => {
     try {
       let allGrades = [];
       let nextUrl = `${FHOST}/api/grades/`;
-
       while (nextUrl) {
         const response = await axios.get(nextUrl, {
           headers: {
             Authorization: `Bearer ${authStorage.getAccessToken()}`,
           },
         });
-        if (response.data && response.data.results) {
+        if (response.data?.results) {
           allGrades = allGrades.concat(response.data.results);
         }
         nextUrl = response.data.next;
       }
-
       setAvailableGrades(allGrades);
     } catch (error) {
       console.error("Error fetching grades:", error);
     }
-  };
-
-  const getSubjectName = (subject) => {
-    if (typeof subject === "object" && subject?.name) return subject.name;
-    if (typeof subject === "string" || typeof subject === "number") {
-      const subj = availableSubjects.find(
-        (s) => s.id === subject || s.name === subject,
-      );
-      return subj?.name || subj?.subject || subject || "General Class";
-    }
-    return "General Class";
-  };
-
-  const getGradeName = (grade) => {
-    if (typeof grade === "object" && grade?.level) return grade.level;
-    if (typeof grade === "string" || typeof grade === "number") {
-      const grd = availableGrades.find(
-        (g) => g.id === grade || g.level === grade || g.name === grade,
-      );
-      return grd?.level || grd?.name || grade || "All";
-    }
-    return "All";
   };
 
   const fetchTeacherRecord = async (token, userData) => {
@@ -157,10 +120,7 @@ const TeacherDashboard = () => {
         return res.data;
       }
     } catch (err) {
-      console.warn(
-        "Failed to fetch teacher by profile id, falling back to list lookup",
-        err,
-      );
+      console.warn("Failed to fetch teacher by profile id", err);
     }
 
     try {
@@ -174,20 +134,16 @@ const TeacherDashboard = () => {
               typeof teacher.user === "object"
                 ? teacher.user?.id
                 : teacher.user;
-            
-            // FIX: Ensure undefined records do not accidentally match undefined test accounts
-            if (!teacherUserId) return false; 
-            
+            if (!teacherUserId) return false;
             return (
-              teacherUserId && String(teacherUserId) === String(userData.id || userData.user_id)
+              String(teacherUserId) === String(userData.id || userData.user_id)
             );
           }) || null
         );
       }
     } catch (err) {
-      console.error("Failed to fetch teacher list for status lookup:", err);
+      console.error("Failed to fetch teacher list:", err);
     }
-
     return null;
   };
 
@@ -198,12 +154,9 @@ const TeacherDashboard = () => {
         navigate("/");
         return;
       }
-      
-      // FIX: Normalize Django's user_id to React's id immediately so the component doesn't bleed data
       if (!userData.id && userData.user_id) {
         userData.id = userData.user_id;
       }
-      
       setUserInfo(userData);
 
       try {
@@ -215,9 +168,7 @@ const TeacherDashboard = () => {
             },
           },
         );
-        if (profileResponse.data) {
-          setProfileData(profileResponse.data);
-        }
+        if (profileResponse.data) setProfileData(profileResponse.data);
       } catch (error) {
         console.error("Error fetching profile:", error);
       }
@@ -234,7 +185,6 @@ const TeacherDashboard = () => {
             );
             finalStatus = normalizedStatus;
             setVerificationStatus(normalizedStatus);
-
             const updatedUserInfo = {
               ...userData,
               teacher_profile_id:
@@ -243,10 +193,8 @@ const TeacherDashboard = () => {
               verification_status: normalizedStatus,
               is_verified: teacherRecord.is_verified,
             };
-
             localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
             setUserInfo(updatedUserInfo);
-
             if (userData.verification_status !== normalizedStatus) {
               window.dispatchEvent(new Event("verification-status-changed"));
             }
@@ -257,7 +205,7 @@ const TeacherDashboard = () => {
           setVerificationStatus(finalStatus);
         }
       } catch (error) {
-        console.error("Error fetching teacher verification status:", error);
+        console.error("Error fetching verification status:", error);
         setVerificationStatus(finalStatus);
       }
 
@@ -268,8 +216,8 @@ const TeacherDashboard = () => {
         setShowVerificationNotice(false);
         setShowWelcomeModal(false);
       } else if (finalStatus === "pending") {
-        setIsBlocked(false); 
-        setShowVerificationNotice(true); 
+        setIsBlocked(false);
+        setShowVerificationNotice(true);
         setShowWelcomeModal(false);
       } else if (!finalStatus || finalStatus === null) {
         setIsBlocked(true);
@@ -290,8 +238,9 @@ const TeacherDashboard = () => {
         userData.username ||
         userData.email?.split("@")[0] ||
         "Teacher";
-      const randomAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${seed}`;
-      setAvatarUrl(randomAvatar);
+      setAvatarUrl(
+        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(seed)}`,
+      );
     };
 
     refreshState();
@@ -300,13 +249,10 @@ const TeacherDashboard = () => {
       "verification-status-changed",
       onVerificationChange,
     );
-
     const onProfileUpdate = () => {
       refreshState();
-      const updatedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
-      if (updatedUserInfo) {
-        setUserInfo(updatedUserInfo);
-      }
+      const updated = JSON.parse(localStorage.getItem("userInfo"));
+      if (updated) setUserInfo(updated);
     };
     window.addEventListener("profile-updated", onProfileUpdate);
 
@@ -328,9 +274,13 @@ const TeacherDashboard = () => {
     try {
       const prev = JSON.parse(localStorage.getItem("userInfo"));
       if (prev?.id || prev?.user_id) {
-        localStorage.removeItem(`verification_submitted_${prev.id || prev.user_id}`);
+        localStorage.removeItem(
+          `verification_submitted_${prev.id || prev.user_id}`,
+        );
       }
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
     authStorage.clearTokens();
     localStorage.removeItem("userInfo");
     setUserInfo(null);
@@ -338,13 +288,10 @@ const TeacherDashboard = () => {
   };
 
   const handleVideoUpload = (event) => {
-    if (videoPreview) {
-      URL.revokeObjectURL(videoPreview);
-    }
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
     const file = event.target.files[0];
     if (file) {
-      const previewURL = URL.createObjectURL(file);
-      setVideoPreview(previewURL);
+      setVideoPreview(URL.createObjectURL(file));
       setVideoFile(file);
     } else {
       setVideoPreview(null);
@@ -353,10 +300,7 @@ const TeacherDashboard = () => {
 
   const handleGoLive = () => {
     setIsLive(true);
-    setActiveComponent("liveclass");
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false);
-    }
+    handleMenuItemClick("liveclass");
   };
 
   const handleSubmit = async () => {
@@ -364,7 +308,6 @@ const TeacherDashboard = () => {
       alert("Please provide a title and select a video file.");
       return;
     }
-
     const formData = new FormData();
     formData.append("video", videoFile);
     formData.append("title", videoTitle);
@@ -373,13 +316,11 @@ const TeacherDashboard = () => {
 
     setUploading(true);
     try {
-      // FIX: Ensure video upload accurately references normalized ID
       const response = await axios.post(
         `${FHOST}/lessons/api/upload-video/${userInfo?.id || userInfo?.user_id}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } },
       );
-
       if (response.status === 200 || response.status === 201) {
         alert("Video uploaded successfully!");
         setIsModalOpen(false);
@@ -387,7 +328,7 @@ const TeacherDashboard = () => {
         setVideoTitle("");
         setVideoDescription("");
         if (videoPreview) URL.revokeObjectURL(videoPreview);
-        setVideoPreview("");
+        setVideoPreview(null);
       }
     } catch (error) {
       console.error("Error uploading video:", error);
@@ -406,13 +347,9 @@ const TeacherDashboard = () => {
           setLoading(false);
           return;
         }
-
         const response = await axios.get(`${FHOST}/api/live-sessions/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
-
         if (response.data?.results && Array.isArray(response.data.results)) {
           setLiveSessions(response.data.results);
         } else if (Array.isArray(response.data)) {
@@ -429,11 +366,7 @@ const TeacherDashboard = () => {
             const newToken = await authService.refreshToken();
             const retryResponse = await axios.get(
               `${FHOST}/api/live-sessions/`,
-              {
-                headers: {
-                  Authorization: `Bearer ${newToken}`,
-                },
-              },
+              { headers: { Authorization: `Bearer ${newToken}` } },
             );
             if (
               retryResponse.data?.results &&
@@ -482,7 +415,7 @@ const TeacherDashboard = () => {
     },
     {
       title: "Earnings",
-      value: "$0",
+      value: "KES 0",
       change: "+0%",
       icon: <FaWallet className="text-xl" />,
     },
@@ -494,98 +427,45 @@ const TeacherDashboard = () => {
     let section = path.startsWith(base) ? path.slice(base.length) : "";
     if (section.startsWith("/")) section = section.slice(1);
 
-    switch (section) {
-      case "":
-        setActiveComponent("dashboard");
-        break;
-      case "students":
-        setActiveComponent("students");
-        break;
-      case "lessons":
-        setActiveComponent("lessons");
-        break;
-      case "liveclasses":
-        setActiveComponent("liveclass");
-        break;
-      case "schedule":
-        setActiveComponent("schedule");
-        break;
-      case "videoeditor":
-        setActiveComponent("videoeditor");
-        break;
-      case "mywallet":
-        setActiveComponent("mywallet");
-        break;
-      case "myaccount":
-        setActiveComponent("myaccount");
-        break;
-      case "studentleads":
-        setActiveComponent("studentleads");
-        break;
-      case "upcomingclasses":
-        setActiveComponent("upcomingclasses");
-        break;
-      case "revisionmaterials":
-        setActiveComponent("revisionmaterials");
-        break;
-      case "assessments":
-        setActiveComponent("assessments");
-        break;
-      default:
-        setActiveComponent("dashboard");
-    }
+    const map = {
+      "": "dashboard",
+      students: "students",
+      lessons: "lessons",
+      liveclasses: "liveclass",
+      schedule: "schedule",
+      videoeditor: "videoeditor",
+      mywallet: "mywallet",
+      myaccount: "myaccount",
+      studentleads: "studentleads",
+      upcomingclasses: "upcomingclasses",
+      revisionmaterials: "revisionmaterials",
+      assessments: "assessments",
+    };
+    setActiveComponent(map[section] || "dashboard");
   }, [location.pathname]);
 
   const handleMenuItemClick = (component) => {
     const allowTestingAccess = localStorage.getItem("dev_mode") === "true";
-
     if (isBlocked && component !== "myaccount" && !allowTestingAccess) {
       setShowWelcomeModal(true);
       return;
     }
-    switch (component) {
-      case "dashboard":
-        navigate("/teacher-dashboard");
-        break;
-      case "students":
-        navigate("/teacher-dashboard/students");
-        break;
-      case "lessons":
-        navigate("/teacher-dashboard/lessons");
-        break;
-      case "liveclass":
-        navigate("/teacher-dashboard/liveclasses");
-        break;
-      case "schedule":
-        navigate("/teacher-dashboard/schedule");
-        break;
-      case "videoeditor":
-        navigate("/teacher-dashboard/videoeditor");
-        break;
-      case "mywallet":
-        navigate("/teacher-dashboard/mywallet");
-        break;
-      case "myaccount":
-        navigate("/teacher-dashboard/myaccount");
-        break;
-      case "studentleads":
-        navigate("/teacher-dashboard/studentleads");
-        break;
-      case "upcomingclasses":
-        navigate("/teacher-dashboard/upcomingclasses");
-        break;
-      case "revisionmaterials":
-        navigate("/teacher-dashboard/revisionmaterials");
-        break;
-      case "assessments":
-        navigate("/teacher-dashboard/assessments");
-        break;
-      default:
-        navigate("/teacher-dashboard");
-    }
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false);
-    }
+    const routes = {
+      dashboard: "/teacher-dashboard",
+      students: "/teacher-dashboard/students",
+      lessons: "/teacher-dashboard/lessons",
+      liveclass: "/teacher-dashboard/liveclasses",
+      schedule: "/teacher-dashboard/schedule",
+      videoeditor: "/teacher-dashboard/videoeditor",
+      mywallet: "/teacher-dashboard/mywallet",
+      myaccount: "/teacher-dashboard/myaccount",
+      studentleads: "/teacher-dashboard/studentleads",
+      upcomingclasses: "/teacher-dashboard/upcomingclasses",
+      revisionmaterials: "/teacher-dashboard/revisionmaterials",
+      assessments: "/teacher-dashboard/assessments",
+    };
+    navigate(routes[component] || "/teacher-dashboard");
+    if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
   const getDisplayName = () => {
@@ -595,650 +475,544 @@ const TeacherDashboard = () => {
     return name.split("@")[0] || name;
   };
 
+  const navItems = [
+    { key: "dashboard", label: "Dashboard", icon: FaHome },
+    { key: "lessons", label: "My Lessons", icon: FaChalkboardTeacher },
+    { key: "mywallet", label: "My Wallet", icon: FaWallet },
+    { key: "liveclass", label: "Live Classes", icon: FaVideo },
+    { key: "schedule", label: "Schedule", icon: FaCalendarAlt },
+    { key: "studentleads", label: "Student Leads", icon: FaUsers },
+    { key: "revisionmaterials", label: "Revision Materials", icon: FaBook },
+    { key: "assessments", label: "Assessments", icon: FaClipboardList },
+    { key: "myaccount", label: "My Account", icon: FaUserCircle },
+  ];
+
+  const allowTestingAccess = localStorage.getItem("dev_mode") === "true";
+  const canAccess = !isBlocked || allowTestingAccess;
+
   return (
-    <div className="flex min-h-screen bg-gray-50 font-josefin">
-      {/* Sidebar - Fixed position */}
-      <div
-        className={`fixed z-30 inset-y-0 left-0 w-64 bg-sky-500 text-white transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-xl`}
-        style={{ height: "100vh", overflowY: "auto" }}>
-        <div className="flex flex-col h-full">
-          <div className="p-6 flex items-center border-b border-white/30">
-            <div className="flex-shrink-0">
+    <div className="flex min-h-screen bg-[#F8FAFC] font-josefin">
+      {/* Sidebar — onboarding tokens */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 w-[280px] transform bg-[#013349] text-white shadow-2xl transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
+        <div
+          className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-[#01B0F1]/15 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative z-10 flex h-full flex-col">
+          <div className="flex items-center gap-3 border-b border-white/15 px-5 py-6">
+            <div className="shrink-0">
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
                   alt="Profile"
-                  className="w-16 h-16 rounded-xl object-cover border-2 border-white"
+                  className="h-12 w-12 rounded-xl border-2 border-white/30 object-cover"
                 />
               ) : (
-                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+                  <FaUserCircle className="text-2xl text-white/70" />
+                </div>
               )}
             </div>
-            <div className="ml-4">
-              <h2 className="text-xl font-lilita text-white">
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate font-lilita text-lg text-white">
                 {getDisplayName()}
               </h2>
-              <p className="text-amber-100 text-sm">Teacher</p>
+              <p className="font-josefin text-xs uppercase tracking-wider text-[#81CFFF]">
+                Teacher
+              </p>
             </div>
             <button
+              type="button"
               onClick={() => setSidebarOpen(false)}
-              className="ml-auto lg:hidden text-white">
+              className="text-white/80 lg:hidden"
+            >
               <FaTimes />
             </button>
           </div>
 
-          <nav className="flex-1 px-4 py-8">
-            <ul className="space-y-2">
-              <li>
-                <button
-                  onClick={() => handleMenuItemClick("dashboard")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "dashboard" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}>
-                  <FaHome className="mr-3" />
-                  Dashboard
-                  {activeComponent === "dashboard" && (
-                    <FaChevronRight className="ml-auto" />
-                  )}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleMenuItemClick("lessons")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "lessons" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}>
-                  <FaChalkboardTeacher className="mr-3" />
-                  My Lessons
-                  {activeComponent === "lessons" && (
-                    <FaChevronRight className="ml-auto" />
-                  )}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleMenuItemClick("mywallet")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "mywallet" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}>
-                  <FaWallet className="mr-3" />
-                  My Wallet
-                  {activeComponent === "mywallet" && (
-                    <FaChevronRight className="ml-auto" />
-                  )}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleMenuItemClick("liveclass")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "liveclass" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}>
-                  <FaVideo className="mr-3" />
-                  Live Classes
-                  {activeComponent === "liveclass" && (
-                    <FaChevronRight className="ml-auto" />
-                  )}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleMenuItemClick("schedule")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "schedule" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}>
-                  <FaCalendarAlt className="mr-3" />
-                  Schedule
-                  {activeComponent === "schedule" && (
-                    <FaChevronRight className="ml-auto" />
-                  )}
-                </button>
-              </li>
-
-              <li>
-                <button
-                  onClick={() => handleMenuItemClick("studentleads")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "studentleads" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}>
-                  <FaUsers className="mr-3" />
-                  Student Leads
-                  {activeComponent === "studentleads" && (
-                    <FaChevronRight className="ml-auto" />
-                  )}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleMenuItemClick("revisionmaterials")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "revisionmaterials" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}>
-                  <FaBook className="mr-3" />
-                  Revision Materials
-                  {activeComponent === "revisionmaterials" && (
-                    <FaChevronRight className="ml-auto" />
-                  )}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleMenuItemClick("assessments")}
-                  disabled={isBlocked}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "assessments" ? "bg-white/20 shadow-md" : "hover:bg-white/10"} ${isBlocked ? "opacity-60 cursor-not-allowed" : ""}`}>
-                  <FaChartLine className="mr-3" />
-                  Assessments
-                  {activeComponent === "assessments" && (
-                    <FaChevronRight className="ml-auto" />
-                  )}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleMenuItemClick("myaccount")}
-                  className={`w-full text-left py-3 px-4 rounded-lg flex items-center transition-all ${activeComponent === "myaccount" ? "bg-white/20 shadow-md" : "hover:bg-white/10"}`}>
-                  <FaCog className="mr-3" />
-                  My Account
-                  {activeComponent === "myaccount" && (
-                    <FaChevronRight className="ml-auto" />
-                  )}
-                </button>
-              </li>
+          <nav className="flex-1 overflow-y-auto px-3 py-6">
+            <ul className="space-y-1">
+              {navItems.map((item) => {
+                const active = activeComponent === item.key;
+                const Icon = item.icon;
+                const disabled =
+                  isBlocked && item.key !== "myaccount" && !allowTestingAccess;
+                return (
+                  <li key={item.key}>
+                    <button
+                      type="button"
+                      onClick={() => handleMenuItemClick(item.key)}
+                      disabled={disabled}
+                      className={`flex w-full items-center rounded-xl px-4 py-3 text-left font-josefin text-sm transition-all ${
+                        active
+                          ? "bg-[#01B0F1] text-white shadow-lg shadow-[#01B0F1]/30"
+                          : "text-[#B4C8DC] hover:bg-white/10 hover:text-white"
+                      } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                    >
+                      <Icon className="mr-3 shrink-0 text-base" />
+                      <span className="truncate">{item.label}</span>
+                      {active && (
+                        <FaChevronRight className="ml-auto text-xs opacity-80" />
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </nav>
-        </div>
-      </div>
 
-      {/* Main Content - Add margin for fixed sidebar on desktop */}
-      <div className="flex-1 flex flex-col min-h-screen lg:ml-64">
+          <div className="border-t border-white/15 p-4">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 font-josefin text-sm text-white/80 transition hover:bg-white/10 hover:text-white"
+            >
+              <FaSignOutAlt />
+              Log out
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main column */}
+      <div className="flex min-h-screen flex-1 flex-col lg:pl-[280px]">
         <DashboardHeader
-          title="StudyBuddy Africa"
+          title={
+            navItems.find((n) => n.key === activeComponent)?.label ||
+            "Dashboard"
+          }
           userInfo={userInfo}
           onLogout={handleLogout}
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          notificationCount={notificationCount}
+          onToggleSidebar={() => setSidebarOpen(true)}
           onViewProfile={() => handleMenuItemClick("myaccount")}
-          onEditProfile={() => handleMenuItemClick("profileupdate")}
+          onEditProfile={() => handleMenuItemClick("myaccount")}
         />
 
-        {/* Verification Notice Banner */}
-        {showVerificationNotice && (
-          <div
-            className={`border-l-4 p-4 mb-4 ${
-              verificationStatus === "pending"
-                ? "bg-blue-100 border-blue-500"
-                : verificationStatus === "rejected"
-                  ? "bg-red-100 border-red-500"
-                  : "bg-yellow-100 border-yellow-500"
-            }`}>
-            <div className="flex items-center">
-              <div className="ml-3 flex-1">
-                <p
-                  className={`text-sm font-medium ${
-                    verificationStatus === "pending"
-                      ? "text-blue-700"
-                      : verificationStatus === "rejected"
-                        ? "text-red-700"
-                        : "text-yellow-700"
-                  }`}>
-                  {verificationStatus === "pending"
-                    ? "Your verification is pending admin approval. Please wait for approval before continuing."
+        {showVerificationNotice && verificationStatus !== "approved" && (
+          <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 md:mx-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <p
+                className={`flex-1 font-josefin text-sm ${
+                  verificationStatus === "pending"
+                    ? "text-blue-700"
                     : verificationStatus === "rejected"
-                      ? "Your verification was rejected. Please update your information and resubmit."
-                      : "Your account is not verified. Please complete verification in My Account before continuing."}
-                </p>
-              </div>
-              <div className="ml-auto pl-3">
-                <button
-                  onClick={() => handleMenuItemClick("myaccount")}
-                  className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                    verificationStatus === "pending"
-                      ? "bg-blue-500 hover:bg-blue-600 text-white"
-                      : verificationStatus === "rejected"
-                        ? "bg-red-500 hover:bg-red-600 text-white"
-                        : "bg-yellow-500 hover:bg-yellow-600 text-white"
-                  }`}>
-                  {verificationStatus === "rejected"
-                    ? "Resubmit Verification"
-                    : "Verify Account"}
-                </button>
-              </div>
+                      ? "text-red-700"
+                      : "text-amber-800"
+                }`}
+              >
+                {verificationStatus === "pending"
+                  ? "Your verification is pending admin approval."
+                  : verificationStatus === "rejected"
+                    ? "Your verification was rejected. Please update and resubmit."
+                    : "Your account is not verified. Complete verification in My Account."}
+              </p>
+              <button
+                type="button"
+                onClick={() => handleMenuItemClick("myaccount")}
+                className="shrink-0 rounded-lg bg-[#015575] px-4 py-2 font-josefin text-sm font-medium text-white hover:bg-[#01B0F1]"
+              >
+                {verificationStatus === "rejected"
+                  ? "Resubmit"
+                  : "Verify account"}
+              </button>
             </div>
           </div>
         )}
 
-        {/* Welcome Modal for Verification */}
         {showWelcomeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl">
               <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-[#01B0F1]/10 mb-6">
+                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#01B0F1]/10">
                   <FaChalkboardTeacher className="h-10 w-10 text-[#01B0F1]" />
                 </div>
-                <h2 className="text-3xl font-lilita text-[#015575] mb-4">
+                <h2 className="mb-4 font-lilita text-3xl text-[#015575]">
                   Welcome to StudyBuddy!
                 </h2>
-                <p className="text-gray-600 font-josefin text-lg mb-6">
+                <p className="mb-6 font-josefin text-lg text-gray-600">
                   Before you can start teaching, we need to verify your account.
                 </p>
-                <p className="text-gray-700 font-josefin mb-8">
-                  Please complete your account verification by providing your
-                  profile photo and details. Your verification request will be
-                  sent to our admin team for approval.
-                </p>
-                <div className="flex gap-4 justify-center">
-                  <button
-                    onClick={() => {
-                      setShowWelcomeModal(false);
-                      handleMenuItemClick("myaccount");
-                    }}
-                    className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all">
-                    Start Verification
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowWelcomeModal(false);
+                    handleMenuItemClick("myaccount");
+                  }}
+                  className="rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] px-8 py-3 font-lilita text-white hover:shadow-lg"
+                >
+                  Start verification
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Block Overlay */}
-        {(() => {
-          const allowTestingAccess =
-            localStorage.getItem("dev_mode") === "true";
-          return isBlocked &&
-            activeComponent !== "myaccount" &&
-            !allowTestingAccess ? (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 text-center">
-                <FaChalkboardTeacher className="h-16 w-16 text-[#01B0F1] mx-auto mb-4" />
-                <h3 className="text-2xl font-lilita text-[#015575] mb-4">
-                  Account Verification Required
+        {isBlocked &&
+          activeComponent !== "myaccount" &&
+          !allowTestingAccess && (
+            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
+              <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
+                <FaChalkboardTeacher className="mx-auto mb-4 h-16 w-16 text-[#01B0F1]" />
+                <h3 className="mb-4 font-lilita text-2xl text-[#015575]">
+                  Account verification required
                 </h3>
-                <p className="text-gray-600 font-josefin mb-6">
+                <p className="mb-6 font-josefin text-gray-600">
                   {verificationStatus === "pending"
-                    ? "Your account verification is pending admin approval. You'll be able to access all features once approved."
+                    ? "Verification is pending admin approval."
                     : verificationStatus === "rejected"
-                      ? "Your account verification was rejected. Please update your information and resubmit for approval."
-                      : "Please complete your account verification to access the dashboard features."}
+                      ? "Verification was rejected. Please update and resubmit."
+                      : "Please complete account verification to access the dashboard."}
                 </p>
                 <button
+                  type="button"
                   onClick={() => handleMenuItemClick("myaccount")}
-                  className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-6 py-3 rounded-xl font-lilita hover:shadow-lg transition-all">
+                  className="rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] px-6 py-3 font-lilita text-white"
+                >
                   {verificationStatus === "rejected"
-                    ? "Resubmit Verification"
-                    : "Go to Verification"}
+                    ? "Resubmit verification"
+                    : "Go to verification"}
                 </button>
               </div>
             </div>
-          ) : null;
-        })()}
+          )}
 
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto bg-[#F8FAFC]">
+          <div className="p-4 md:p-6 lg:p-8">
             {activeComponent === "dashboard" && (
               <div className="space-y-6">
-                {(() => {
-                  const allowTestingAccess =
-                    localStorage.getItem("dev_mode") === "true";
-                  return isBlocked && !allowTestingAccess ? (
-                    <div className="bg-white rounded-xl shadow-md p-8 text-center">
-                      <FaChalkboardTeacher className="h-20 w-20 text-[#01B0F1] mx-auto mb-4" />
-                      <h2 className="text-2xl font-lilita text-[#015575] mb-4">
-                        Welcome, {getDisplayName()}!
-                      </h2>
-                      <p className="text-gray-600 font-josefin mb-6">
-                        {verificationStatus === "pending"
-                          ? "Your account verification is pending admin approval. You'll receive a notification once your account is approved."
-                          : verificationStatus === "rejected"
-                            ? "Your account verification was rejected. Please update your information and resubmit for approval."
-                            : "Please complete your account verification to start using the dashboard features."}
-                      </p>
-                      <button
-                        onClick={() => handleMenuItemClick("myaccount")}
-                        className="bg-gradient-to-r from-[#01B0F1] to-[#015575] text-white px-8 py-3 rounded-xl font-lilita hover:shadow-lg transition-all">
-                        {verificationStatus === "rejected"
-                          ? "Resubmit Verification"
-                          : "Complete Verification"}
-                      </button>
+                {isBlocked && !allowTestingAccess ? (
+                  <div className="rounded-xl border border-slate-100 bg-white p-8 text-center shadow-sm">
+                    <FaChalkboardTeacher className="mx-auto mb-4 h-20 w-20 text-[#01B0F1]" />
+                    <h2 className="mb-4 font-lilita text-2xl text-[#015575]">
+                      Welcome, {getDisplayName()}!
+                    </h2>
+                    <p className="mb-6 font-josefin text-gray-600">
+                      {verificationStatus === "pending"
+                        ? "Your account verification is pending admin approval."
+                        : verificationStatus === "rejected"
+                          ? "Your account verification was rejected. Please update and resubmit."
+                          : "Please complete verification to use dashboard features."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleMenuItemClick("myaccount")}
+                      className="rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] px-8 py-3 font-lilita text-white"
+                    >
+                      {verificationStatus === "rejected"
+                        ? "Resubmit verification"
+                        : "Complete verification"}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
+                      {stats.map((stat) => (
+                        <div
+                          key={stat.title}
+                          className="rounded-xl border-l-4 border-[#01B0F1] bg-white p-4 shadow-sm md:p-6"
+                        >
+                          <div className="flex items-center">
+                            <div className="mr-4 rounded-lg bg-[#01B0F1]/10 p-3 text-[#01B0F1]">
+                              {stat.icon}
+                            </div>
+                            <div>
+                              <p className="font-josefin text-xs text-gray-500 md:text-sm">
+                                {stat.title}
+                              </p>
+                              <h3 className="font-lilita text-xl text-[#015575] md:text-2xl">
+                                {stat.value}
+                              </h3>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ) : (
-                    <>
-                      {/* Stats Overview */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                        {stats.map((stat, index) => (
-                          <div
-                            key={index}
-                            className="bg-white rounded-xl shadow-md p-4 md:p-6 border-l-4 border-[#01B0F1]">
-                            <div className="flex items-center">
-                              <div className="p-3 rounded-lg bg-[#01B0F1]/10 text-[#01B0F1] mr-4">
-                                {stat.icon}
-                              </div>
-                              <div>
-                                <p className="text-gray-500 text-xs md:text-sm">
-                                  {stat.title}
-                                </p>
-                                <div className="flex items-baseline">
-                                  <h3 className="text-xl md:text-2xl font-bold text-gray-800">
-                                    {stat.value}
-                                  </h3>
-                                  <span className="ml-2 text-xs md:text-sm text-green-500">
-                                    {stat.change}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
+
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 md:gap-6">
+                      <div
+                        className="cursor-pointer rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] p-6 text-white shadow-lg transition hover:shadow-xl"
+                        onClick={handleGoLive}
+                      >
+                        <div className="mb-4 flex items-center">
+                          <div className="mr-4 rounded-full bg-white/20 p-3">
+                            <FaVideo className="text-xl" />
                           </div>
-                        ))}
+                          <h2 className="font-lilita text-xl">Go Live</h2>
+                        </div>
+                        <p className="mb-6 text-white/90">
+                          Start a live session with your students
+                        </p>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#015575]"
+                        >
+                          Start live session
+                        </button>
                       </div>
 
-                      {/* Action Cards */}
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-                        <div
-                          className="bg-gradient-to-r from-[#027FAD] to-[#015575] rounded-xl shadow-lg text-white p-6 cursor-pointer hover:shadow-xl transition-shadow"
-                          onClick={handleGoLive}>
-                          <div className="flex items-center mb-4">
-                            <div className="bg-white/20 p-3 rounded-full mr-4">
-                              <FaVideo className="text-xl" />
-                            </div>
-                            <h2 className="text-xl font-lilita">Go Live</h2>
+                      <div
+                        className="cursor-pointer rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md"
+                        onClick={() => handleMenuItemClick("schedule")}
+                      >
+                        <div className="mb-4 flex items-center">
+                          <div className="mr-4 rounded-full bg-[#01B0F1]/10 p-3 text-[#01B0F1]">
+                            <FaCalendarAlt className="text-xl" />
                           </div>
-                          <p className="mb-6 text-blue-100">
-                            Start a live session with your students now
-                          </p>
-                          <button className="bg-white text-[#015575] py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-gray-100 transition text-sm md:text-base">
-                            Start Live Session
-                          </button>
-                        </div>
-
-                        <div
-                          className="bg-white rounded-xl shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border border-gray-100"
-                          onClick={() => handleMenuItemClick("schedule")}>
-                          <div className="flex items-center mb-4">
-                            <div className="bg-[#01B0F1]/10 p-3 rounded-full mr-4 text-[#01B0F1]">
-                              <FaCalendarAlt className="text-xl" />
-                            </div>
-                            <h2 className="text-xl font-lilita text-gray-800">
-                              My Schedule
-                            </h2>
-                          </div>
-                          <p className="mb-6 text-gray-600">
-                            Manage your upcoming classes and availability
-                          </p>
-                          <button className="bg-[#01B0F1] text-white py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-[#0199d4] transition text-sm md:text-base">
-                            View Calendar
-                          </button>
-                        </div>
-
-                        <div
-                          className="bg-white rounded-xl shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border border-gray-100"
-                          onClick={() => setIsModalOpen(true)}>
-                          <div className="flex items-center mb-4">
-                            <div className="bg-[#01B0F1]/10 p-3 rounded-full mr-4 text-[#01B0F1]">
-                              <FaCameraRetro className="text-xl" />
-                            </div>
-                            <h2 className="text-xl font-lilita text-gray-800">
-                              Upload Content
-                            </h2>
-                          </div>
-                          <p className="mb-6 text-gray-600">
-                            Upload videos or materials for your students
-                          </p>
-                          <button className="bg-[#01B0F1] text-white py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-[#0199d4] transition text-sm md:text-base">
-                            Upload Now
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Upcoming Classes */}
-                      <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                        <div className="border-b border-gray-200 p-4 md:p-6">
-                          <h2 className="text-lg md:text-xl font-lilita text-gray-800 flex items-center">
-                            <FaCalendarAlt className="mr-2 text-[#01B0F1]" />
-                            Upcoming Classes
+                          <h2 className="font-lilita text-xl text-[#015575]">
+                            My Schedule
                           </h2>
                         </div>
-                        <div className="p-4 md:p-6">
-                          {liveSessions.length === 0 ? (
-                            <div className="text-center py-8 md:py-12">
-                              <div className="bg-gray-100 p-4 md:p-6 rounded-xl inline-block">
-                                <FaCalendarAlt className="text-3xl md:text-4xl text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-base md:text-lg font-semibold text-gray-700">
-                                  No upcoming classes
-                                </h3>
-                                <p className="text-gray-500 mt-2 text-sm md:text-base">
-                                  Schedule your next class to get started
-                                </p>
-                                <button
-                                  onClick={() =>
-                                    handleMenuItemClick("schedule")
-                                  }
-                                  className="mt-3 md:mt-4 bg-[#01B0F1] text-white py-2 px-4 md:px-6 rounded-lg font-bold hover:bg-[#0199d4] transition text-sm md:text-base">
-                                  Schedule Class
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <ul className="divide-y divide-gray-200">
-                              {liveSessions
-                                .slice(0, 5)
-                                .map((session, index) => (
-                                  <li
-                                    key={index}
-                                    className="py-3 md:py-4 flex justify-between items-center">
-                                    <div>
-                                      <h3 className="font-semibold text-gray-800 text-sm md:text-base">
-                                        {session.subject?.name ||
-                                          session.subject ||
-                                          "General Class"}
-                                      </h3>
-                                      <p className="text-gray-600 text-xs md:text-sm">
-                                        Grade{" "}
-                                        {session.grade?.level ||
-                                          session.grade ||
-                                          "All"}
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="font-medium text-gray-800 text-sm md:text-base">
-                                        {session.scheduled_date}
-                                      </p>
-                                      <p className="text-xs md:text-sm text-gray-500">
-                                        {session.duration || "60 min"}
-                                      </p>
-                                    </div>
-                                  </li>
-                                ))}
-                            </ul>
-                          )}
+                        <p className="mb-6 text-gray-600">
+                          Manage classes and availability
+                        </p>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-[#01B0F1] px-4 py-2 text-sm font-bold text-white"
+                        >
+                          View calendar
+                        </button>
+                      </div>
+
+                      <div
+                        className="cursor-pointer rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md"
+                        onClick={() => setIsModalOpen(true)}
+                      >
+                        <div className="mb-4 flex items-center">
+                          <div className="mr-4 rounded-full bg-[#01B0F1]/10 p-3 text-[#01B0F1]">
+                            <FaCameraRetro className="text-xl" />
+                          </div>
+                          <h2 className="font-lilita text-xl text-[#015575]">
+                            Upload content
+                          </h2>
                         </div>
-                        {liveSessions.length > 0 && (
-                          <div className="border-t border-gray-200 p-3 text-center">
+                        <p className="mb-6 text-gray-600">
+                          Upload videos or materials for students
+                        </p>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-[#01B0F1] px-4 py-2 text-sm font-bold text-white"
+                        >
+                          Upload now
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+                      <div className="border-b border-gray-100 p-4 md:p-6">
+                        <h2 className="flex items-center font-lilita text-lg text-[#015575] md:text-xl">
+                          <FaCalendarAlt className="mr-2 text-[#01B0F1]" />
+                          Upcoming classes
+                        </h2>
+                      </div>
+                      <div className="p-4 md:p-6">
+                        {loading ? (
+                          <p className="py-8 text-center font-josefin text-gray-500">
+                            Loading…
+                          </p>
+                        ) : liveSessions.length === 0 ? (
+                          <div className="py-10 text-center">
+                            <FaCalendarAlt className="mx-auto mb-3 text-4xl text-gray-300" />
+                            <h3 className="font-lilita text-lg text-[#015575]">
+                              No upcoming classes
+                            </h3>
+                            <p className="mt-1 font-josefin text-sm text-gray-500">
+                              Schedule your next class to get started
+                            </p>
                             <button
-                              onClick={() =>
-                                handleMenuItemClick("upcomingclasses")
-                              }
-                              className="text-[#01B0F1] font-semibold hover:text-[#015575] transition-colors text-sm md:text-base">
-                              View All Classes
+                              type="button"
+                              onClick={() => handleMenuItemClick("schedule")}
+                              className="mt-4 rounded-lg bg-[#01B0F1] px-6 py-2 font-bold text-white"
+                            >
+                              Schedule class
                             </button>
                           </div>
+                        ) : (
+                          <ul className="divide-y divide-gray-100">
+                            {liveSessions.slice(0, 5).map((session, index) => (
+                              <li
+                                key={session.id || index}
+                                className="flex items-center justify-between py-3"
+                              >
+                                <div>
+                                  <h3 className="font-josefin font-semibold text-[#015575]">
+                                    {session.title ||
+                                      session.subject?.name ||
+                                      "Class"}
+                                  </h3>
+                                  <p className="font-josefin text-xs text-gray-500">
+                                    {session.started_at
+                                      ? new Date(
+                                          session.started_at,
+                                        ).toLocaleString()
+                                      : session.scheduled_date || "TBC"}
+                                  </p>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
                         )}
                       </div>
-                    </>
-                  );
-                })()}
+                      {liveSessions.length > 0 && (
+                        <div className="border-t border-gray-100 p-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleMenuItemClick("upcomingclasses")
+                            }
+                            className="font-josefin text-sm font-semibold text-[#01B0F1] hover:text-[#015575]"
+                          >
+                            View all classes
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {/* Component Renderers */}
-            {(() => {
-              const allowTestingAccess =
-                localStorage.getItem("dev_mode") === "true";
-              const canAccess = !isBlocked || allowTestingAccess;
-
-              if (!canAccess && activeComponent !== "myaccount") {
-                return (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500 font-josefin">
-                      Please verify your account to access this section.
-                    </p>
-                  </div>
-                );
-              }
-
-              return (
-                <>
-                  {activeComponent === "lessons" && (
-                    <MyLessons userInfo={userInfo} />
-                  )}
-                  {activeComponent === "liveclass" && (
-                    <Liveclass userInfo={userInfo} />
-                  )}
-                  {activeComponent === "mywallet" && (
-                    <MyWallet userInfo={userInfo} />
-                  )}
-                  {activeComponent === "schedule" && (
-                    <Scheduler userInfo={userInfo} />
-                  )}
-                  {activeComponent === "studentleads" && (
-                    <StudentLeads userInfo={userInfo} />
-                  )}
-                  {activeComponent === "upcomingclasses" && (
-                    <UpcomingClasses liveSessions={liveSessions} />
-                  )}
-                  {activeComponent === "revisionmaterials" && (
-                    <RevisionMaterials userInfo={userInfo} />
-                  )}
-                  {activeComponent === "assessments" && (
-                    <Assessments userInfo={userInfo} />
-                  )}
-                  {activeComponent === "profileupdate" && (
-                    <TeacherProfileUpdate />
-                  )}
-                  {activeComponent === "myaccount" && <MyAccount />}
-                </>
-              );
-            })()}
+            {!canAccess && activeComponent !== "myaccount" ? (
+              <div className="py-12 text-center">
+                <p className="font-josefin text-gray-500">
+                  Please verify your account to access this section.
+                </p>
+              </div>
+            ) : (
+              <>
+                {activeComponent === "lessons" && (
+                  <MyLessons userInfo={userInfo} />
+                )}
+                {activeComponent === "liveclass" && (
+                  <Liveclass userInfo={userInfo} />
+                )}
+                {activeComponent === "mywallet" && (
+                  <MyWallet userInfo={userInfo} />
+                )}
+                {activeComponent === "schedule" && (
+                  <Scheduler userInfo={userInfo} />
+                )}
+                {activeComponent === "studentleads" && (
+                  <StudentLeads userInfo={userInfo} />
+                )}
+                {activeComponent === "upcomingclasses" && (
+                  <UpcomingClasses liveSessions={liveSessions} />
+                )}
+                {activeComponent === "revisionmaterials" && (
+                  <RevisionMaterials userInfo={userInfo} />
+                )}
+                {activeComponent === "assessments" && (
+                  <Assessments userInfo={userInfo} />
+                )}
+                {activeComponent === "profileupdate" && (
+                  <TeacherProfileUpdate />
+                )}
+                {activeComponent === "myaccount" && <MyAccount />}
+              </>
+            )}
           </div>
         </main>
 
-        {/* Footer */}
-        <footer className="bg-white border-t py-3 px-4 text-center text-gray-500 text-xs md:text-sm">
-          <p>
-            © {new Date().getFullYear()} StudyBuddy Africa Teacher Dashboard.
-            All rights reserved.
-          </p>
+        <footer className="border-t border-slate-100 bg-white py-3 text-center font-josefin text-xs text-gray-500">
+          © {new Date().getFullYear()} StudyBuddy Africa · Teacher Dashboard
         </footer>
       </div>
 
-      {/* Video Upload Modal */}
+      {/* Upload modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto">
-            <div className="flex justify-between items-center p-4 md:p-6 border-b">
-              <h2 className="text-xl md:text-2xl font-lilita text-[#015575]">
-                Upload Video
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b p-4 md:p-6">
+              <h2 className="font-lilita text-xl text-[#015575] md:text-2xl">
+                Upload video
               </h2>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700">
+                className="text-gray-500 hover:text-gray-700"
+              >
                 <FaTimes className="text-2xl" />
               </button>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 md:p-6">
-              <div className="space-y-4 md:space-y-6">
+            <div className="grid grid-cols-1 gap-6 p-4 md:grid-cols-2 md:p-6">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2 text-sm md:text-base">
-                    Video Title
+                  <label className="mb-2 block font-josefin text-sm font-semibold text-gray-700">
+                    Video title
                   </label>
                   <input
                     type="text"
                     value={videoTitle}
                     onChange={(e) => setVideoTitle(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:outline-none focus:ring-2 focus:ring-[#01B0F1] text-sm md:text-base"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-[#01B0F1]"
                     placeholder="Enter video title"
-                    required
                   />
                 </div>
-
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2 text-sm md:text-base">
+                  <label className="mb-2 block font-josefin text-sm font-semibold text-gray-700">
                     Description
                   </label>
                   <textarea
                     value={videoDescription}
                     onChange={(e) => setVideoDescription(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 md:px-4 md:py-3 focus:outline-none focus:ring-2 focus:ring-[#01B0F1] h-24 md:h-32 text-sm md:text-base"
-                    placeholder="Describe your video content"></textarea>
+                    className="h-28 w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-[#01B0F1]"
+                    placeholder="Describe your video"
+                  />
                 </div>
-
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2 text-sm md:text-base">
-                    Select Video
+                  <label className="mb-2 block font-josefin text-sm font-semibold text-gray-700">
+                    Select video
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-[#01B0F1] transition-colors relative">
+                  <div className="relative rounded-lg border-2 border-dashed border-gray-300 p-6 text-center hover:border-[#01B0F1]">
                     <input
                       type="file"
                       accept="video/*"
                       onChange={handleVideoUpload}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      required
+                      className="absolute inset-0 cursor-pointer opacity-0"
                     />
-                    <FaCameraRetro className="text-3xl md:text-4xl text-[#01B0F1] mx-auto mb-3" />
-                    <p className="text-gray-600 font-medium text-sm md:text-base">
-                      Click to upload video
-                    </p>
-                    <p className="text-gray-500 text-xs md:text-sm mt-1">
-                      MP4, AVI, MOV files up to 2GB
+                    <FaCameraRetro className="mx-auto mb-2 text-3xl text-[#01B0F1]" />
+                    <p className="font-josefin text-sm text-gray-600">
+                      Click to upload (MP4, AVI, MOV)
                     </p>
                   </div>
                 </div>
-
-                <div className="flex justify-end pt-3">
+                <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={handleSubmit}
                     disabled={uploading}
-                    className="bg-gradient-to-r from-[#01B0F1] to-[#027FAD] text-white py-2 px-6 md:py-3 md:px-8 rounded-lg font-bold hover:opacity-90 transition disabled:opacity-70 text-sm md:text-base">
-                    {uploading ? "Uploading..." : "Upload Video"}
+                    className="rounded-lg bg-gradient-to-r from-[#01B0F1] to-[#015575] px-6 py-2 font-bold text-white disabled:opacity-70"
+                  >
+                    {uploading ? "Uploading…" : "Upload video"}
                   </button>
                 </div>
               </div>
-
-              <div className="bg-gray-50 rounded-xl p-4 md:p-6">
-                <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">
-                  Video Preview
+              <div className="rounded-xl bg-gray-50 p-4">
+                <h3 className="mb-3 font-josefin font-semibold text-gray-800">
+                  Preview
                 </h3>
                 {videoPreview ? (
-                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                  <div className="aspect-video overflow-hidden rounded-lg bg-black">
                     <video
                       controls
-                      className="w-full h-full object-contain"
+                      className="h-full w-full object-contain"
                       src={videoPreview}
                     />
                   </div>
                 ) : (
-                  <div className="aspect-video flex flex-col items-center justify-center bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 text-gray-500 p-4">
-                    <FaCameraRetro className="text-4xl md:text-5xl mb-3 md:mb-4" />
-                    <p className="text-sm md:text-base">
-                      Video preview will appear here
-                    </p>
-                  </div>
-                )}
-
-                {videoTitle && (
-                  <div className="mt-4 md:mt-6">
-                    <h4 className="font-semibold text-gray-700 mb-1 md:mb-2 text-sm md:text-base">
-                      Title
-                    </h4>
-                    <p className="text-gray-800 text-sm md:text-base">
-                      {videoTitle}
-                    </p>
-                  </div>
-                )}
-
-                {videoDescription && (
-                  <div className="mt-3 md:mt-4">
-                    <h4 className="font-semibold text-gray-700 mb-1 md:mb-2 text-sm md:text-base">
-                      Description
-                    </h4>
-                    <p className="text-gray-600 text-sm md:text-base">
-                      {videoDescription}
-                    </p>
+                  <div className="flex aspect-video flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-100 text-gray-500">
+                    <FaCameraRetro className="mb-2 text-4xl" />
+                    <p className="font-josefin text-sm">Preview appears here</p>
                   </div>
                 )}
               </div>
