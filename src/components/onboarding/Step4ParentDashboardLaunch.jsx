@@ -42,9 +42,32 @@ const Step4ParentDashboardLaunch = ({
 
   const learnerData = useMemo(() => {
     try {
-      const stored = sessionStorage.getItem("parentLearnerData");
-      return stored ? JSON.parse(stored) : null;
-    } catch {
+      const directLearner = sessionStorage.getItem("parentLearnerData");
+      if (directLearner) return JSON.parse(directLearner);
+
+      const wardData = sessionStorage.getItem("parentWardData");
+      if (wardData) {
+        const parsedWard = JSON.parse(wardData);
+        if (parsedWard?.primaryWard) {
+          return {
+            fullName: parsedWard.primaryWard.fullName,
+            school: parsedWard.primaryWard.schoolName,
+            gradeStage:
+              parsedWard.primaryWard.academicStage?.headline || "Grade 7 CBC",
+            avatarInitials: parsedWard.primaryWard.fullName
+              ? parsedWard.primaryWard.fullName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()
+              : "ST",
+          };
+        }
+      }
+      return null;
+    } catch (err) {
+      console.warn("Learner hydration fallback warning:", err);
       return null;
     }
   }, []);
@@ -61,10 +84,17 @@ const Step4ParentDashboardLaunch = ({
   // Guardian details
   const guardianName =
     parentRegistrationData?.fullName ||
-    (registrationData?.first_name ? `${registrationData.first_name} ${registrationData.last_name || ""}`.trim(): "") ||
-    registrationData?.full_name
+    (registrationData?.first_name
+      ? `${registrationData.first_name} ${registrationData.last_name || ""}`.trim()
+      : "") ||
+    registrationData?.full_name ||
+    "Parent Guardian";
 
-  const guardianPhone = parentRegistrationData?.phone || registrationData?.phone || registrationData?.phone_number
+  const guardianPhone =
+    parentRegistrationData?.phone ||
+    registrationData?.phone ||
+    registrationData?.phone_number ||
+    "";
 
   // ---------------------------------------------------------------------------
   // Component State
@@ -315,6 +345,26 @@ const Step4ParentDashboardLaunch = ({
                 <span className="text-xs font-josefin font-semibold text-slate-700">
                   Account: <strong>{guardianName}</strong>
                 </span>
+              </div>
+            </div>
+
+            {/* Temporary Payment Roadmap Banner */}
+            <div className="bg-gradient-to-r from-sky-50 to-blue-50/80 border border-[#01B0F1]/30 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-[#00658C]/10 text-[#00658C] flex items-center justify-center text-lg shrink-0 mt-0.5">
+                <FaShieldAlt />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-josefin font-bold text-xs uppercase tracking-wider text-[#003D55]">
+                    Automated Payment &amp; Escrow Rails Roadmap
+                  </span>
+                  <span className="text-[10px] font-josefin font-bold text-[#00658C] bg-white border border-[#01B0F1]/30 px-2 py-0.5 rounded-full">
+                    Launching Soon
+                  </span>
+                </div>
+                <p className="font-josefin text-xs sm:text-sm text-slate-700 mt-1 leading-relaxed">
+                  StudyBuddy Africa engineering is finalizing automated payment &amp; escrow rails (launching in the coming days). Your secure Family Shared Wallet is automatically provisioned with <strong>KES 0.00</strong> upon completing onboarding.
+                </p>
               </div>
             </div>
 
