@@ -491,7 +491,7 @@ const Step4ParentDashboardLaunch = ({
 
                   <div className="flex items-center gap-2.5 self-start sm:self-center">
                     <span className="font-mono text-xs font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
-                      {guardianPhone}
+                      {guardianPhone || "Not provided"}
                     </span>
                     {paymentMethod === "mpesa" ? (
                       <FaCheckCircle className="text-[#01B0F1] text-base shrink-0" />
@@ -572,7 +572,7 @@ const Step4ParentDashboardLaunch = ({
                       WhatsApp Instant Progress Reports
                     </h5>
                     <p className="font-josefin text-[11px] text-slate-500 leading-tight mt-0.5">
-                      Real-time alerts when homework is submitted or test scores are ready ({guardianPhone}).
+                      Real-time alerts when homework is submitted or test scores are ready{guardianPhone ? ` (${guardianPhone})` : ""}.
                     </p>
                   </div>
                 </div>
@@ -745,7 +745,7 @@ const Step4ParentDashboardLaunch = ({
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
                   <FaMobileAlt className="text-[#00A859] text-xl shrink-0" />
                   <div className="text-xs font-josefin text-slate-700">
-                    Prompt sent to <strong>{guardianPhone}</strong>. Check your phone and enter your M-PESA PIN to authorize.
+                    Prompt sent to <strong>{guardianPhone || "your phone"}</strong>. Check your phone and enter your M-PESA PIN to authorize.
                   </div>
                 </div>
 
