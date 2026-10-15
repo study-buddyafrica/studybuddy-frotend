@@ -14,7 +14,7 @@ import {
   FaMale,
   FaUserShield,
 } from "react-icons/fa";
-import { AuthAlert } from "../auth";
+import { FloatingToast } from "../common/FloatingToast";
 import { FHOST, decodeJwtToken } from "../constants/Functions";
 import { authStorage } from "../../services/authStorage";
 import { onboardingService } from "../../services/onboardingService";
@@ -39,11 +39,7 @@ const Step1ParentAccountOtp = ({
 
   const [fullName, setFullName] = useState(defaultFullName);
 
-  const [email, setEmail] = useState(
-    initialEmail || registrationData?.email || "",
-  );
-  const [isEditingEmail, setIsEditingEmail] = useState(false);
-  const [tempEmail, setTempEmail] = useState(email);
+  const email = initialEmail || registrationData?.email || "";
 
   const [phone, setPhone] = useState(
     initialPhone ||
@@ -51,8 +47,6 @@ const Step1ParentAccountOtp = ({
       registrationData?.phone_number ||
       "",
   );
-  const [isEditingPhone, setIsEditingPhone] = useState(false);
-  const [tempPhone, setTempPhone] = useState(phone);
 
   // Relationship: "mother" | "father" | "guardian" (starts empty)
   const [relationship, setRelationship] = useState("");
@@ -185,30 +179,6 @@ const Step1ParentAccountOtp = ({
   };
 
   // ---------------------------------------------------------------------------
-  // Handlers: Save Inline Email / Phone
-  // ---------------------------------------------------------------------------
-  const handleSaveEmail = () => {
-    if (tempEmail && tempEmail.includes("@")) {
-      setEmail(tempEmail);
-      setIsEditingEmail(false);
-      setSuccessMessage(`Verification email updated to ${tempEmail}`);
-      setResendCooldown(0);
-    } else {
-      setErrorMessage("Please enter a valid email address.");
-    }
-  };
-
-  const handleSavePhone = () => {
-    if (tempPhone && tempPhone.length >= 9) {
-      setPhone(tempPhone);
-      setIsEditingPhone(false);
-      setSuccessMessage(`Mobile phone updated to ${tempPhone}`);
-    } else {
-      setErrorMessage("Please enter a valid phone number.");
-    }
-  };
-
-  // ---------------------------------------------------------------------------
   // Submit / Verify & Continue
   // ---------------------------------------------------------------------------
   const handleVerifyAndProceed = async (e) => {
@@ -226,8 +196,8 @@ const Step1ParentAccountOtp = ({
     }
 
     const fullCode = otpDigits.join("");
-    if (fullCode.length < 4 && !isVerified) {
-      setErrorMessage("Please enter the 6-digit verification code to confirm your contact.");
+    if (fullCode.length !== 6) {
+      setErrorMessage("Please enter the complete 6-digit verification code.");
       return;
     }
 
@@ -360,6 +330,7 @@ const Step1ParentAccountOtp = ({
       };
 
       sessionStorage.setItem("parentAccountData", JSON.stringify(parentPayload));
+      sessionStorage.setItem("parentRegistrationData", JSON.stringify(parentPayload));
 
       setSuccessMessage("Guardian account verified successfully! Advancing to Learner Details...");
 
@@ -377,16 +348,16 @@ const Step1ParentAccountOtp = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Alert Messages */}
+      {/* Floating Viewport-Anchored Toast Alerts */}
       {errorMessage && (
-        <AuthAlert
+        <FloatingToast
           variant="error"
           message={errorMessage}
           onDismiss={() => setErrorMessage("")}
         />
       )}
       {successMessage && (
-        <AuthAlert
+        <FloatingToast
           variant="success"
           message={successMessage}
           onDismiss={() => setSuccessMessage("")}
@@ -441,42 +412,24 @@ const Step1ParentAccountOtp = ({
               <p className="font-josefin font-semibold text-xs text-slate-500 uppercase tracking-wider">
                 Verification Target &bull; Email
               </p>
-              {isEditingEmail ? (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <input
-                    type="email"
-                    value={tempEmail}
-                    onChange={(e) => setTempEmail(e.target.value)}
-                    className="px-2.5 py-1 text-xs bg-white border border-[#01B0F1] rounded-lg focus:outline-none font-josefin w-full"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSaveEmail}
-                    className="text-xs bg-[#00658C] text-white px-2.5 py-1 rounded-lg font-bold font-josefin"
-                  >
-                    Save
-                  </button>
-                </div>
-              ) : (
-                <p className="font-josefin font-bold text-slate-900 text-sm sm:text-base truncate mt-0.5">
-                  {email || "parent.guardian@studybuddy.africa"}
-                </p>
-              )}
+              <p className="font-josefin font-bold text-slate-900 text-sm sm:text-base truncate mt-0.5">
+                {email || "parent.guardian@studybuddy.africa"}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 self-start sm:self-auto font-josefin shrink-0">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#DEF0FF] text-[#00658C] font-semibold text-[11px]">
-              <FaCheckCircle className="w-3 h-3 text-[#00658C]" />
-              Parent Account
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsEditingEmail(!isEditingEmail)}
-              className="text-xs text-[#00658C] hover:text-[#013349] font-bold underline underline-offset-2 cursor-pointer"
-            >
-              {isEditingEmail ? "Cancel" : "Change email"}
-            </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto font-josefin shrink-0">
+            {isVerified ? (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
+                <FaCheckCircle className="text-xs" />
+                <span>Verified</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#DEF0FF] text-[#00658C] font-semibold text-xs">
+                <FaClock className="text-xs" />
+                <span>Code Required</span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -590,44 +543,43 @@ const Step1ParentAccountOtp = ({
 
           {/* Row 2: Email & Phone (Two Columns) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Email Field with Verified Badge */}
+            {/* Email Field with Conditional Verified Badge */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-josefin font-bold text-slate-700 uppercase tracking-wider">
                   Email Address
                 </label>
-                <span className="inline-flex items-center gap-1 text-[11px] font-josefin font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  <FaCheckCircle className="text-[10px]" />
-                  <span>Verified</span>
-                </span>
+                {isVerified ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-josefin font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <FaCheckCircle className="text-[10px]" />
+                    <span>Verified</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-josefin font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                    <span>Pending OTP Verification</span>
+                  </span>
+                )}
               </div>
               <div className="relative flex items-center">
                 <FaEnvelope className="absolute left-3.5 text-slate-400 text-sm pointer-events-none" />
                 <input
                   type="email"
                   value={email}
-                  readOnly={!isEditingEmail}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-16 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin font-semibold text-slate-800 bg-slate-50/60 focus:outline-none focus:border-[#015575]"
+                  readOnly
+                  disabled
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin font-semibold text-slate-500 bg-slate-100/80 cursor-not-allowed focus:outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={() => setIsEditingEmail(!isEditingEmail)}
-                  className="absolute right-3 text-xs font-josefin font-bold text-[#015575] hover:text-[#01B0F1] hover:underline cursor-pointer"
-                >
-                  Change
-                </button>
               </div>
             </div>
 
-            {/* Mobile Phone Field with Safaricom Active Badge */}
+            {/* Mobile Phone Field (Optional for SMS & WhatsApp progress updates) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-josefin font-bold text-slate-700 uppercase tracking-wider">
-                  Mobile Phone (M-Pesa &amp; SMS Alerts)
+                  Mobile Phone <span className="text-slate-400 font-normal lowercase">(optional)</span>
                 </label>
-                <span className="inline-flex items-center gap-1 text-[11px] font-josefin font-semibold text-[#015575] bg-[#015575]/10 px-2 py-0.5 rounded-full border border-[#015575]/20">
-                  <span>Safaricom Active</span>
+                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-josefin font-bold uppercase tracking-wider">
+                  Optional
                 </span>
               </div>
               <div className="relative flex items-center">
@@ -635,25 +587,14 @@ const Step1ParentAccountOtp = ({
                 <input
                   type="tel"
                   value={phone}
-                  readOnly={!isEditingPhone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-10 pr-16 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin font-semibold text-slate-800 bg-slate-50/60 focus:outline-none focus:border-[#015575]"
+                  placeholder="e.g. +254 712 345 678"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin font-semibold text-slate-800 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#015575] focus:ring-2 focus:ring-[#015575]/10 transition-all"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isEditingPhone) {
-                      handleSavePhone();
-                    } else {
-                      setTempPhone(phone);
-                      setIsEditingPhone(true);
-                    }
-                  }}
-                  className="absolute right-3 text-xs font-josefin font-bold text-[#015575] hover:text-[#01B0F1] hover:underline cursor-pointer"
-                >
-                  {isEditingPhone ? "Save" : "Change"}
-                </button>
               </div>
+              <p className="text-[11px] font-josefin text-slate-500 mt-1 leading-snug">
+                For SMS &amp; WhatsApp weekly student progress updates ONLY (not for M-Pesa payments. Family Wallet setup takes place in Step 4).
+              </p>
             </div>
           </div>
 
@@ -778,9 +719,13 @@ const Step1ParentAccountOtp = ({
 
           <button
             type="button"
-            disabled={loading}
+            disabled={loading || otpDigits.join("").length !== 6}
             onClick={handleVerifyAndProceed}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 rounded-xl bg-[#003D55] hover:bg-[#015575] text-white font-lilita text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-60 cursor-pointer"
+            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 rounded-xl font-lilita text-sm shadow-md transition-all ${
+              loading || otpDigits.join("").length !== 6
+                ? "bg-slate-400 text-white cursor-not-allowed"
+                : "bg-[#003D55] hover:bg-[#015575] hover:shadow-lg text-white cursor-pointer"
+            }`}
           >
             {loading ? (
               <span>Verifying Code...</span>

@@ -25,12 +25,10 @@ const Step1TeacherAccountOtp = ({
   onVerificationSuccess = null,
 }) => {
   // Contact details state
-  const [email, setEmail] = useState(initialEmail || registrationData?.email);
+  const email = initialEmail || registrationData?.email || "";
   const [phone, setPhone] = useState(initialPhone || registrationData?.phone || registrationData?.phone_number);
 
-  // Inline editing states for Email and Phone
-  const [isEditingEmail, setIsEditingEmail] = useState(false);
-  const [tempEmail, setTempEmail] = useState(email);
+  // Inline editing states for Phone
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [tempPhone, setTempPhone] = useState(phone);
 
@@ -156,18 +154,6 @@ const Step1TeacherAccountOtp = ({
     }
   };
 
-  // Save edited email
-  const handleSaveEmail = () => {
-    if (tempEmail && tempEmail.includes("@")) {
-      setEmail(tempEmail);
-      setIsEditingEmail(false);
-      setSuccessMessage("Educator email updated.");
-      setResendCooldown(0);
-    } else {
-      setErrorMessage("Please enter a valid educator email address.");
-    }
-  };
-
   // Save edited phone
   const handleSavePhone = () => {
     if (tempPhone && tempPhone.length >= 10) {
@@ -185,7 +171,7 @@ const Step1TeacherAccountOtp = ({
     if (loading) return;
 
     const fullCode = otpDigits.join("");
-    if (fullCode.length < 4) {
+    if (fullCode.length !== 6) {
       setErrorMessage("Please enter the complete 6-digit verification code.");
       return;
     }
@@ -373,8 +359,7 @@ const Step1TeacherAccountOtp = ({
         <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200/80 space-y-6">
           {/* Verification Target Cards (Email + M-PESA Phone) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Target Verification: Educator Email */}
-            {/* NOTE: THIS BANNER SHOULD ONLY SHOW THE EMAIL FROM THE REGISTERED USER/DATA. NOT A DUMMY/FAKE "eli.muthoka@studybuddy.africa" */}
+            {/* Target Verification: Educator Email (Strictly Read-Only) */}
             <div className="bg-[#EAF5FF] rounded-xl p-4 sm:p-5 flex items-center justify-between gap-3 border border-[#01B0F1]/20">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-full bg-[#00658C]/10 flex items-center justify-center text-[#00658C] shrink-0">
@@ -384,38 +369,10 @@ const Step1TeacherAccountOtp = ({
                   <p className="font-josefin font-semibold text-xs text-slate-500 uppercase tracking-wider">
                     Verification Target &bull; Email
                   </p>
-                  {isEditingEmail ? (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <input
-                        type="email"
-                        value={tempEmail}
-                        onChange={(e) => setTempEmail(e.target.value)}
-                        className="px-2.5 py-1 text-xs bg-white border border-[#01B0F1] rounded-lg focus:outline-none font-josefin w-full"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSaveEmail}
-                        className="text-xs bg-[#00658C] text-white px-2.5 py-1 rounded-lg font-bold font-josefin"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="font-josefin font-bold text-slate-900 text-sm sm:text-base truncate mt-0.5">
-                      {email}
-                    </p>
-                  )}
+                  <p className="font-josefin font-bold text-slate-900 text-sm sm:text-base truncate mt-0.5">
+                    {email}
+                  </p>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-start sm:self-auto font-josefin shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingEmail(!isEditingEmail)}
-                  className="text-xs text-[#00658C] hover:text-[#013349] font-bold underline underline-offset-2"
-                >
-                  {isEditingEmail ? "Cancel" : "Change"}
-                </button>
               </div>
             </div>
 
@@ -556,9 +513,9 @@ const Step1TeacherAccountOtp = ({
           <button
             type="button"
             onClick={handleVerifyAndProceed}
-            disabled={loading || otpDigits.join("").length < 4}
+            disabled={loading || otpDigits.join("").length !== 6}
             className={`w-full sm:w-auto px-7 py-3.5 rounded-xl font-lilita text-base tracking-wide text-white flex items-center justify-center gap-2 transition-all shadow-md ${
-              loading || otpDigits.join("").length < 4
+              loading || otpDigits.join("").length !== 6
                 ? "bg-slate-400 cursor-not-allowed"
                 : "bg-[#003D55] hover:bg-[#015575] hover:shadow-lg cursor-pointer"
             }`}

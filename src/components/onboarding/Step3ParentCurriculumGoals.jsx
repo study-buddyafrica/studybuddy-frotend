@@ -17,8 +17,115 @@ import {
   FaArrowRight,
   FaAward,
 } from "react-icons/fa";
-import { AuthAlert } from "../auth";
+import { FloatingToast } from "../common/FloatingToast";
 import { onboardingService, onboardingPayloads, getErrorMessage } from "../../services/onboardingService";
+
+export const CURRICULUM_DATA_MAP = {
+  cbc: {
+    name: "CBC (Competency Based Curriculum)",
+    grades: [
+      "CBC Pre-Primary (PP1 - PP2)",
+      "Primary School - Grade 4",
+      "Primary School - Grade 5",
+      "Primary School - Grade 6 (KPSEA Candidate)",
+      "Junior Secondary School - Grade 7",
+      "Junior Secondary School - Grade 8",
+      "Junior Secondary School - Grade 9",
+      "Senior School - Grade 10",
+    ],
+    defaultGrade: "Junior Secondary School - Grade 7",
+    coreSubjects: [
+      "Mathematics",
+      "Integrated Science",
+      "English Language",
+      "Coding & Robotics",
+    ],
+    availablePool: [
+      "Social Studies",
+      "Kiswahili",
+      "Creative Arts & Sports",
+      "Agriculture & Nutrition",
+      "Pre-Technical Studies",
+      "French",
+    ],
+  },
+  844: {
+    name: "8-4-4 National Exam Track",
+    grades: [
+      "Standard 7",
+      "Standard 8 (KCPE Revision)",
+      "Secondary Form 1",
+      "Secondary Form 2",
+      "Secondary Form 3",
+      "Secondary Form 4 (KCSE Candidate)",
+    ],
+    defaultGrade: "Secondary Form 3",
+    coreSubjects: [
+      "Mathematics",
+      "English Language",
+      "Chemistry",
+      "Biology",
+    ],
+    availablePool: [
+      "Physics",
+      "Kiswahili",
+      "History & Government",
+      "Geography",
+      "Business Studies",
+      "Computer Studies",
+    ],
+  },
+  cambridge: {
+    name: "Cambridge International / IGCSE",
+    grades: [
+      "Cambridge Lower Secondary (Year 7)",
+      "Cambridge Lower Secondary (Year 8)",
+      "Cambridge Lower Secondary (Year 9 / Checkpoint)",
+      "Cambridge IGCSE (Year 10)",
+      "Cambridge IGCSE (Year 11)",
+      "Cambridge International AS & A Level (Year 12)",
+      "Cambridge International AS & A Level (Year 13)",
+    ],
+    defaultGrade: "Cambridge IGCSE (Year 10)",
+    coreSubjects: [
+      "Pure Mathematics",
+      "Physics (0625)",
+      "Chemistry (0620)",
+      "English Language (0500)",
+    ],
+    availablePool: [
+      "Biology (0610)",
+      "Economics (0455)",
+      "Computer Science (0478)",
+      "Business Studies (0450)",
+      "Literature in English",
+      "French Foreign Language",
+    ],
+  },
+  ib: {
+    name: "International Baccalaureate (IB)",
+    grades: [
+      "IB Middle Years Programme (MYP 1 - 3)",
+      "IB Middle Years Programme (MYP 4 - 5)",
+      "IB Diploma Programme (DP 1)",
+      "IB Diploma Programme (DP 2 / Exam Candidate)",
+    ],
+    defaultGrade: "IB Middle Years Programme (MYP 4 - 5)",
+    coreSubjects: [
+      "Mathematics: Analysis & Approaches",
+      "Language & Literature",
+      "Sciences (Physics/Chemistry/Biology)",
+      "Individuals & Societies",
+    ],
+    availablePool: [
+      "Theory of Knowledge (TOK)",
+      "Language Acquisition (French/Spanish)",
+      "Design & Computer Science",
+      "Visual Arts",
+      "Economics",
+    ],
+  },
+};
 
 /**
  * Step 3 - PARENT Academic Curriculum & Learning Goals
@@ -44,30 +151,32 @@ const Step3ParentCurriculumGoals = ({
   // ---------------------------------------------------------------------------
   // State: Curriculum Selection
   // ---------------------------------------------------------------------------
-  const [curriculum, setCurriculum] = useState(""); // "cbc" | "844" | "cambridge" | "ib"
+  const [curriculum, setCurriculum] = useState("cbc"); // "cbc" | "844" | "cambridge" | "ib"
 
   // Grade level
-  const [gradeLevel, setGradeLevel] = useState("");
+  const [gradeLevel, setGradeLevel] = useState(
+    CURRICULUM_DATA_MAP.cbc.defaultGrade,
+  );
 
   // ---------------------------------------------------------------------------
   // State: Target Focus Subjects
   // ---------------------------------------------------------------------------
-  const defaultSubjects = [
-    "Mathematics",
-    "Integrated Science",
-    "English Language",
-    "Coding & Robotics",
-  ];
-  const [selectedSubjects, setSelectedSubjects] = useState(defaultSubjects);
+  const [selectedSubjects, setSelectedSubjects] = useState([
+    ...CURRICULUM_DATA_MAP.cbc.coreSubjects,
+  ]);
 
-  const availableSubjects = [
-    "Social Studies",
-    "Kiswahili",
-    "Creative Arts",
-    "Agriculture & Nutrition",
-    "Pre-Technical Studies",
-    "French",
-  ];
+  const handleSelectCurriculum = (selectedKey) => {
+    setCurriculum(selectedKey);
+    const currData = CURRICULUM_DATA_MAP[selectedKey] || CURRICULUM_DATA_MAP.cbc;
+    setGradeLevel(currData.defaultGrade);
+    setSelectedSubjects([...currData.coreSubjects]);
+    setSuccessMessage(`Switched curriculum to ${currData.name}`);
+  };
+
+  const currentCurriculumData =
+    CURRICULUM_DATA_MAP[curriculum] || CURRICULUM_DATA_MAP.cbc;
+  const gradeOptions = currentCurriculumData.grades;
+  const availableSubjects = currentCurriculumData.availablePool;
 
   // Custom subject input
   const [showCustomModal, setShowCustomModal] = useState(false);
@@ -109,7 +218,7 @@ const Step3ParentCurriculumGoals = ({
   // ---------------------------------------------------------------------------
   // State: Delivery Mode & Frequency
   // ---------------------------------------------------------------------------
-  const [deliveryMode, setDeliveryMode] = useState("online"); // 100% Online Virtual Classroom
+  const [deliveryMode] = useState("online"); // 100% Online Virtual Classroom
   const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
 
   // Parent Account Data from Step 1 & Billing Preferences
@@ -122,10 +231,10 @@ const Step3ParentCurriculumGoals = ({
     }
   })();
 
-  const [mpesaBillingPhone, setMpesaBillingPhone] = useState(
+  const [mpesaBillingPhone] = useState(
     (parentAccount?.phone || registrationData?.phone_number || "+254").replace(/\s+/g, ""),
   );
-  const [weeklySpendLimit, setWeeklySpendLimit] = useState("5000");
+  const [weeklySpendLimit] = useState("5000");
 
   // UI Status
   const [loading, setLoading] = useState(false);
@@ -201,16 +310,16 @@ const Step3ParentCurriculumGoals = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-7 pb-10">
-      {/* Alert Messages */}
+      {/* Viewport-anchored Floating Toast Notifications */}
       {errorMessage && (
-        <AuthAlert
+        <FloatingToast
           variant="error"
           message={errorMessage}
           onDismiss={() => setErrorMessage("")}
         />
       )}
       {successMessage && (
-        <AuthAlert
+        <FloatingToast
           variant="success"
           message={successMessage}
           onDismiss={() => setSuccessMessage("")}
@@ -261,7 +370,7 @@ const Step3ParentCurriculumGoals = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {/* 1. Kenyan CBC */}
           <div
-            onClick={() => setCurriculum("cbc")}
+            onClick={() => handleSelectCurriculum("cbc")}
             className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between relative ${
               curriculum === "cbc"
                 ? "border-[#003D55] bg-white shadow-md ring-2 ring-[#003D55]/10"
@@ -317,7 +426,7 @@ const Step3ParentCurriculumGoals = ({
 
           {/* 2. 8-4-4 National System */}
           <div
-            onClick={() => setCurriculum("844")}
+            onClick={() => handleSelectCurriculum("844")}
             className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between relative ${
               curriculum === "844"
                 ? "border-[#003D55] bg-white shadow-md ring-2 ring-[#003D55]/10"
@@ -373,7 +482,7 @@ const Step3ParentCurriculumGoals = ({
 
           {/* 3. Cambridge / IGCSE */}
           <div
-            onClick={() => setCurriculum("cambridge")}
+            onClick={() => handleSelectCurriculum("cambridge")}
             className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between relative ${
               curriculum === "cambridge"
                 ? "border-[#003D55] bg-white shadow-md ring-2 ring-[#003D55]/10"
@@ -429,7 +538,7 @@ const Step3ParentCurriculumGoals = ({
 
           {/* 4. American / IB Diploma */}
           <div
-            onClick={() => setCurriculum("ib")}
+            onClick={() => handleSelectCurriculum("ib")}
             className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between relative ${
               curriculum === "ib"
                 ? "border-[#003D55] bg-white shadow-md ring-2 ring-[#003D55]/10"
@@ -501,21 +610,11 @@ const Step3ParentCurriculumGoals = ({
                 onChange={(e) => setGradeLevel(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-josefin font-bold text-slate-800 bg-slate-50/60 focus:bg-white focus:outline-none focus:border-[#015575] cursor-pointer"
               >
-                <option value="Junior Secondary School - Grade 7">
-                  Junior Secondary School - Grade 7
-                </option>
-                <option value="Junior Secondary School - Grade 8">
-                  Junior Secondary School - Grade 8
-                </option>
-                <option value="Junior Secondary School - Grade 9">
-                  Junior Secondary School - Grade 9
-                </option>
-                <option value="Primary School - Grade 6 (KPSEA Candidate)">
-                  Primary School - Grade 6 (KPSEA Candidate)
-                </option>
-                <option value="Primary School - Grade 5">Primary School - Grade 5</option>
-                <option value="Primary School - Grade 4">Primary School - Grade 4</option>
-                <option value="Senior School - Grade 10">Senior School - Grade 10</option>
+                {gradeOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
               </select>
             </div>
             <p className="text-[11px] font-josefin text-slate-400 flex items-center gap-1">
@@ -765,11 +864,11 @@ const Step3ParentCurriculumGoals = ({
           </div>
         </div>
 
-        {/* Preferred Learning Delivery Mode - 100% Online Virtual Classroom */}
+        {/* Learning Delivery Mode - 100% Online Virtual Classroom */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <label className="block text-xs font-josefin font-bold text-slate-700 uppercase tracking-wider">
-              Preferred Learning Delivery Mode
+              Learning Delivery Mode
             </label>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-josefin font-bold">
               • 100% Virtual Classroom

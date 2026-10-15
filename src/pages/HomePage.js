@@ -137,6 +137,90 @@ const teachers = [
     rating: 4.9,
     students: 70,
   },
+  {
+    name: "Grace Achieng",
+    subject: "English & Literature",
+    school: "Kisumu Girls High School",
+    grade: "Forms 2–4",
+    curriculum: "KCSE",
+    country: "Kenya",
+    imgSrc: "/images/teacher2.jpg",
+    experience: 9,
+    rating: 4.8,
+    students: 120,
+  },
+  {
+    name: "David Ochieng",
+    subject: "Physics & Chemistry",
+    school: "Alliance High School",
+    grade: "Forms 3–4",
+    curriculum: "KCSE / 8-4-4",
+    country: "Kenya",
+    imgSrc: "/images/teacher5.jpg",
+    experience: 12,
+    rating: 4.7,
+    students: 90,
+  },
+  {
+    name: "Amina Hassan",
+    subject: "Biology",
+    school: "Mombasa Secondary",
+    grade: "Forms 1–4",
+    curriculum: "CBC & KCSE",
+    country: "Kenya",
+    imgSrc: "/images/maria.jpg",
+    experience: 6,
+    rating: 4.6,
+    students: 85,
+  },
+  {
+    name: "James Kiprop",
+    subject: "History & Government",
+    school: "Eldoret High School",
+    grade: "Forms 2–4",
+    curriculum: "KCSE",
+    country: "Kenya",
+    imgSrc: "/images/james.jpg",
+    experience: 10,
+    rating: 4.5,
+    students: 110,
+  },
+  {
+    name: "Faith Nyambura",
+    subject: "Kiswahili",
+    school: "Thika High School",
+    grade: "Forms 1–3",
+    curriculum: "CBC",
+    country: "Kenya",
+    imgSrc: "/images/faith.jpg",
+    experience: 5,
+    rating: 4.8,
+    students: 95,
+  },
+  {
+    name: "Michael Otieno",
+    subject: "Business Studies",
+    school: "Maseno School",
+    grade: "Forms 3–4",
+    curriculum: "KCSE",
+    country: "Kenya",
+    imgSrc: "/images/michael.jpg",
+    experience: 11,
+    rating: 4.6,
+    students: 75,
+  },
+  {
+    name: "Sarah Chebet",
+    subject: "Geography",
+    school: "Kericho Secondary",
+    grade: "Forms 1–4",
+    curriculum: "CBC & KCSE",
+    country: "Kenya",
+    imgSrc: "/images/teacher4.jpg",
+    experience: 8,
+    rating: 4.7,
+    students: 88,
+  },
 ];
 
 const tutorials = [
@@ -265,11 +349,28 @@ const faqs = [
 ];
 
 function HomePage() {
-  const [selectedVideo, setSelectedVideo] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [audienceTab, setAudienceTab] = useState("student");
-  const [openFaq, setOpenFaq] = useState(null);
+    const [selectedVideo, setSelectedVideo] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [audienceTab, setAudienceTab] = useState("student");
+    const [openFaq, setOpenFaq] = useState(null);
 
+    // Rotating educator showcase (3 cards at a time)
+    const [teacherPage, setTeacherPage] = useState(0);
+    const TEACHERS_PER_PAGE = 3;
+    const teacherPageCount = Math.ceil(teachers.length / TEACHERS_PER_PAGE);
+
+    useEffect(() => {
+      if (teacherPageCount <= 1) return undefined;
+      const id = window.setInterval(() => {
+        setTeacherPage((p) => (p + 1) % teacherPageCount);
+      }, 5000);
+      return () => window.clearInterval(id);
+    }, [teacherPageCount]);
+
+    const visibleTeachers = teachers.slice(
+      teacherPage * TEACHERS_PER_PAGE,
+      teacherPage * TEACHERS_PER_PAGE + TEACHERS_PER_PAGE,
+    );
 
   return (
     <div className="homepage relative min-h-screen w-full overflow-hidden pt-20">
@@ -725,12 +826,11 @@ function HomePage() {
       </section>
 
       {/* Verified educators */}
-      {/* Verified educators — centerpiece */}
+      {/* Verified educators — rotating showcase (top 10) */}
       <section
         id="educators"
         className="scroll-mt-24 relative w-full overflow-hidden bg-gradient-to-b from-[#015575] to-[#027a9e] py-16 sm:py-20"
       >
-        {/* soft pattern */}
         <div
           className="pointer-events-none absolute inset-0 opacity-10"
           style={{
@@ -762,100 +862,129 @@ function HomePage() {
             </Link>
           </div>
 
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {teachers.map((teacher, index) => (
-              <article
-                key={teacher.name}
-                className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-xl shadow-black/20 ring-1 ring-white/20 transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
+          {/* Rotating cards */}
+          <div className="mt-12">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={teacherPage}
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -24 }}
+                transition={{ duration: 0.35 }}
+                className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
               >
-                {/* Photo */}
-                <div className="relative h-48 overflow-hidden bg-[#e1f3ff] sm:h-52">
-                  <img
-                    src={teacher.imgSrc}
-                    alt={teacher.name}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
-                  <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#01B0F1] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow">
-                    <FaCheckCircle className="text-[10px]" />
-                    Verified
-                  </span>
-                </div>
-
-                {/* Always visible: name, school, grade, curriculum, country */}
-                <div className="flex flex-1 flex-col p-5">
-                  <h3 className="font-lilita text-xl leading-tight text-[#015575]">
-                    {teacher.name}
-                  </h3>
-                  <p className="mt-1 font-josefin text-sm font-medium text-[#01B0F1]">
-                    {teacher.subject}
-                  </p>
-
-                  <dl className="mt-4 space-y-2 font-josefin text-sm text-[#4a6b7d]">
-                    <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 font-semibold text-[#015575]">
-                        School
-                      </dt>
-                      <dd>{teacher.school}</dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 font-semibold text-[#015575]">
-                        Grade
-                      </dt>
-                      <dd>{teacher.grade}</dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 font-semibold text-[#015575]">
-                        Curriculum
-                      </dt>
-                      <dd>{teacher.curriculum}</dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 font-semibold text-[#015575]">
-                        Country
-                      </dt>
-                      <dd>{teacher.country}</dd>
-                    </div>
-                  </dl>
-
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    <div className="rounded-xl bg-[#f0f9ff] px-2 py-2.5 text-center">
-                      <p className="font-lilita text-base text-[#015575]">
-                        {teacher.experience}+
-                      </p>
-                      <p className="text-[10px] font-medium text-gray-500">
-                        Years
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-[#f0f9ff] px-2 py-2.5 text-center">
-                      <p className="inline-flex items-center justify-center gap-0.5 font-lilita text-base text-[#015575]">
-                        <FaStar className="text-xs text-amber-400" />
-                        {teacher.rating}
-                      </p>
-                      <p className="text-[10px] font-medium text-gray-500">
-                        Rating
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-[#f0f9ff] px-2 py-2.5 text-center">
-                      <p className="font-lilita text-base text-[#015575]">
-                        {teacher.students}+
-                      </p>
-                      <p className="text-[10px] font-medium text-gray-500">
-                        Learners
-                      </p>
-                    </div>
-                  </div>
-
-                  <Link
-                    to="/tutors"
-                    className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#015575] py-2.5 text-sm font-semibold text-white transition hover:bg-[#01B0F1]"
+                {visibleTeachers.map((teacher) => (
+                  <article
+                    key={teacher.name}
+                    className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-xl shadow-black/20 ring-1 ring-white/20 transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
                   >
-                    View profile
-                  </Link>
-                </div>
-              </article>
-            ))}
+                    <div className="relative h-48 overflow-hidden bg-[#e1f3ff] sm:h-52">
+                      <img
+                        src={teacher.imgSrc}
+                        alt={teacher.name}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+                      <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#01B0F1] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow">
+                        <FaCheckCircle className="text-[10px]" />
+                        Verified
+                      </span>
+                    </div>
+
+                    <div className="flex flex-1 flex-col p-5">
+                      <h3 className="font-lilita text-xl leading-tight text-[#015575]">
+                        {teacher.name}
+                      </h3>
+                      <p className="mt-1 font-josefin text-sm font-medium text-[#01B0F1]">
+                        {teacher.subject}
+                      </p>
+
+                      <dl className="mt-4 space-y-2 font-josefin text-sm text-[#4a6b7d]">
+                        <div className="flex gap-2">
+                          <dt className="w-24 shrink-0 font-semibold text-[#015575]">
+                            School
+                          </dt>
+                          <dd>{teacher.school}</dd>
+                        </div>
+                        <div className="flex gap-2">
+                          <dt className="w-24 shrink-0 font-semibold text-[#015575]">
+                            Grade
+                          </dt>
+                          <dd>{teacher.grade}</dd>
+                        </div>
+                        <div className="flex gap-2">
+                          <dt className="w-24 shrink-0 font-semibold text-[#015575]">
+                            Curriculum
+                          </dt>
+                          <dd>{teacher.curriculum}</dd>
+                        </div>
+                        <div className="flex gap-2">
+                          <dt className="w-24 shrink-0 font-semibold text-[#015575]">
+                            Country
+                          </dt>
+                          <dd>{teacher.country}</dd>
+                        </div>
+                      </dl>
+
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        <div className="rounded-xl bg-[#f0f9ff] px-2 py-2.5 text-center">
+                          <p className="font-lilita text-base text-[#015575]">
+                            {teacher.experience}+
+                          </p>
+                          <p className="text-[10px] font-medium text-gray-500">
+                            Years
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-[#f0f9ff] px-2 py-2.5 text-center">
+                          <p className="inline-flex items-center justify-center gap-0.5 font-lilita text-base text-[#015575]">
+                            <FaStar className="text-xs text-amber-400" />
+                            {teacher.rating}
+                          </p>
+                          <p className="text-[10px] font-medium text-gray-500">
+                            Rating
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-[#f0f9ff] px-2 py-2.5 text-center">
+                          <p className="font-lilita text-base text-[#015575]">
+                            {teacher.students}+
+                          </p>
+                          <p className="text-[10px] font-medium text-gray-500">
+                            Learners
+                          </p>
+                        </div>
+                      </div>
+
+                      <Link
+                        to="/tutors"
+                        className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#015575] py-2.5 text-sm font-semibold text-white transition hover:bg-[#01B0F1]"
+                      >
+                        View profile
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Dots + manual control */}
+            {teacherPageCount > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-2">
+                {Array.from({ length: teacherPageCount }).map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    aria-label={`Show educators page ${i + 1}`}
+                    onClick={() => setTeacherPage(i)}
+                    className={`h-2.5 rounded-full transition-all ${
+                      i === teacherPage
+                        ? "w-8 bg-white"
+                        : "w-2.5 bg-white/40 hover:bg-white/70"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <p className="mt-10 text-center font-josefin text-sm text-white/70">
