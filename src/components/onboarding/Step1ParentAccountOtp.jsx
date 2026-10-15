@@ -196,8 +196,8 @@ const Step1ParentAccountOtp = ({
     }
 
     const fullCode = otpDigits.join("");
-    if (fullCode.length < 4 && !isVerified) {
-      setErrorMessage("Please enter the 6-digit verification code to confirm your contact.");
+    if (fullCode.length !== 6) {
+      setErrorMessage("Please enter the complete 6-digit verification code.");
       return;
     }
 
@@ -719,9 +719,13 @@ const Step1ParentAccountOtp = ({
 
           <button
             type="button"
-            disabled={loading}
+            disabled={loading || otpDigits.join("").length !== 6}
             onClick={handleVerifyAndProceed}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 rounded-xl bg-[#003D55] hover:bg-[#015575] text-white font-lilita text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-60 cursor-pointer"
+            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 rounded-xl font-lilita text-sm shadow-md transition-all ${
+              loading || otpDigits.join("").length !== 6
+                ? "bg-slate-400 text-white cursor-not-allowed"
+                : "bg-[#003D55] hover:bg-[#015575] hover:shadow-lg text-white cursor-pointer"
+            }`}
           >
             {loading ? (
               <span>Verifying Code...</span>

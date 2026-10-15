@@ -165,8 +165,8 @@ const Step1AccountOtp = ({
     if (loading) return;
 
     const fullCode = otpDigits.join("");
-    if (fullCode.length < 4) {
-      setErrorMessage("Please enter the complete verification code.");
+    if (fullCode.length !== 6) {
+      setErrorMessage("Please enter the complete 6-digit verification code.");
       return;
     }
 
@@ -624,9 +624,9 @@ const Step1AccountOtp = ({
           <button
             type="button"
             onClick={handleVerifyAndProceed}
-            disabled={loading || otpDigits.join("").length < 4}
+            disabled={loading || otpDigits.join("").length !== 6}
             className={`w-full sm:w-auto px-7 py-3.5 rounded-xl font-lilita text-base tracking-wide text-white flex items-center justify-center gap-2 transition-all shadow-md ${
-              loading || otpDigits.join("").length < 4
+              loading || otpDigits.join("").length !== 6
                 ? "bg-slate-400 cursor-not-allowed"
                 : "bg-[#003D55] hover:bg-[#015575] hover:shadow-lg cursor-pointer"
             }`}
