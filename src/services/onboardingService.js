@@ -1,6 +1,7 @@
 /**
  * Onboarding API client — contracts from SBA-SAD-2026-006 §7 & PR #38 Handoff Report.
- * Target: Live Render Staging Backend (https://studybuddy-backend-6vya.onrender.com/api)
+ * Dashboard hydration: SBA-SPEC-2026-007 §4
+ * Target: https://studybuddy-backend-6vya.onrender.com/api
  */
 import axios from "axios";
 import { authStorage } from "./authStorage";
@@ -19,9 +20,7 @@ export const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
-  // Always keep baseURL dynamically in sync with getBaseUrl()
   config.baseURL = getBaseUrl();
-
   const token =
     typeof authStorage.getAccessToken === "function"
       ? authStorage.getAccessToken()
@@ -32,37 +31,32 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-/** Toggle when backend onboarding routes are live (Live per sprint directive) */
 export const ONBOARDING_API_ENABLED = true;
 
-/**
- * Normalizes curriculum selection to strict backend OpenAPI enum:
- * "CBC" | "8_4_4" | "IGCSE" | "OTHER"
- */
 export const normalizeCurriculumType = (val) => {
-  const v = String(val || "").trim().toUpperCase();
+  const v = String(val || "")
+    .trim()
+    .toUpperCase();
   if (v === "CBC") return "CBC";
   if (v === "844" || v === "8-4-4" || v === "8_4_4") return "8_4_4";
   if (v === "CAMBRIDGE" || v === "IGCSE") return "IGCSE";
   return "OTHER";
 };
 
-/**
- * Normalizes parent relationship to strict backend OpenAPI enum:
- * "Father" | "Mother" | "Guardian" | "Sponsor"
- */
 export const normalizeRelationshipType = (val) => {
-  const v = String(val || "").trim().toLowerCase();
+  const v = String(val || "")
+    .trim()
+    .toLowerCase();
   if (v === "father") return "Father";
   if (v === "mother") return "Mother";
   if (v === "sponsor") return "Sponsor";
   return "Guardian";
 };
 
-/**
- * Helper to extract standardized error messages from backend responses
- */
-export const getErrorMessage = (error, fallback = "An unexpected error occurred.") => {
+export const getErrorMessage = (
+  error,
+  fallback = "An unexpected error occurred.",
+) => {
   if (!error) return fallback;
   const data = error.response?.data;
   if (!data) return error.message || fallback;
@@ -78,16 +72,9 @@ export const getErrorMessage = (error, fallback = "An unexpected error occurred.
 };
 
 const auth = {
-  /** POST /api/users/register/ — public account registration */
   register: (payload) => client.post("/users/register/", payload),
-
-  /** POST /api/verify-email/request/ — request fresh OTP */
   requestOtp: (email) => client.post("/verify-email/request/", { email }),
-
-  /** POST /api/verify-email/confirm/ — verify 6-digit OTP code */
   verifyOtp: (payload) => client.post("/verify-email/confirm/", payload),
-
-  /** POST /api/token/request/ — obtain JWT pair using email & password */
   requestToken: async (email, password) => {
     const res = await client.post("/token/request/", { email, password });
     const access = res.data?.access;
@@ -97,20 +84,13 @@ const auth = {
     }
     return res;
   },
-
-  /** POST /api/token/refresh/ — refresh access token */
   refreshToken: (refresh) => client.post("/token/refresh/", { refresh }),
 };
 
 const onboarding = {
-  /** GET /api/v1/onboarding/status/ — resume hydration and status check */
   status: () => client.get("/v1/onboarding/status/"),
   getStatus: () => client.get("/v1/onboarding/status/"),
 
-  /**
-   * PATCH /api/v1/onboarding/step-2/
-   * Student JSON | Parent JSON | Teacher multipart (FormData)
-   */
   step2: (data, { multipart = false } = {}) =>
     client.patch("/v1/onboarding/step-2/", data, {
       headers: multipart
@@ -124,10 +104,6 @@ const onboarding = {
         : { "Content-Type": "application/json" },
     }),
 
-  /**
-   * PATCH /api/v1/onboarding/step-3/
-   * Student/Parent JSON | Teacher multipart
-   */
   step3: (data, { multipart = false } = {}) =>
     client.patch("/v1/onboarding/step-3/", data, {
       headers: multipart
@@ -141,10 +117,6 @@ const onboarding = {
         : { "Content-Type": "application/json" },
     }),
 
-  /**
-   * POST /api/v1/onboarding/complete/
-   * Final activation, returns refreshed JWT pair and user profile.
-   */
   complete: async () => {
     const response = await client.post("/v1/onboarding/complete/", {});
     const data = response.data;
@@ -173,9 +145,6 @@ const onboarding = {
   },
 };
 
-/**
- * Helpers to build payloads (SAD §7.3–7.4 & OpenAPI 3.0.3)
- */
 export const onboardingPayloads = {
   studentStep2: ({
     curriculum_type,
@@ -211,7 +180,9 @@ export const onboardingPayloads = {
     child_name = "",
   }) => ({
     relationship_type: normalizeRelationshipType(relationship_type),
-    child_identifier: (child_identifier || child_name || "").trim().slice(0, 150),
+    child_identifier: (child_identifier || child_name || "")
+      .trim()
+      .slice(0, 150),
   }),
 
   parentStep3: ({
@@ -229,12 +200,11 @@ export const onboardingPayloads = {
         : { sms_attendance: true, weekly_report: true },
   }),
 
-  /** Teacher step 2 — use FormData in the step UI */
   teacherStep2FormData: ({
     national_identity_number = "",
     tsc_number = "",
     experience = 0,
-    national_identity_card = null, // File (<= 5MB)
+    national_identity_card = null,
     bio = "",
   }) => {
     const fd = new FormData();
@@ -254,10 +224,10 @@ export const onboardingPayloads = {
   teacherStep3FormData: ({
     highest_qualification = "",
     institution_attended = "",
-    curriculums_taught = [], // array
+    curriculums_taught = [],
     hourly_rate_kes = 1200,
     bio = "",
-    academic_certificate = null, // File (<= 5MB)
+    academic_certificate = null,
     subjects = [],
   }) => {
     const fd = new FormData();
@@ -294,6 +264,97 @@ export const onboardingPayloads = {
   },
 };
 
+/**
+ * GET /api/v1/onboarding/status/ → normalized dashboard payload (SBA-SPEC-2026-007).
+ */
+export async function getUserDashboardData() {
+  const empty = {
+    ok: false,
+    user: null,
+    profile: null,
+    wallet: { balance: "0.00", currency: "KES" },
+    role: null,
+    onboarding_step: null,
+    is_complete: false,
+    raw: null,
+  };
+
+  if (!ONBOARDING_API_ENABLED) return empty;
+
+  try {
+    const res = await client.get("/v1/onboarding/status/");
+    const body = res.data || {};
+    const data = body.data || body;
+
+    const profile =
+      data.profile || data.student_profile || data.draft_data || {};
+    const wallet = data.wallet || {
+      balance: data.balance ?? "0.00",
+      currency: data.currency || "KES",
+    };
+
+    const user = {
+      id: data.user_id || data.id,
+      email: data.email,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      role: data.role,
+      onboarding_step: data.onboarding_step,
+    };
+
+    try {
+      const prev = authStorage.getUserInfo() || {};
+      authStorage.setUserInfo({
+        ...prev,
+        ...user,
+        profile,
+      });
+    } catch {
+      /* ignore */
+    }
+
+    return {
+      ok: true,
+      user,
+      profile: {
+        curriculum_type: profile.curriculum_type || profile.curriculum || "",
+        grade_name: profile.grade_name || profile.grade || "",
+        school_name: profile.school_name || profile.school || "",
+        gender: profile.gender || "",
+        target_subjects: Array.isArray(profile.target_subjects)
+          ? profile.target_subjects
+          : Array.isArray(profile.subjects)
+            ? profile.subjects
+            : [],
+        primary_learning_goal:
+          profile.primary_learning_goal || profile.learning_goal || "",
+        target_exam_year: profile.target_exam_year || null,
+        study_pace: profile.study_pace || "",
+        linked_children: profile.linked_children || [],
+        is_verified: profile.is_verified,
+        kyc_status: profile.kyc_status || profile.verification_status,
+        hourly_rate_kes: profile.hourly_rate_kes ?? profile.hourly_rate,
+        subjects: profile.subjects || profile.target_subjects || [],
+        curriculums_taught: profile.curriculums_taught || [],
+      },
+      wallet: {
+        balance: String(wallet.balance ?? "0.00"),
+        currency: wallet.currency || "KES",
+      },
+      role: data.role || null,
+      onboarding_step: data.onboarding_step || null,
+      is_complete: Boolean(
+        data.is_complete ||
+        String(data.onboarding_step || "").toLowerCase() === "completed",
+      ),
+      raw: data,
+    };
+  } catch (err) {
+    console.warn("getUserDashboardData failed:", getErrorMessage(err));
+    return { ...empty, error: err };
+  }
+}
+
 export const onboardingService = {
   ...auth,
   ...onboarding,
@@ -302,6 +363,7 @@ export const onboardingService = {
   normalizeRelationshipType,
   getErrorMessage,
   payloads: onboardingPayloads,
+  getUserDashboardData,
 };
 
 export default onboardingService;
