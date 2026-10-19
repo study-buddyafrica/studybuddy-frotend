@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  FaCamera,
   FaHome,
   FaUserCircle,
   FaWallet,
@@ -19,28 +18,29 @@ import TeacherProfiles from "./students/TeachersProfiles";
 import VideoApp from "./students/VideoApp";
 import StudentsHome from "./students/studentsHome";
 import Performance from "./students/Performance";
-import StudentProfileUpdate from "./students/StudentProfileUpdate";
 import StudentViewProfile from "./students/StudentViewProfile";
 import axios from "axios";
 import { FHOST } from "./constants/Functions";
 import DashboardHeader from "./layout/DashboardHeader";
 import { authStorage } from "../services/authStorage";
 import { authService } from "../services/authService";
+import { getUserDashboardData } from "../services/onboardingService";
 
 const DashboardHome = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeComponent, setActiveComponent] = useState("dashboard");
-  const [profilePhoto, setProfilePhoto] = useState(
-    "https://via.placeholder.com/150",
-  );
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [userInfo, setUserInfo] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [profileComplete, setProfileComplete] = useState(true);
-  const [showProfileUpdateModal, setShowProfileUpdateModal] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [dashProfile, setDashProfile] = useState(null);
+  const [dashWallet, setDashWallet] = useState({
+    balance: "0.00",
+    currency: "KES",
+  });
+  const [profileLoading, setProfileLoading] = useState(true);
 
   const getProfileId = (user) => {
     if (user?.profile_id) return user.profile_id;
@@ -118,6 +118,37 @@ const DashboardHome = () => {
         });
       } finally {
         setIsLoading(false);
+        setProfileLoading(false);
+      }
+    };
+
+    const hydrateDashboard = async () => {
+      setProfileLoading(true);
+      try {
+        let token = authStorage.getAccessToken();
+        if (!token && authStorage.getRefreshToken()) {
+          try {
+            token = await authService.refreshToken();
+          } catch {
+            /* ignore */
+          }
+        }
+        const dash = await getUserDashboardData();
+        if (dash.ok) {
+          if (dash.user) {
+            setUserInfo((prev) => ({
+              ...(prev || {}),
+              ...dash.user,
+              profile: dash.profile,
+            }));
+          }
+          setDashProfile(dash.profile);
+          setDashWallet(dash.wallet || { balance: "0.00", currency: "KES" });
+        }
+      } catch (err) {
+        console.warn("Dashboard hydration failed:", err);
+      } finally {
+        setProfileLoading(false);
       }
     };
 
@@ -131,50 +162,7 @@ const DashboardHome = () => {
       setUserInfo(storedUserInfo);
       setIsLoading(false);
       initializeDarkMode();
-
-      const checkProfileCompletion = async () => {
-        try {
-          const profileId = getProfileId(storedUserInfo);
-          let token = authStorage.getAccessToken();
-          if (!token && authStorage.getRefreshToken()) {
-            try {
-              token = await authService.refreshToken();
-            } catch {
-              /* ignore */
-            }
-          }
-          if (!token) return;
-
-          const profileResponse = await axios.get(
-            `${FHOST}/api/student/profile/update/${profileId}/`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
-          if (profileResponse.data) {
-            const profileData = profileResponse.data;
-            const isComplete = !!(
-              profileData.profile_picture &&
-              profileData.birth_date &&
-              profileData.grade &&
-              profileData.school
-            );
-            setProfileComplete(isComplete);
-            if (!isComplete && !localStorage.getItem("profilePromptShown")) {
-              setShowProfileUpdateModal(true);
-              setActiveComponent("profileupdate");
-              localStorage.setItem("profilePromptShown", "true");
-            }
-          }
-        } catch (error) {
-          if (error.response?.status === 401) return;
-          setProfileComplete(false);
-          if (!localStorage.getItem("profilePromptShown")) {
-            setShowProfileUpdateModal(true);
-            setActiveComponent("profileupdate");
-            localStorage.setItem("profilePromptShown", "true");
-          }
-        }
-      };
-      checkProfileCompletion();
+      hydrateDashboard();
       return;
     }
 
@@ -187,8 +175,6 @@ const DashboardHome = () => {
       const updatedUserInfo = JSON.parse(localStorage.getItem("userInfo"));
       if (updatedUserInfo) {
         setUserInfo(updatedUserInfo);
-        setProfileComplete(true);
-        setShowProfileUpdateModal(false);
       }
     };
     window.addEventListener("profile-updated", onProfileUpdate);
@@ -244,6 +230,12 @@ const DashboardHome = () => {
     },
   ];
 
+  const formatKes = (n) =>
+    `KES ${Number(n || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
   const renderActiveComponent = () => {
     if (isLoading) {
       return (
@@ -254,9 +246,48 @@ const DashboardHome = () => {
     }
 
     switch (activeComponent) {
-      case "dashboard":
+      case "dashboard": {
+        const firstName =
+          userInfo?.first_name ||
+          userInfo?.full_name?.split?.(" ")?.[0] ||
+          userInfo?.username ||
+          "Student";
+        const curriculum = dashProfile?.curriculum_type || "";
+        const grade = dashProfile?.grade_name || "";
+        const school = dashProfile?.school_name || "";
+        const subjects = dashProfile?.target_subjects || [];
+        const walletLabel = formatKes(dashWallet?.balance);
+
         return (
           <div className="space-y-6">
+            {/* Greeting — SBA-SPEC-2026-007 §3.1.A */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+              <p className="font-josefin text-sm font-semibold uppercase tracking-wide text-[#01B0F1]">
+                Student portal
+              </p>
+              <h1 className="font-lilita text-2xl text-[#015575] sm:text-3xl">
+                Welcome back, {firstName}!
+              </h1>
+              {(curriculum || grade) && (
+                <p className="mt-2 inline-flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-[#01B0F1]/10 px-3 py-1 font-josefin text-xs font-semibold text-[#015575]">
+                    {[curriculum, grade].filter(Boolean).join(" · ")}
+                  </span>
+                  {school && (
+                    <span className="font-josefin text-sm text-slate-500">
+                      {school}
+                    </span>
+                  )}
+                </p>
+              )}
+              {profileLoading && (
+                <p className="mt-2 font-josefin text-sm text-slate-400">
+                  Loading your profile…
+                </p>
+              )}
+            </div>
+
+            {/* Stats */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
               {[
                 {
@@ -275,7 +306,7 @@ const DashboardHome = () => {
                 },
                 {
                   label: "Wallet Balance",
-                  value: "Ksh 0",
+                  value: walletLabel,
                   icon: <FaWallet className="text-xl" />,
                   accent: "border-[#015575]",
                   bg: "bg-[#015575]/10 text-[#015575]",
@@ -309,6 +340,53 @@ const DashboardHome = () => {
               ))}
             </div>
 
+            {/* Focus subjects — §3.1.B */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 font-lilita text-xl text-[#015575]">
+                Your focus subjects
+              </h2>
+              {profileLoading ? (
+                <p className="font-josefin text-sm text-slate-400">
+                  Loading subjects…
+                </p>
+              ) : subjects.length === 0 ? (
+                <p className="font-josefin text-sm text-slate-500">
+                  No subjects on file yet. They appear here after onboarding
+                  Step 3.
+                </p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {subjects.map((sub) => {
+                    const label =
+                      typeof sub === "string"
+                        ? sub
+                        : sub.name || sub.subject || String(sub);
+                    return (
+                      <div
+                        key={label}
+                        className="rounded-xl border border-slate-100 bg-[#F8FAFC] p-4"
+                      >
+                        <p className="font-lilita text-lg text-[#015575]">
+                          {label}
+                        </p>
+                        <p className="mt-1 font-josefin text-xs text-slate-500">
+                          0% completed · AI diagnostic ready
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveComponent("lessons")}
+                          className="mt-3 rounded-lg bg-[#015575] px-3 py-1.5 font-josefin text-xs font-semibold text-white hover:bg-[#01B0F1]"
+                        >
+                          Explore topics
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Quick actions — payments gated until Week 5 */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 md:gap-6">
               <div
                 className="cursor-pointer rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] p-6 text-white shadow-lg transition hover:shadow-xl"
@@ -318,7 +396,7 @@ const DashboardHome = () => {
                   <div className="mr-4 rounded-full bg-white/20 p-3">
                     <FaBookOpen className="text-xl" />
                   </div>
-                  <h2 className="font-lilita text-xl">Book a Lesson</h2>
+                  <h2 className="font-lilita text-xl">Book a lesson</h2>
                 </div>
                 <p className="mb-6 text-white/90">
                   Schedule your next learning session
@@ -327,7 +405,7 @@ const DashboardHome = () => {
                   type="button"
                   className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#015575] hover:bg-gray-100 md:px-6"
                 >
-                  Book Now
+                  Book now
                 </button>
               </div>
 
@@ -340,7 +418,7 @@ const DashboardHome = () => {
                     <FaGraduationCap className="text-xl" />
                   </div>
                   <h2 className="font-lilita text-xl text-[#015575]">
-                    Browse Teachers
+                    Browse teachers
                   </h2>
                 </div>
                 <p className="mb-6 text-gray-600">
@@ -350,30 +428,30 @@ const DashboardHome = () => {
                   type="button"
                   className="rounded-lg bg-[#01B0F1] px-4 py-2 text-sm font-bold text-white hover:bg-[#015575] md:px-6"
                 >
-                  View Teachers
+                  View teachers
                 </button>
               </div>
 
               <div
-                className="cursor-pointer rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md"
+                className="cursor-pointer rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 transition hover:shadow-sm"
                 onClick={() => setActiveComponent("mywallet")}
+                title="M-Pesa deposits launch in Week 5"
               >
                 <div className="mb-4 flex items-center">
-                  <div className="mr-4 rounded-full bg-emerald-500/10 p-3 text-emerald-600">
+                  <div className="mr-4 rounded-full bg-slate-200/80 p-3 text-slate-600">
                     <FaWallet className="text-xl" />
                   </div>
-                  <h2 className="font-lilita text-xl text-[#015575]">
-                    Make Payment
-                  </h2>
+                  <h2 className="font-lilita text-xl text-[#015575]">Wallet</h2>
                 </div>
-                <p className="mb-6 text-gray-600">
-                  Add funds to your wallet for lessons
+                <p className="mb-2 font-josefin text-sm text-gray-600">
+                  Balance {walletLabel}. Deposits open in Week 5 of the
+                  campaign.
                 </p>
                 <button
                   type="button"
-                  className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600 md:px-6"
+                  className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-600 md:px-6"
                 >
-                  Add Funds
+                  View wallet (pay later)
                 </button>
               </div>
             </div>
@@ -383,7 +461,7 @@ const DashboardHome = () => {
                 <div className="border-b border-gray-100 p-4 md:p-6">
                   <h2 className="flex items-center font-lilita text-lg text-[#015575] md:text-xl">
                     <FaGraduationCap className="mr-2 text-[#01B0F1]" />
-                    Recent Teachers
+                    Recent teachers
                   </h2>
                 </div>
                 <div className="p-4 md:p-6">
@@ -396,7 +474,7 @@ const DashboardHome = () => {
                       onClick={() => setActiveComponent("teachers")}
                       className="font-josefin text-sm font-semibold text-[#01B0F1] hover:text-[#015575]"
                     >
-                      View All Teachers
+                      View all teachers
                     </button>
                   </div>
                 </div>
@@ -406,7 +484,7 @@ const DashboardHome = () => {
                 <div className="border-b border-gray-100 p-4 md:p-6">
                   <h2 className="flex items-center font-lilita text-lg text-[#015575] md:text-xl">
                     <FaCalendarAlt className="mr-2 text-[#01B0F1]" />
-                    Upcoming Lessons
+                    Upcoming lessons
                   </h2>
                 </div>
                 <div className="p-4 md:p-6">
@@ -419,7 +497,7 @@ const DashboardHome = () => {
                       onClick={() => setActiveComponent("lessons")}
                       className="font-josefin text-sm font-semibold text-[#01B0F1] hover:text-[#015575]"
                     >
-                      View All Lessons
+                      View all lessons
                     </button>
                   </div>
                 </div>
@@ -427,8 +505,11 @@ const DashboardHome = () => {
             </div>
           </div>
         );
+      }
+
       case "mywallet":
         return <MyWallet userInfo={userInfo} darkMode={darkMode} />;
+
       case "lessons":
         return (
           <MyLessons
@@ -438,27 +519,28 @@ const DashboardHome = () => {
             onLeaveRoom={() => setFocusMode(false)}
           />
         );
+
       case "teachers":
         return <TeacherProfiles userInfo={userInfo} darkMode={darkMode} />;
+
       case "videofeed":
         return <VideoApp userInfo={userInfo} darkMode={darkMode} />;
+
       case "profileupdate":
-        return <StudentProfileUpdate userInfo={userInfo} />;
       case "myaccount":
         return (
-          <StudentViewProfile
-            userInfo={userInfo}
-            onEditProfile={() => setActiveComponent("profileupdate")}
-          />
+          <StudentViewProfile userInfo={userInfo} dashProfile={dashProfile} />
         );
+
       case "performance":
         return <Performance userInfo={userInfo} darkMode={darkMode} />;
+
       case "history":
         return (
           <div className="mx-auto max-w-4xl">
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <h2 className="mb-6 font-lilita text-2xl text-[#015575]">
-                Activity History
+                Activity history
               </h2>
               <div className="py-10 text-center font-josefin text-gray-500">
                 No activity yet.
@@ -466,27 +548,28 @@ const DashboardHome = () => {
             </div>
           </div>
         );
+
       case "settings":
         return (
           <div className="mx-auto max-w-3xl space-y-6">
             <div className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <span className="flex items-center font-josefin text-gray-800">
                 <FaUserCircle className="mr-3 text-xl text-[#01B0F1]" />
-                Edit Profile
+                My account
               </span>
               <button
                 type="button"
                 onClick={() => setActiveComponent("myaccount")}
                 className="rounded-lg bg-gradient-to-r from-[#01B0F1] to-[#015575] px-4 py-2 text-white"
               >
-                Edit
+                View
               </button>
             </div>
             <div className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <span className="flex items-center font-josefin text-gray-800">
                 <FaSun className="mr-2 text-amber-500" />
                 <FaMoon className="mr-3 text-[#015575]" />
-                Dark Mode
+                Dark mode
               </span>
               <button
                 type="button"
@@ -504,6 +587,7 @@ const DashboardHome = () => {
             </div>
           </div>
         );
+
       default:
         return (
           <StudentsHome
@@ -626,35 +710,6 @@ const DashboardHome = () => {
         />
       )}
 
-      {showProfileUpdateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl">
-            <div className="text-center">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#01B0F1]/10">
-                <FaUserCircle className="h-10 w-10 text-[#01B0F1]" />
-              </div>
-              <h2 className="mb-4 font-lilita text-3xl text-[#015575]">
-                Complete Your Profile
-              </h2>
-              <p className="mb-6 font-josefin text-lg text-gray-600">
-                Before you can continue, please complete your profile
-                information.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowProfileUpdateModal(false);
-                  setActiveComponent("profileupdate");
-                }}
-                className="rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] px-8 py-3 font-lilita text-white transition-all hover:shadow-lg"
-              >
-                Update Profile
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div
         className={`flex flex-1 flex-col ${
           focusMode ? "lg:pl-0" : "lg:pl-[280px]"
@@ -664,13 +719,16 @@ const DashboardHome = () => {
           <DashboardHeader
             title={
               navigation.find((n) => n.key === activeComponent)?.name ||
-              "Dashboard"
+              (activeComponent === "myaccount" ||
+              activeComponent === "profileupdate"
+                ? "My Account"
+                : "Dashboard")
             }
             userInfo={userInfo}
             onLogout={handleLogout}
             onToggleSidebar={() => setSidebarOpen(true)}
             onViewProfile={() => setActiveComponent("myaccount")}
-            onEditProfile={() => setActiveComponent("profileupdate")}
+            onEditProfile={() => setActiveComponent("myaccount")}
           />
         )}
         <main

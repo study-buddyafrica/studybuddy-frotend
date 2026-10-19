@@ -1,258 +1,122 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { FHOST } from "../constants/Functions";
-import { FaEdit, FaUser, FaEnvelope, FaCalendarAlt, FaPhone, FaGraduationCap, FaSchool, FaBook } from "react-icons/fa";
-import { authStorage } from "../../services/authStorage";
+import React from "react";
+import {
+  FaUser,
+  FaEnvelope,
+  FaGraduationCap,
+  FaSchool,
+  FaBullseye,
+} from "react-icons/fa";
 
-const StudentViewProfile = ({ userInfo, onEditProfile }) => {
-  const [profileData, setProfileData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [availableGrades, setAvailableGrades] = useState([]);
-  const [availableSchools, setAvailableSchools] = useState([]);
-  const [availableSubjects, setAvailableSubjects] = useState([]);
+/**
+ * Read-only student profile overview (SBA-SPEC-2026-007 §3.1.C).
+ * Hydrated from GET /api/v1/onboarding/status/ via dashProfile.
+ */
+const StudentViewProfile = ({ userInfo, dashProfile }) => {
+  const profile = dashProfile || userInfo?.profile || {};
+  const fullName =
+    [userInfo?.first_name, userInfo?.last_name].filter(Boolean).join(" ") ||
+    userInfo?.full_name ||
+    userInfo?.username ||
+    "Student";
 
-  useEffect(() => {
-    fetchProfile();
-    fetchGrades();
-    fetchSchools();
-    fetchSubjects();
-  }, [userInfo]);
+  const subjects = profile.target_subjects || profile.subjects || [];
 
-const fetchProfile = async () => {
-  try {
-    setLoading(true);
-    const response = await axios.get(
-      `${FHOST}/api/student/profile/update/${userInfo.id}/`,
-      {
-        headers: {
-          Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
-        },
-      },
-    );
-    if (response.data) {
-      setProfileData(response.data);
-    }
-  } catch (error) {
-    console.error("Error fetching profile:", error);
-    if (error.response?.status === 404) {
-      setError("Profile not found. Please update your profile first.");
-    } else {
-      setError("Failed to load profile. Please try again.");
-    }
-  } finally {
-    setLoading(false);
-  }
-};
-
-const fetchGrades = async () => {
-  try {
-    const response = await axios.get(`${FHOST}/admin/get-classes`, {
-      headers: {
-        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
-      },
-    });
-    if (response.data?.classes) {
-      setAvailableGrades(response.data.classes);
-    }
-  } catch (error) {
-    console.error("Error fetching grades:", error);
-  }
-};
-
-const fetchSchools = async () => {
-  try {
-    const response = await axios.get(`${FHOST}/api/schools/`, {
-      headers: {
-        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
-      },
-    });
-    if (response.data?.results) {
-      setAvailableSchools(response.data.results || []);
-    }
-  } catch (error) {
-    console.error("Error fetching schools:", error);
-  }
-};
-
-const fetchSubjects = async () => {
-  try {
-    const response = await axios.get(`${FHOST}/admin/get-subjects/`, {
-      headers: {
-        Authorization: `Bearer ${authStorage.getAccessToken()}`, // ← changed
-      },
-    });
-    if (response.data?.classes) {
-      setAvailableSubjects(response.data.classes);
-    }
-  } catch (error) {
-    console.error("Error fetching subjects:", error);
-  }
-};
-
-  const getGradeName = (gradeId) => {
-    const grade = availableGrades.find(g => g.id === gradeId);
-    return grade?.name || gradeId || "Not set";
-  };
-
-  const getSchoolName = (schoolId) => {
-    const school = availableSchools.find(s => s.id === schoolId);
-    return school?.name || schoolId || "Not set";
-  };
-
-  const getSubjectNames = (subjectIds) => {
-    if (!Array.isArray(subjectIds) || subjectIds.length === 0) return "None";
-    return subjectIds.map(subjectId => {
-      const subject = availableSubjects.find(s => s.id === subjectId);
-      return subject?.subject || subject?.name || subjectId;
-    }).join(", ");
-  };
-
-  if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="p-6 rounded-2xl shadow-lg bg-white">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading profile...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="p-6 rounded-2xl shadow-lg bg-white">
-          <div className="text-center py-12">
-            <p className="text-red-600 mb-4">{error}</p>
-            {onEditProfile && (
-              <button
-                onClick={onEditProfile}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-              >
-                Update Profile
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const Row = ({ label, value, icon: Icon }) => (
+    <div>
+      <p className="mb-1 font-josefin text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="flex items-center gap-2 font-josefin text-[#015575]">
+        {Icon && <Icon className="shrink-0 text-[#01B0F1]" />}
+        <span>{value || "—"}</span>
+      </p>
+    </div>
+  );
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="p-6 rounded-2xl shadow-lg bg-white transition-all duration-300">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 font-lilita">
-            My Profile
-          </h2>
-          {onEditProfile && (
-            <button
-              onClick={onEditProfile}
-              className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all"
-            >
-              <FaEdit className="mr-2" />
-              Edit Profile
-            </button>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm md:p-8">
+        <h2 className="mb-2 font-lilita text-2xl text-[#015575]">My account</h2>
+        <p className="mb-6 font-josefin text-sm text-slate-500">
+          Profile from onboarding (read-only). To update your core academic
+          curriculum or institution, contact your school administrator or
+          StudyBuddy support.
+        </p>
+
+        <div className="mb-8 flex flex-col items-center">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#01B0F1]/15">
+            <FaUser className="text-3xl text-[#015575]" />
+          </div>
+          <p className="mt-3 font-lilita text-xl text-[#015575]">{fullName}</p>
+          {userInfo?.email && (
+            <p className="mt-1 flex items-center gap-2 font-josefin text-sm text-slate-500">
+              <FaEnvelope className="text-[#01B0F1]" />
+              {userInfo.email}
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                Verified
+              </span>
+            </p>
           )}
         </div>
 
-        {/* Profile Picture */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-32 h-32 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 p-1 shadow-lg">
-            <div className="w-full h-full rounded-full overflow-hidden bg-gray-200">
-              {profileData?.profile_picture ? (
-                <img
-                  src={profileData.profile_picture}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
+        <div className="grid gap-6 rounded-xl bg-[#F8FAFC] p-6 sm:grid-cols-2">
+          <Row label="Full name" value={fullName} icon={FaUser} />
+          <Row
+            label="Registered email"
+            value={userInfo?.email}
+            icon={FaEnvelope}
+          />
+          <Row
+            label="Education system"
+            value={profile.curriculum_type}
+            icon={FaGraduationCap}
+          />
+          <Row
+            label="Current grade / class"
+            value={profile.grade_name}
+            icon={FaGraduationCap}
+          />
+          <Row
+            label="School / institution"
+            value={profile.school_name}
+            icon={FaSchool}
+          />
+          <Row
+            label="Target exam year"
+            value={profile.target_exam_year}
+            icon={FaBullseye}
+          />
+          <div className="sm:col-span-2">
+            <Row
+              label="Primary study goal"
+              value={profile.primary_learning_goal}
+              icon={FaBullseye}
+            />
+          </div>
+          {profile.study_pace && (
+            <div className="sm:col-span-2">
+              <Row label="Study pace" value={profile.study_pace} />
+            </div>
+          )}
+          <div className="sm:col-span-2">
+            <p className="mb-2 font-josefin text-xs font-medium uppercase tracking-wide text-slate-500">
+              Focus subjects
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {subjects.length === 0 ? (
+                <span className="font-josefin text-sm text-slate-500">
+                  None listed
+                </span>
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <FaUser className="text-4xl text-gray-400" />
-                </div>
+                subjects.map((s) => (
+                  <span
+                    key={typeof s === "string" ? s : s.id || s.name}
+                    className="rounded-full bg-[#01B0F1]/10 px-3 py-1 font-josefin text-xs font-semibold text-[#015575]"
+                  >
+                    {typeof s === "string" ? s : s.name || s.subject}
+                  </span>
+                ))
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* Profile Details */}
-        <div className="space-y-6">
-          {/* Personal Information */}
-          <div className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <FaUser className="mr-2 text-blue-500" />
-              Personal Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Birth Date
-                </label>
-                <div className="flex items-center text-gray-800">
-                  <FaCalendarAlt className="mr-2 text-gray-400" />
-                  {profileData?.birth_date ? new Date(profileData.birth_date).toLocaleDateString() : "Not set"}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Contact Name
-                </label>
-                <div className="flex items-center text-gray-800">
-                  <FaUser className="mr-2 text-gray-400" />
-                  {profileData?.contact_name || "Not set"}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Guardian Contact
-                </label>
-                <div className="flex items-center text-gray-800">
-                  <FaPhone className="mr-2 text-gray-400" />
-                  {profileData?.guardian_contact || "Not set"}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Academic Information */}
-          <div className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <FaGraduationCap className="mr-2 text-blue-500" />
-              Academic Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Grade
-                </label>
-                <div className="flex items-center text-gray-800">
-                  <FaGraduationCap className="mr-2 text-gray-400" />
-                  {getGradeName(profileData?.grade)}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  School
-                </label>
-                <div className="flex items-center text-gray-800">
-                  <FaSchool className="mr-2 text-gray-400" />
-                  {getSchoolName(profileData?.school)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Subjects */}
-          <div className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <FaBook className="mr-2 text-blue-500" />
-              Subjects
-            </h3>
-            <div className="text-gray-800">
-              {getSubjectNames(profileData?.subjects)}
             </div>
           </div>
         </div>
@@ -262,4 +126,3 @@ const fetchSubjects = async () => {
 };
 
 export default StudentViewProfile;
-

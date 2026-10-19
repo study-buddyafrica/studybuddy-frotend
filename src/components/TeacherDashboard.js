@@ -1,500 +1,438 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   FaHome,
-  FaChalkboardTeacher,
-  FaSignOutAlt,
-  FaCameraRetro,
-  FaTimes,
-  FaWallet,
-  FaCalendarAlt,
-  FaVideo,
-  FaUsers,
-  FaBook,
-  FaChevronRight,
-  FaClipboardList,
   FaUserCircle,
+  FaWallet,
+  FaSignOutAlt,
+  FaChalkboardTeacher,
+  FaVideo,
+  FaCalendarAlt,
+  FaBookOpen,
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaUsers,
 } from "react-icons/fa";
+import axios from "axios";
 import { FHOST } from "./constants/Functions";
-import MyLessons from "./teachers/MyLessons";
-import Liveclass from "./teachers/Liveclass";
-import MyAccount from "./teachers/MyAccount";
-import TeacherProfileUpdate from "./teachers/TeacherProfileUpdate";
-import UpcomingClasses from "./teachers/UpcomingClasses";
-import Scheduler from "./teachers/Scheduler";
-import StudentLeads from "./teachers/StudentLeads";
-import RevisionMaterials from "./teachers/RevisionMaterials";
-import Assessments from "./teachers/Assessments";
-import { useLocation, useNavigate } from "react-router-dom";
-import MyWallet from "./teachers/mywallet";
 import DashboardHeader from "./layout/DashboardHeader";
 import { authStorage } from "../services/authStorage";
+import { authService } from "../services/authService";
+import { getUserDashboardData } from "../services/onboardingService";
+import LiveClass from "./teachers/Liveclass";
+import Scheduler from "./teachers/Scheduler";
+import MyLessons from "./teachers/MyLessons";
+import MyWallet from "./teachers/mywallet";
+
+/** Clamp display rate to product policy KES 50–800 */
+const clampRate = (value) => {
+  const n = Number(value);
+  if (Number.isNaN(n) || n <= 0) return null;
+  return Math.min(800, Math.max(50, n));
+};
+
+const formatKes = (n) => {
+  if (n == null || n === "") return "KES —";
+  return `KES ${Number(n).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`;
+};
+
+const formatKesMoney = (n) =>
+  `KES ${Number(n || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 const TeacherDashboard = () => {
-  const [isLive, setIsLive] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [videoTitle, setVideoTitle] = useState("");
-  const [videoDescription, setVideoDescription] = useState("");
-  const [videoFile, setVideoFile] = useState(null);
   const [activeComponent, setActiveComponent] = useState("dashboard");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [liveSessions, setLiveSessions] = useState([]);
-  const [videoPreview, setVideoPreview] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [showVerificationNotice, setShowVerificationNotice] = useState(false);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState(null);
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [profileData, setProfileData] = useState(null);
-  const [availableSubjects, setAvailableSubjects] = useState([]);
-  const [availableGrades, setAvailableGrades] = useState([]);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [dashProfile, setDashProfile] = useState(null);
+  const [dashWallet, setDashWallet] = useState({
+    balance: "0.00",
+    currency: "KES",
+  });
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const normalizeTeacherStatus = (record, fallbackStatus = null) => {
-    if (!record) return fallbackStatus || null;
-    if (record.verification_status) return record.verification_status;
-    if (record.is_verified === true) return "approved";
-    if (record.is_rejected === true || record.status === "rejected")
-      return "rejected";
-    return fallbackStatus || "pending";
-  };
+  const isVerified = Boolean(
+    dashProfile?.is_verified === true ||
+    dashProfile?.verification_status === "approved" ||
+    dashProfile?.verification_status === "verified" ||
+    userInfo?.is_verified === true ||
+    userInfo?.verification_status === "approved",
+  );
 
-  const fetchSubjects = async () => {
+  const subjectsRaw =
+    dashProfile?.subjects ||
+    dashProfile?.curriculums_taught ||
+    dashProfile?.target_subjects ||
+    userInfo?.subjects ||
+    [];
+  const subjects = (Array.isArray(subjectsRaw) ? subjectsRaw : [subjectsRaw])
+    .map((s) =>
+      typeof s === "string" ? s : s?.name || s?.subject || String(s || ""),
+    )
+    .filter(Boolean)
+    .slice(0, 3);
+
+  const hourlyRate = clampRate(
+    dashProfile?.hourly_rate ??
+      dashProfile?.rate ??
+      userInfo?.hourly_rate ??
+      null,
+  );
+
+  const hydrate = useCallback(async () => {
+    setProfileLoading(true);
     try {
-      let allSubjects = [];
-      let nextUrl = `${FHOST}/api/subjects/`;
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${authStorage.getAccessToken()}`,
-          },
-        });
-        if (response.data?.results) {
-          allSubjects = allSubjects.concat(response.data.results);
+      let token = authStorage.getAccessToken();
+      if (!token && authStorage.getRefreshToken()) {
+        try {
+          token = await authService.refreshToken();
+        } catch {
+          /* ignore */
         }
-        nextUrl = response.data.next;
       }
-      setAvailableSubjects(allSubjects);
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
-    }
-  };
 
-  const fetchGrades = async () => {
-    try {
-      let allGrades = [];
-      let nextUrl = `${FHOST}/api/grades/`;
-      while (nextUrl) {
-        const response = await axios.get(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${authStorage.getAccessToken()}`,
-          },
-        });
-        if (response.data?.results) {
-          allGrades = allGrades.concat(response.data.results);
+      const dash = await getUserDashboardData();
+      if (dash.ok) {
+        if (dash.user) {
+          setUserInfo((prev) => ({
+            ...(prev || {}),
+            ...dash.user,
+            profile: dash.profile,
+          }));
         }
-        nextUrl = response.data.next;
+        setDashProfile(dash.profile);
+        setDashWallet(dash.wallet || { balance: "0.00", currency: "KES" });
       }
-      setAvailableGrades(allGrades);
-    } catch (error) {
-      console.error("Error fetching grades:", error);
-    }
-  };
 
-  const fetchTeacherRecord = async (token, userData) => {
-    if (!token || !userData) return null;
-    const profileId =
-      userData.teacher_profile_id || userData?.teacher_profile?.id;
-    const headers = { Authorization: `Bearer ${token}` };
-
-    try {
-      if (profileId) {
-        const res = await axios.get(`${FHOST}/api/teachers/${profileId}/`, {
-          headers,
-        });
-        return res.data;
-      }
-    } catch (err) {
-      console.warn("Failed to fetch teacher by profile id", err);
-    }
-
-    try {
-      const res = await axios.get(`${FHOST}/api/teachers/`, { headers });
-      const results = res.data?.results || res.data || [];
-      if (Array.isArray(results)) {
-        return (
-          results.find((teacher) => {
-            if (!teacher) return false;
-            const teacherUserId =
-              typeof teacher.user === "object"
-                ? teacher.user?.id
-                : teacher.user;
-            if (!teacherUserId) return false;
-            return (
-              String(teacherUserId) === String(userData.id || userData.user_id)
-            );
-          }) || null
-        );
-      }
-    } catch (err) {
-      console.error("Failed to fetch teacher list:", err);
-    }
-    return null;
-  };
-
-  useEffect(() => {
-    const refreshState = async () => {
-      const userData = JSON.parse(localStorage.getItem("userInfo"));
-      if (!userData) {
-        navigate("/");
-        return;
-      }
-      if (!userData.id && userData.user_id) {
-        userData.id = userData.user_id;
-      }
-      setUserInfo(userData);
-
+      // Optional teacher me endpoint for KYC flags
       try {
-        const profileResponse = await axios.get(
-          `${FHOST}/api/teacher/profile/update/`,
-          {
-            headers: {
-              Authorization: `Bearer ${authStorage.getAccessToken()}`,
-            },
-          },
-        );
-        if (profileResponse.data) setProfileData(profileResponse.data);
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-      }
-
-      let finalStatus = userData.verification_status || null;
-      try {
-        const token = authStorage.getAccessToken();
-        if (token) {
-          const teacherRecord = await fetchTeacherRecord(token, userData);
-          if (teacherRecord) {
-            const normalizedStatus = normalizeTeacherStatus(
-              teacherRecord,
-              finalStatus,
+        const t = authStorage.getAccessToken();
+        if (t) {
+          const res = await axios.get(`${FHOST}/api/me/teacher/`, {
+            headers: { Authorization: `Bearer ${t}` },
+          });
+          const p = res.data || {};
+          setDashProfile((prev) => ({ ...(prev || {}), ...p }));
+          if (p.is_verified != null || p.verification_status) {
+            setUserInfo((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    is_verified: p.is_verified ?? prev.is_verified,
+                    verification_status:
+                      p.verification_status ?? prev.verification_status,
+                  }
+                : prev,
             );
-            finalStatus = normalizedStatus;
-            setVerificationStatus(normalizedStatus);
-            const updatedUserInfo = {
-              ...userData,
-              teacher_profile_id:
-                teacherRecord.id || userData.teacher_profile_id,
-              teacher_profile: teacherRecord,
-              verification_status: normalizedStatus,
-              is_verified: teacherRecord.is_verified,
-            };
-            localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
-            setUserInfo(updatedUserInfo);
-            if (userData.verification_status !== normalizedStatus) {
-              window.dispatchEvent(new Event("verification-status-changed"));
-            }
-          } else {
-            setVerificationStatus(finalStatus);
           }
-        } else {
-          setVerificationStatus(finalStatus);
         }
-      } catch (error) {
-        console.error("Error fetching verification status:", error);
-        setVerificationStatus(finalStatus);
+      } catch {
+        /* status payload is enough */
       }
-
-      const allowTestingAccess = localStorage.getItem("dev_mode") === "true";
-
-      if (finalStatus === "approved" || allowTestingAccess) {
-        setIsBlocked(false);
-        setShowVerificationNotice(false);
-        setShowWelcomeModal(false);
-      } else if (finalStatus === "pending") {
-        setIsBlocked(false);
-        setShowVerificationNotice(true);
-        setShowWelcomeModal(false);
-      } else if (!finalStatus || finalStatus === null) {
-        setIsBlocked(true);
-        setShowVerificationNotice(true);
-        setShowWelcomeModal(true);
-      } else if (finalStatus === "rejected") {
-        setIsBlocked(true);
-        setShowVerificationNotice(true);
-        setShowWelcomeModal(false);
-      } else {
-        setIsBlocked(false);
-        setShowVerificationNotice(true);
-        setShowWelcomeModal(false);
-      }
-
-      const seed =
-        userData.full_name ||
-        userData.username ||
-        userData.email?.split("@")[0] ||
-        "Teacher";
-      setAvatarUrl(
-        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(seed)}`,
-      );
-    };
-
-    refreshState();
-    const onVerificationChange = () => refreshState();
-    window.addEventListener(
-      "verification-status-changed",
-      onVerificationChange,
-    );
-    const onProfileUpdate = () => {
-      refreshState();
-      const updated = JSON.parse(localStorage.getItem("userInfo"));
-      if (updated) setUserInfo(updated);
-    };
-    window.addEventListener("profile-updated", onProfileUpdate);
-
-    return () => {
-      window.removeEventListener(
-        "verification-status-changed",
-        onVerificationChange,
-      );
-      window.removeEventListener("profile-updated", onProfileUpdate);
-    };
-  }, [navigate]);
-
-  useEffect(() => {
-    fetchSubjects();
-    fetchGrades();
+    } catch (err) {
+      console.warn("Teacher dashboard hydration failed:", err);
+    } finally {
+      setProfileLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    const stored =
+      (typeof authStorage.getUserInfo === "function" &&
+        authStorage.getUserInfo()) ||
+      (() => {
+        try {
+          return JSON.parse(localStorage.getItem("userInfo") || "null");
+        } catch {
+          return null;
+        }
+      })();
+
+    if (
+      !stored &&
+      !authStorage.isAuthenticated?.() &&
+      !authStorage.getRefreshToken?.()
+    ) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (stored) setUserInfo(stored);
+    setIsLoading(false);
+    hydrate();
+  }, [hydrate]);
+
   const handleLogout = () => {
-    try {
-      const prev = JSON.parse(localStorage.getItem("userInfo"));
-      if (prev?.id || prev?.user_id) {
-        localStorage.removeItem(
-          `verification_submitted_${prev.id || prev.user_id}`,
-        );
-      }
-    } catch {
-      /* ignore */
-    }
     authStorage.clearTokens();
-    localStorage.removeItem("userInfo");
-    setUserInfo(null);
-    navigate("/");
+    window.location.href = "/";
   };
 
-  const handleVideoUpload = (event) => {
-    if (videoPreview) URL.revokeObjectURL(videoPreview);
-    const file = event.target.files[0];
-    if (file) {
-      setVideoPreview(URL.createObjectURL(file));
-      setVideoFile(file);
-    } else {
-      setVideoPreview(null);
-    }
-  };
+  const navigation = [
+    {
+      name: "Dashboard",
+      key: "dashboard",
+      icon: <FaHome className="text-lg" />,
+    },
+    {
+      name: "My Lessons",
+      key: "lessons",
+      icon: <FaBookOpen className="text-lg" />,
+    },
+    {
+      name: "Live Classes",
+      key: "live",
+      icon: <FaVideo className="text-lg" />,
+    },
+    {
+      name: "Schedule",
+      key: "schedule",
+      icon: <FaCalendarAlt className="text-lg" />,
+    },
+    {
+      name: "Wallet",
+      key: "wallet",
+      icon: <FaWallet className="text-lg" />,
+    },
+  ];
 
-  const handleGoLive = () => {
-    setIsLive(true);
-    handleMenuItemClick("liveclass");
-  };
+  const firstName =
+    userInfo?.first_name ||
+    userInfo?.full_name?.split?.(" ")?.[0] ||
+    userInfo?.username ||
+    "Teacher";
 
-  const handleSubmit = async () => {
-    if (!videoFile || !videoTitle.trim()) {
-      alert("Please provide a title and select a video file.");
-      return;
-    }
-    const formData = new FormData();
-    formData.append("video", videoFile);
-    formData.append("title", videoTitle);
-    if (videoDescription.trim())
-      formData.append("description", videoDescription);
+  const renderDashboardHome = () => (
+    <div className="space-y-6">
+      {/* KYC banner — SBA-SPEC-2026-007 Phase 4 */}
+      {!isVerified && (
+        <div
+          className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          role="status"
+        >
+          <div className="flex items-start gap-3">
+            <FaExclamationTriangle className="mt-0.5 shrink-0 text-amber-600" />
+            <div>
+              <p className="font-lilita text-base text-amber-900">
+                Verification pending
+              </p>
+              <p className="font-josefin text-sm text-amber-800/90">
+                Your KYC documents are under review. You can explore the portal;
+                some teaching actions may stay limited until an admin approves
+                you.
+              </p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full bg-amber-200/80 px-3 py-1 font-josefin text-xs font-semibold text-amber-900">
+            Awaiting review
+          </span>
+        </div>
+      )}
 
-    setUploading(true);
-    try {
-      const response = await axios.post(
-        `${FHOST}/lessons/api/upload-video/${userInfo?.id || userInfo?.user_id}`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } },
+      {isVerified && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5">
+          <FaCheckCircle className="text-emerald-600" />
+          <p className="font-josefin text-sm font-medium text-emerald-800">
+            Verified educator — you are cleared to teach on StudyBuddy.
+          </p>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <p className="font-josefin text-sm font-semibold uppercase tracking-wide text-[#01B0F1]">
+          Teacher portal
+        </p>
+        <h1 className="font-lilita text-2xl text-[#015575] sm:text-3xl">
+          Welcome back, {firstName}
+        </h1>
+        {profileLoading ? (
+          <p className="mt-2 font-josefin text-sm text-slate-400">
+            Loading your profile…
+          </p>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {subjects.length > 0 ? (
+              subjects.map((s) => (
+                <span
+                  key={s}
+                  className="rounded-full bg-[#01B0F1]/10 px-3 py-1 font-josefin text-xs font-semibold text-[#015575]"
+                >
+                  {s}
+                </span>
+              ))
+            ) : (
+              <span className="font-josefin text-sm text-slate-500">
+                No subjects on file yet (max 3 after onboarding).
+              </span>
+            )}
+            {hourlyRate != null && (
+              <span className="rounded-full bg-[#015575]/10 px-3 py-1 font-josefin text-xs font-semibold text-[#015575]">
+                {formatKes(hourlyRate)}/hr
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          {
+            label: "Wallet balance",
+            value: formatKesMoney(dashWallet?.balance),
+            icon: <FaWallet className="text-xl" />,
+            accent: "border-[#015575]",
+            bg: "bg-[#015575]/10 text-[#015575]",
+          },
+          {
+            label: "Hourly rate",
+            value: hourlyRate != null ? `${formatKes(hourlyRate)}/hr` : "—",
+            icon: <FaChalkboardTeacher className="text-xl" />,
+            accent: "border-[#01B0F1]",
+            bg: "bg-[#01B0F1]/10 text-[#01B0F1]",
+          },
+          {
+            label: "Subjects (max 3)",
+            value: String(subjects.length),
+            icon: <FaBookOpen className="text-xl" />,
+            accent: "border-violet-500",
+            bg: "bg-violet-500/10 text-violet-600",
+          },
+          {
+            label: "Students / leads",
+            value: "—",
+            icon: <FaUsers className="text-xl" />,
+            accent: "border-emerald-500",
+            bg: "bg-emerald-500/10 text-emerald-600",
+          },
+        ].map((card) => (
+          <div
+            key={card.label}
+            className={`rounded-xl border-l-4 bg-white p-4 shadow-sm md:p-5 ${card.accent}`}
+          >
+            <div className="flex items-center">
+              <div className={`mr-3 rounded-lg p-3 ${card.bg}`}>
+                {card.icon}
+              </div>
+              <div>
+                <p className="font-josefin text-xs text-gray-500">
+                  {card.label}
+                </p>
+                <h3 className="font-lilita text-xl text-[#015575]">
+                  {card.value}
+                </h3>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => setActiveComponent("live")}
+          className="rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] p-6 text-left text-white shadow-lg transition hover:shadow-xl"
+        >
+          <FaVideo className="mb-3 text-2xl opacity-90" />
+          <h2 className="font-lilita text-xl">Live classes</h2>
+          <p className="mt-1 font-josefin text-sm text-white/90">
+            Create or join a session
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveComponent("schedule")}
+          className="rounded-xl border border-gray-100 bg-white p-6 text-left shadow-sm transition hover:shadow-md"
+        >
+          <FaCalendarAlt className="mb-3 text-2xl text-[#01B0F1]" />
+          <h2 className="font-lilita text-xl text-[#015575]">Schedule</h2>
+          <p className="mt-1 font-josefin text-sm text-gray-600">
+            Availability and bookings
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveComponent("wallet")}
+          className="rounded-xl border border-gray-100 bg-white p-6 text-left shadow-sm transition hover:shadow-md"
+        >
+          <FaWallet className="mb-3 text-2xl text-[#015575]" />
+          <h2 className="font-lilita text-xl text-[#015575]">Wallet</h2>
+          <p className="mt-1 font-josefin text-sm text-gray-600">
+            Balance {formatKesMoney(dashWallet?.balance)} · payouts after
+            verification
+          </p>
+        </button>
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <h2 className="mb-2 font-lilita text-xl text-[#015575]">My account</h2>
+        <p className="font-josefin text-sm text-slate-600">
+          Professional identity and rates were collected during onboarding.
+          Contact support to change curriculum or KYC documents — this portal
+          does not re-open those forms.
+        </p>
+        <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <dt className="font-josefin text-xs text-slate-500">Email</dt>
+            <dd className="font-josefin text-sm font-medium text-[#015575]">
+              {userInfo?.email || "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-josefin text-xs text-slate-500">Status</dt>
+            <dd className="font-josefin text-sm font-medium text-[#015575]">
+              {isVerified ? "Verified" : "Pending verification"}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  );
+
+  const renderActive = () => {
+    if (isLoading) {
+      return (
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-[#01B0F1]" />
+        </div>
       );
-      if (response.status === 200 || response.status === 201) {
-        alert("Video uploaded successfully!");
-        setIsModalOpen(false);
-        setVideoFile(null);
-        setVideoTitle("");
-        setVideoDescription("");
-        if (videoPreview) URL.revokeObjectURL(videoPreview);
-        setVideoPreview(null);
-      }
-    } catch (error) {
-      console.error("Error uploading video:", error);
-      alert("Failed to upload the video. Please try again.");
-    } finally {
-      setUploading(false);
+    }
+
+    switch (activeComponent) {
+      case "dashboard":
+        return renderDashboardHome();
+      case "lessons":
+        return <MyLessons userInfo={userInfo} />;
+      case "live":
+        return <LiveClass userInfo={userInfo} />;
+      case "schedule":
+        return <Scheduler userInfo={userInfo} />;
+      case "wallet":
+        return <MyWallet userInfo={userInfo} />;
+      case "account":
+        return renderDashboardHome();
+      default:
+        return renderDashboardHome();
     }
   };
 
-  useEffect(() => {
-    const fetchLiveSessions = async () => {
-      try {
-        const token = authStorage.getAccessToken();
-        if (!token) {
-          setError("Authentication required. Please login again.");
-          setLoading(false);
-          return;
-        }
-        const response = await axios.get(`${FHOST}/api/live-sessions/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.data?.results && Array.isArray(response.data.results)) {
-          setLiveSessions(response.data.results);
-        } else if (Array.isArray(response.data)) {
-          setLiveSessions(response.data);
-        } else {
-          setLiveSessions([]);
-        }
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching live sessions:", err);
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          try {
-            const { authService } = await import("../services/authService");
-            const newToken = await authService.refreshToken();
-            const retryResponse = await axios.get(
-              `${FHOST}/api/live-sessions/`,
-              { headers: { Authorization: `Bearer ${newToken}` } },
-            );
-            if (
-              retryResponse.data?.results &&
-              Array.isArray(retryResponse.data.results)
-            ) {
-              setLiveSessions(retryResponse.data.results);
-            } else if (Array.isArray(retryResponse.data)) {
-              setLiveSessions(retryResponse.data);
-            } else {
-              setLiveSessions([]);
-            }
-            setLoading(false);
-            return;
-          } catch (refreshError) {
-            console.error("Token refresh failed:", refreshError);
-          }
-        }
-        setError("Failed to load live sessions. Please try again later.");
-        setLoading(false);
-      }
-    };
-
-    if (userInfo?.id || userInfo?.user_id) {
-      fetchLiveSessions();
-    }
-  }, [userInfo?.id, userInfo?.user_id]);
-
-  const stats = [
-    {
-      title: "Total Students",
-      value: "0",
-      change: "+0%",
-      icon: <FaUsers className="text-xl" />,
-    },
-    {
-      title: "Lessons Completed",
-      value: "0",
-      change: "+0%",
-      icon: <FaBook className="text-xl" />,
-    },
-    {
-      title: "Live Sessions",
-      value: "0",
-      change: "+0%",
-      icon: <FaVideo className="text-xl" />,
-    },
-    {
-      title: "Earnings",
-      value: "KES 0",
-      change: "+0%",
-      icon: <FaWallet className="text-xl" />,
-    },
-  ];
-
-  useEffect(() => {
-    const path = location.pathname.replace(/\/$/, "");
-    const base = "/teacher-dashboard";
-    let section = path.startsWith(base) ? path.slice(base.length) : "";
-    if (section.startsWith("/")) section = section.slice(1);
-
-    const map = {
-      "": "dashboard",
-      students: "students",
-      lessons: "lessons",
-      liveclasses: "liveclass",
-      schedule: "schedule",
-      videoeditor: "videoeditor",
-      mywallet: "mywallet",
-      myaccount: "myaccount",
-      studentleads: "studentleads",
-      upcomingclasses: "upcomingclasses",
-      revisionmaterials: "revisionmaterials",
-      assessments: "assessments",
-    };
-    setActiveComponent(map[section] || "dashboard");
-  }, [location.pathname]);
-
-  const handleMenuItemClick = (component) => {
-    const allowTestingAccess = localStorage.getItem("dev_mode") === "true";
-    if (isBlocked && component !== "myaccount" && !allowTestingAccess) {
-      setShowWelcomeModal(true);
-      return;
-    }
-    const routes = {
-      dashboard: "/teacher-dashboard",
-      students: "/teacher-dashboard/students",
-      lessons: "/teacher-dashboard/lessons",
-      liveclass: "/teacher-dashboard/liveclasses",
-      schedule: "/teacher-dashboard/schedule",
-      videoeditor: "/teacher-dashboard/videoeditor",
-      mywallet: "/teacher-dashboard/mywallet",
-      myaccount: "/teacher-dashboard/myaccount",
-      studentleads: "/teacher-dashboard/studentleads",
-      upcomingclasses: "/teacher-dashboard/upcomingclasses",
-      revisionmaterials: "/teacher-dashboard/revisionmaterials",
-      assessments: "/teacher-dashboard/assessments",
-    };
-    navigate(routes[component] || "/teacher-dashboard");
-    if (window.innerWidth < 1024) setSidebarOpen(false);
-  };
-
-  const getDisplayName = () => {
-    if (!userInfo) return "Teacher";
-    const name = userInfo.full_name || userInfo.first_name || userInfo.email;
-    if (!name) return "Teacher";
-    return name.split("@")[0] || name;
-  };
-
-  const navItems = [
-    { key: "dashboard", label: "Dashboard", icon: FaHome },
-    { key: "lessons", label: "My Lessons", icon: FaChalkboardTeacher },
-    { key: "mywallet", label: "My Wallet", icon: FaWallet },
-    { key: "liveclass", label: "Live Classes", icon: FaVideo },
-    { key: "schedule", label: "Schedule", icon: FaCalendarAlt },
-    { key: "studentleads", label: "Student Leads", icon: FaUsers },
-    { key: "revisionmaterials", label: "Revision Materials", icon: FaBook },
-    { key: "assessments", label: "Assessments", icon: FaClipboardList },
-    { key: "myaccount", label: "My Account", icon: FaUserCircle },
-  ];
-
-  const allowTestingAccess = localStorage.getItem("dev_mode") === "true";
-  const canAccess = !isBlocked || allowTestingAccess;
+  if (!userInfo) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-[#01B0F1]" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC] font-josefin">
-      {/* Sidebar — onboarding tokens */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-[280px] transform bg-[#013349] text-white shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 z-50 w-[280px] transform bg-[#013349] shadow-2xl transition-transform duration-300 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
@@ -502,524 +440,110 @@ const TeacherDashboard = () => {
           className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-[#01B0F1]/15 blur-3xl"
           aria-hidden
         />
-        <div className="relative z-10 flex h-full flex-col">
-          <div className="flex items-center gap-3 border-b border-white/15 px-5 py-6">
-            <div className="shrink-0">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt="Profile"
-                  className="h-12 w-12 rounded-xl border-2 border-white/30 object-cover"
-                />
-              ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
-                  <FaUserCircle className="text-2xl text-white/70" />
-                </div>
-              )}
+        <div className="relative z-10 flex h-full flex-col px-5 py-8 lg:py-10">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-3 inline-flex rounded-2xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-md">
+              <img
+                src="/images/logo.png"
+                alt="StudyBuddy"
+                className="h-8 w-auto object-contain"
+              />
             </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="truncate font-lilita text-lg text-white">
-                {getDisplayName()}
-              </h2>
-              <p className="font-josefin text-xs uppercase tracking-wider text-[#81CFFF]">
-                Teacher
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="text-white/80 lg:hidden"
-            >
-              <FaTimes />
-            </button>
+            <h2 className="font-lilita text-xl text-white">
+              Teacher <span className="text-[#81CFFF]">Dashboard</span>
+            </h2>
+            <p className="mt-1 font-josefin text-[11px] uppercase tracking-wider text-white/50">
+              Educator portal
+            </p>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-3 py-6">
-            <ul className="space-y-1">
-              {navItems.map((item) => {
-                const active = activeComponent === item.key;
-                const Icon = item.icon;
-                const disabled =
-                  isBlocked && item.key !== "myaccount" && !allowTestingAccess;
-                return (
-                  <li key={item.key}>
-                    <button
-                      type="button"
-                      onClick={() => handleMenuItemClick(item.key)}
-                      disabled={disabled}
-                      className={`flex w-full items-center rounded-xl px-4 py-3 text-left font-josefin text-sm transition-all ${
-                        active
-                          ? "bg-[#01B0F1] text-white shadow-lg shadow-[#01B0F1]/30"
-                          : "text-[#B4C8DC] hover:bg-white/10 hover:text-white"
-                      } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-                    >
-                      <Icon className="mr-3 shrink-0 text-base" />
-                      <span className="truncate">{item.label}</span>
-                      {active && (
-                        <FaChevronRight className="ml-auto text-xs opacity-80" />
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+          <nav className="flex-1 space-y-1 overflow-y-auto">
+            {navigation.map((item) => {
+              const active = activeComponent === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => {
+                    setActiveComponent(item.key);
+                    setSidebarOpen(false);
+                  }}
+                  className={`flex w-full items-center rounded-xl px-4 py-3 text-left font-josefin text-sm transition-all ${
+                    active
+                      ? "bg-[#01B0F1] text-white shadow-lg shadow-[#01B0F1]/30"
+                      : "text-[#B4C8DC] hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <span className="mr-3 flex h-6 w-6 shrink-0 items-center justify-center">
+                    {item.icon}
+                  </span>
+                  <span className="truncate">{item.name}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveComponent("account");
+                setSidebarOpen(false);
+              }}
+              className={`flex w-full items-center rounded-xl px-4 py-3 text-left font-josefin text-sm transition-all ${
+                activeComponent === "account"
+                  ? "bg-[#01B0F1] text-white shadow-lg shadow-[#01B0F1]/30"
+                  : "text-[#B4C8DC] hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <span className="mr-3 flex h-6 w-6 items-center justify-center">
+                <FaUserCircle />
+              </span>
+              My Account
+            </button>
           </nav>
 
-          <div className="border-t border-white/15 p-4">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex w-full items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 font-josefin text-sm text-white/80 transition hover:bg-white/10 hover:text-white"
-            >
-              <FaSignOutAlt />
-              Log out
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-4 flex w-full items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 font-josefin text-sm text-white/80 transition hover:bg-white/10 hover:text-white"
+          >
+            <FaSignOutAlt />
+            Log out
+          </button>
         </div>
       </aside>
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
         />
       )}
 
-      {/* Main column */}
-      <div className="flex min-h-screen flex-1 flex-col lg:pl-[280px]">
+      <div className="flex flex-1 flex-col lg:pl-[280px]">
         <DashboardHeader
           title={
-            navItems.find((n) => n.key === activeComponent)?.label ||
-            "Dashboard"
+            navigation.find((n) => n.key === activeComponent)?.name ||
+            (activeComponent === "account" ? "My Account" : "Dashboard")
           }
           userInfo={userInfo}
           onLogout={handleLogout}
           onToggleSidebar={() => setSidebarOpen(true)}
-          onViewProfile={() => handleMenuItemClick("myaccount")}
-          onEditProfile={() => handleMenuItemClick("myaccount")}
+          onViewProfile={() => setActiveComponent("account")}
+          onEditProfile={() => setActiveComponent("account")}
         />
-
-        {showVerificationNotice && verificationStatus !== "approved" && (
-          <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 md:mx-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <p
-                className={`flex-1 font-josefin text-sm ${
-                  verificationStatus === "pending"
-                    ? "text-blue-700"
-                    : verificationStatus === "rejected"
-                      ? "text-red-700"
-                      : "text-amber-800"
-                }`}
-              >
-                {verificationStatus === "pending"
-                  ? "Your verification is pending admin approval."
-                  : verificationStatus === "rejected"
-                    ? "Your verification was rejected. Please update and resubmit."
-                    : "Your account is not verified. Complete verification in My Account."}
-              </p>
-              <button
-                type="button"
-                onClick={() => handleMenuItemClick("myaccount")}
-                className="shrink-0 rounded-lg bg-[#015575] px-4 py-2 font-josefin text-sm font-medium text-white hover:bg-[#01B0F1]"
-              >
-                {verificationStatus === "rejected"
-                  ? "Resubmit"
-                  : "Verify account"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {showWelcomeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl">
-              <div className="text-center">
-                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#01B0F1]/10">
-                  <FaChalkboardTeacher className="h-10 w-10 text-[#01B0F1]" />
-                </div>
-                <h2 className="mb-4 font-lilita text-3xl text-[#015575]">
-                  Welcome to StudyBuddy!
-                </h2>
-                <p className="mb-6 font-josefin text-lg text-gray-600">
-                  Before you can start teaching, we need to verify your account.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowWelcomeModal(false);
-                    handleMenuItemClick("myaccount");
-                  }}
-                  className="rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] px-8 py-3 font-lilita text-white hover:shadow-lg"
-                >
-                  Start verification
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isBlocked &&
-          activeComponent !== "myaccount" &&
-          !allowTestingAccess && (
-            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-              <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
-                <FaChalkboardTeacher className="mx-auto mb-4 h-16 w-16 text-[#01B0F1]" />
-                <h3 className="mb-4 font-lilita text-2xl text-[#015575]">
-                  Account verification required
-                </h3>
-                <p className="mb-6 font-josefin text-gray-600">
-                  {verificationStatus === "pending"
-                    ? "Verification is pending admin approval."
-                    : verificationStatus === "rejected"
-                      ? "Verification was rejected. Please update and resubmit."
-                      : "Please complete account verification to access the dashboard."}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => handleMenuItemClick("myaccount")}
-                  className="rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] px-6 py-3 font-lilita text-white"
-                >
-                  {verificationStatus === "rejected"
-                    ? "Resubmit verification"
-                    : "Go to verification"}
-                </button>
-              </div>
+        <main className="flex-1 space-y-6 overflow-y-auto bg-[#F8FAFC] p-4 md:p-6 lg:p-8">
+          {successMessage && (
+            <div className="rounded-lg bg-emerald-50 px-4 py-2 font-josefin text-sm text-emerald-700">
+              {successMessage}
             </div>
           )}
-
-        <main className="flex-1 overflow-y-auto bg-[#F8FAFC]">
-          <div className="p-4 md:p-6 lg:p-8">
-            {activeComponent === "dashboard" && (
-              <div className="space-y-6">
-                {isBlocked && !allowTestingAccess ? (
-                  <div className="rounded-xl border border-slate-100 bg-white p-8 text-center shadow-sm">
-                    <FaChalkboardTeacher className="mx-auto mb-4 h-20 w-20 text-[#01B0F1]" />
-                    <h2 className="mb-4 font-lilita text-2xl text-[#015575]">
-                      Welcome, {getDisplayName()}!
-                    </h2>
-                    <p className="mb-6 font-josefin text-gray-600">
-                      {verificationStatus === "pending"
-                        ? "Your account verification is pending admin approval."
-                        : verificationStatus === "rejected"
-                          ? "Your account verification was rejected. Please update and resubmit."
-                          : "Please complete verification to use dashboard features."}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => handleMenuItemClick("myaccount")}
-                      className="rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] px-8 py-3 font-lilita text-white"
-                    >
-                      {verificationStatus === "rejected"
-                        ? "Resubmit verification"
-                        : "Complete verification"}
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
-                      {stats.map((stat) => (
-                        <div
-                          key={stat.title}
-                          className="rounded-xl border-l-4 border-[#01B0F1] bg-white p-4 shadow-sm md:p-6"
-                        >
-                          <div className="flex items-center">
-                            <div className="mr-4 rounded-lg bg-[#01B0F1]/10 p-3 text-[#01B0F1]">
-                              {stat.icon}
-                            </div>
-                            <div>
-                              <p className="font-josefin text-xs text-gray-500 md:text-sm">
-                                {stat.title}
-                              </p>
-                              <h3 className="font-lilita text-xl text-[#015575] md:text-2xl">
-                                {stat.value}
-                              </h3>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 md:gap-6">
-                      <div
-                        className="cursor-pointer rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] p-6 text-white shadow-lg transition hover:shadow-xl"
-                        onClick={handleGoLive}
-                      >
-                        <div className="mb-4 flex items-center">
-                          <div className="mr-4 rounded-full bg-white/20 p-3">
-                            <FaVideo className="text-xl" />
-                          </div>
-                          <h2 className="font-lilita text-xl">Go Live</h2>
-                        </div>
-                        <p className="mb-6 text-white/90">
-                          Start a live session with your students
-                        </p>
-                        <button
-                          type="button"
-                          className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#015575]"
-                        >
-                          Start live session
-                        </button>
-                      </div>
-
-                      <div
-                        className="cursor-pointer rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md"
-                        onClick={() => handleMenuItemClick("schedule")}
-                      >
-                        <div className="mb-4 flex items-center">
-                          <div className="mr-4 rounded-full bg-[#01B0F1]/10 p-3 text-[#01B0F1]">
-                            <FaCalendarAlt className="text-xl" />
-                          </div>
-                          <h2 className="font-lilita text-xl text-[#015575]">
-                            My Schedule
-                          </h2>
-                        </div>
-                        <p className="mb-6 text-gray-600">
-                          Manage classes and availability
-                        </p>
-                        <button
-                          type="button"
-                          className="rounded-lg bg-[#01B0F1] px-4 py-2 text-sm font-bold text-white"
-                        >
-                          View calendar
-                        </button>
-                      </div>
-
-                      <div
-                        className="cursor-pointer rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md"
-                        onClick={() => setIsModalOpen(true)}
-                      >
-                        <div className="mb-4 flex items-center">
-                          <div className="mr-4 rounded-full bg-[#01B0F1]/10 p-3 text-[#01B0F1]">
-                            <FaCameraRetro className="text-xl" />
-                          </div>
-                          <h2 className="font-lilita text-xl text-[#015575]">
-                            Upload content
-                          </h2>
-                        </div>
-                        <p className="mb-6 text-gray-600">
-                          Upload videos or materials for students
-                        </p>
-                        <button
-                          type="button"
-                          className="rounded-lg bg-[#01B0F1] px-4 py-2 text-sm font-bold text-white"
-                        >
-                          Upload now
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-                      <div className="border-b border-gray-100 p-4 md:p-6">
-                        <h2 className="flex items-center font-lilita text-lg text-[#015575] md:text-xl">
-                          <FaCalendarAlt className="mr-2 text-[#01B0F1]" />
-                          Upcoming classes
-                        </h2>
-                      </div>
-                      <div className="p-4 md:p-6">
-                        {loading ? (
-                          <p className="py-8 text-center font-josefin text-gray-500">
-                            Loading…
-                          </p>
-                        ) : liveSessions.length === 0 ? (
-                          <div className="py-10 text-center">
-                            <FaCalendarAlt className="mx-auto mb-3 text-4xl text-gray-300" />
-                            <h3 className="font-lilita text-lg text-[#015575]">
-                              No upcoming classes
-                            </h3>
-                            <p className="mt-1 font-josefin text-sm text-gray-500">
-                              Schedule your next class to get started
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => handleMenuItemClick("schedule")}
-                              className="mt-4 rounded-lg bg-[#01B0F1] px-6 py-2 font-bold text-white"
-                            >
-                              Schedule class
-                            </button>
-                          </div>
-                        ) : (
-                          <ul className="divide-y divide-gray-100">
-                            {liveSessions.slice(0, 5).map((session, index) => (
-                              <li
-                                key={session.id || index}
-                                className="flex items-center justify-between py-3"
-                              >
-                                <div>
-                                  <h3 className="font-josefin font-semibold text-[#015575]">
-                                    {session.title ||
-                                      session.subject?.name ||
-                                      "Class"}
-                                  </h3>
-                                  <p className="font-josefin text-xs text-gray-500">
-                                    {session.started_at
-                                      ? new Date(
-                                          session.started_at,
-                                        ).toLocaleString()
-                                      : session.scheduled_date || "TBC"}
-                                  </p>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                      {liveSessions.length > 0 && (
-                        <div className="border-t border-gray-100 p-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleMenuItemClick("upcomingclasses")
-                            }
-                            className="font-josefin text-sm font-semibold text-[#01B0F1] hover:text-[#015575]"
-                          >
-                            View all classes
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {!canAccess && activeComponent !== "myaccount" ? (
-              <div className="py-12 text-center">
-                <p className="font-josefin text-gray-500">
-                  Please verify your account to access this section.
-                </p>
-              </div>
-            ) : (
-              <>
-                {activeComponent === "lessons" && (
-                  <MyLessons userInfo={userInfo} />
-                )}
-                {activeComponent === "liveclass" && (
-                  <Liveclass userInfo={userInfo} />
-                )}
-                {activeComponent === "mywallet" && (
-                  <MyWallet userInfo={userInfo} />
-                )}
-                {activeComponent === "schedule" && (
-                  <Scheduler userInfo={userInfo} />
-                )}
-                {activeComponent === "studentleads" && (
-                  <StudentLeads userInfo={userInfo} />
-                )}
-                {activeComponent === "upcomingclasses" && (
-                  <UpcomingClasses liveSessions={liveSessions} />
-                )}
-                {activeComponent === "revisionmaterials" && (
-                  <RevisionMaterials userInfo={userInfo} />
-                )}
-                {activeComponent === "assessments" && (
-                  <Assessments userInfo={userInfo} />
-                )}
-                {activeComponent === "profileupdate" && (
-                  <TeacherProfileUpdate />
-                )}
-                {activeComponent === "myaccount" && <MyAccount />}
-              </>
-            )}
-          </div>
+          {errorMessage && (
+            <div className="rounded-lg bg-red-50 px-4 py-2 font-josefin text-sm text-red-700">
+              {errorMessage}
+            </div>
+          )}
+          {renderActive()}
         </main>
-
-        <footer className="border-t border-slate-100 bg-white py-3 text-center font-josefin text-xs text-gray-500">
-          © {new Date().getFullYear()} StudyBuddy Africa · Teacher Dashboard
-        </footer>
       </div>
-
-      {/* Upload modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b p-4 md:p-6">
-              <h2 className="font-lilita text-xl text-[#015575] md:text-2xl">
-                Upload video
-              </h2>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <FaTimes className="text-2xl" />
-              </button>
-            </div>
-            <div className="grid grid-cols-1 gap-6 p-4 md:grid-cols-2 md:p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block font-josefin text-sm font-semibold text-gray-700">
-                    Video title
-                  </label>
-                  <input
-                    type="text"
-                    value={videoTitle}
-                    onChange={(e) => setVideoTitle(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-[#01B0F1]"
-                    placeholder="Enter video title"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block font-josefin text-sm font-semibold text-gray-700">
-                    Description
-                  </label>
-                  <textarea
-                    value={videoDescription}
-                    onChange={(e) => setVideoDescription(e.target.value)}
-                    className="h-28 w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-[#01B0F1]"
-                    placeholder="Describe your video"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block font-josefin text-sm font-semibold text-gray-700">
-                    Select video
-                  </label>
-                  <div className="relative rounded-lg border-2 border-dashed border-gray-300 p-6 text-center hover:border-[#01B0F1]">
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={handleVideoUpload}
-                      className="absolute inset-0 cursor-pointer opacity-0"
-                    />
-                    <FaCameraRetro className="mx-auto mb-2 text-3xl text-[#01B0F1]" />
-                    <p className="font-josefin text-sm text-gray-600">
-                      Click to upload (MP4, AVI, MOV)
-                    </p>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={uploading}
-                    className="rounded-lg bg-gradient-to-r from-[#01B0F1] to-[#015575] px-6 py-2 font-bold text-white disabled:opacity-70"
-                  >
-                    {uploading ? "Uploading…" : "Upload video"}
-                  </button>
-                </div>
-              </div>
-              <div className="rounded-xl bg-gray-50 p-4">
-                <h3 className="mb-3 font-josefin font-semibold text-gray-800">
-                  Preview
-                </h3>
-                {videoPreview ? (
-                  <div className="aspect-video overflow-hidden rounded-lg bg-black">
-                    <video
-                      controls
-                      className="h-full w-full object-contain"
-                      src={videoPreview}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex aspect-video flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-100 text-gray-500">
-                    <FaCameraRetro className="mb-2 text-4xl" />
-                    <p className="font-josefin text-sm">Preview appears here</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
