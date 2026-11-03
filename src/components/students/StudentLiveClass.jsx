@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import {
   FaArrowLeft,
   FaBookOpen,
@@ -13,14 +19,16 @@ import {
   FaRedo,
   FaShareAlt,
   FaUsers,
-  FaVideo,
   FaVideoSlash,
-  FaVolumeUp,
 } from "react-icons/fa";
 import axios from "axios";
 import { FHOST } from "../constants/Functions";
 import { authStorage } from "../../services/authStorage";
 import { authService } from "../../services/authService";
+import {
+  conferencingService,
+  getErrorMessage as confErr,
+} from "../../services/conferencingService";
 
 const getSessionStatus = (session) => {
   const now = Date.now();
@@ -91,10 +99,11 @@ const getJoinCount = (session) =>
   session.student_count ??
   null;
 
+/** Only reject mock Daily URLs; allow Jitsi and real room_url */
 const isUsableMeetingUrl = (url) => {
   if (!url || typeof url !== "string") return false;
   const u = url.toLowerCase();
-  if (u.includes("mock.daily") || u.includes("daily.co")) return false;
+  if (u.includes("mock.daily")) return false;
   return true;
 };
 
@@ -103,6 +112,7 @@ const getMeetingUrlFromSession = (session) => {
     session?.student_meeting_link ||
     session?.teacher_meeting_link ||
     session?.meeting_link ||
+    session?.room_url ||
     null;
   return isUsableMeetingUrl(raw) ? raw : null;
 };
@@ -110,7 +120,10 @@ const getMeetingUrlFromSession = (session) => {
 const parseJitsiRoom = (url) => {
   try {
     const u = new URL(url);
-    const roomName = u.pathname.replace(/^\//, "").split("/")[0];
+    const roomName = u.pathname
+      .replace(/^\//, "")
+      .split("/")
+      .filter(Boolean)[0];
     return { domain: u.hostname || "meet.jit.si", roomName: roomName || null };
   } catch {
     return { domain: "meet.jit.si", roomName: null };
@@ -175,14 +188,51 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
   const [cameraOn, setCameraOn] = useState(true);
   const [shareOn, setShareOn] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [liveSessionId, setLiveSessionId] = useState(null);
+  const [isPreview, setIsPreview] = useState(false);
+  const [previewSecondsLeft, setPreviewSecondsLeft] = useState(null);
 
   const jitsiApiRef = useRef(null);
   const jitsiContainerRef = useRef(null);
+  const heartbeatRef = useRef(null);
   const [jitsiReady, setJitsiReady] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
-  const [speakerOn, setSpeakerOn] = useState(true);
-  const [leftClass, setLeftClass] = useState(false);
+
+  const disposeJitsi = useCallback(() => {
+    if (jitsiApiRef.current) {
+      try {
+        jitsiApiRef.current.dispose();
+      } catch (_) {
+        /* ignore */
+      }
+      jitsiApiRef.current = null;
+    }
+    setJitsiReady(false);
+  }, []);
+
+  const leaveRoom = useCallback(() => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+    if (jitsiApiRef.current) {
+      try {
+        jitsiApiRef.current.executeCommand("hangup");
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    disposeJitsi();
+    setView("list");
+    setMeetingUrl(null);
+    setMeetingLoading(false);
+    setShareOn(false);
+    setLiveSessionId(null);
+    setIsPreview(false);
+    setPreviewSecondsLeft(null);
+    onLeaveRoom?.();
+  }, [disposeJitsi, onLeaveRoom]);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 30000);
@@ -194,57 +244,132 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
 
     if (!meetingUrl) {
       disposeJitsi();
-      return;
+      return undefined;
     }
 
     const initJitsi = async () => {
       try {
         await loadJitsiScript();
-        if (cancelled) return;
-        const api = new window.JitsiMeetExternalAPI(meetingUrl, {
-          roomName: parseJitsiRoom(meetingUrl).roomName || "",
+        if (cancelled || !jitsiContainerRef.current) return;
+
+        const { domain, roomName } = parseJitsiRoom(meetingUrl);
+        if (!roomName) {
+          console.error("Could not parse Jitsi room from URL:", meetingUrl);
+          setMeetingLoading(false);
+          setError("Invalid meeting link for this class.");
+          return;
+        }
+
+        disposeJitsi();
+
+        const user = authStorage.getUserInfo?.() || {};
+        const displayName =
+          user.first_name || user.full_name || user.email || "Student";
+
+        const api = new window.JitsiMeetExternalAPI(domain, {
+          roomName,
           parentNode: jitsiContainerRef.current,
-          configOverwrite: { startWithAudioMuted: false, startWithVideoMuted: false },
-          interfaceConfigOverwrite: { TOOLBAR_BUTTONS: [] },
+          width: "100%",
+          height: "100%",
+          userInfo: { displayName },
+          configOverwrite: {
+            startWithAudioMuted: !micOn,
+            startWithVideoMuted: !cameraOn,
+            prejoinPageEnabled: false,
+          },
+          interfaceConfigOverwrite: {
+            TOOLBAR_BUTTONS: [
+              "microphone",
+              "camera",
+              "desktop",
+              "hangup",
+              "chat",
+              "tileview",
+            ],
+          },
         });
+
         jitsiApiRef.current = api;
         setJitsiReady(true);
-        api.addEventListener("disconnected", () => {
-          if (!cancelled) disposeJitsi();
+        setMeetingLoading(false);
+
+        api.addEventListener("audioMuteStatusChanged", ({ muted }) => {
+          setMicOn(!muted);
+        });
+        api.addEventListener("videoMuteStatusChanged", ({ muted }) => {
+          setCameraOn(!muted);
+        });
+        api.addEventListener("readyToClose", () => {
+          if (!cancelled) leaveRoom();
         });
       } catch (err) {
         if (!cancelled) {
           console.error("Jitsi init failed:", err);
+          setMeetingLoading(false);
+          setError("Could not start the in-app meeting. Try Open in new tab.");
           disposeJitsi();
         }
       }
     };
 
     initJitsi();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meetingUrl]);
 
-  const handleShareScreen = async () => {
-    if (!shareOn) {
-      if (navigator.mediaDevices?.getDisplayMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-          setShareOn(true);
-          const track = stream.getVideoTracks()[0];
-          if (track) {
-            track.onended = () => setShareOn(false);
-          }
-        } catch (err) {
-          console.warn("Screen share cancelled or not allowed:", err);
-          setShareOn(false);
-        }
-      } else {
-        setShareOn(true);
-      }
-    } else {
-      setShareOn(false);
+  useEffect(() => {
+    if (!jitsiReady || !liveSessionId || !conferencingService.enabled) {
+      return undefined;
     }
-  };
+
+    const tick = () => {
+      conferencingService
+        .heartbeat(liveSessionId, {
+          media_state: {
+            audio_enabled: micOn,
+            video_enabled: cameraOn,
+          },
+        })
+        .catch((e) => console.warn("heartbeat:", confErr(e)));
+    };
+
+    tick();
+    heartbeatRef.current = setInterval(tick, 30000);
+    return () => {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
+    };
+  }, [jitsiReady, liveSessionId, micOn, cameraOn]);
+
+  useEffect(() => {
+    if (!isPreview || !jitsiReady) {
+      setPreviewSecondsLeft(null);
+      return undefined;
+    }
+
+    setPreviewSecondsLeft(30);
+    const id = setInterval(() => {
+      setPreviewSecondsLeft((s) => {
+        if (s == null) return s;
+        if (s <= 1) {
+          clearInterval(id);
+          disposeJitsi();
+          setMeetingUrl(null);
+          setError(
+            "Preview ended. Top up your wallet to continue the full class when payments are enabled.",
+          );
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [isPreview, jitsiReady, disposeJitsi]);
 
   const loadSessions = async () => {
     setLoading(true);
@@ -303,25 +428,43 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     );
   }, [sessions, currentTime]);
 
-  const resolveMeetingUrl = async (session) => {
+  const resolveMeetingForSession = async (session) => {
     const existing = getMeetingUrlFromSession(session);
-    if (existing) return existing;
+    const id = session.live_session_id || session.id;
 
-    const token = authStorage.getAccessToken();
-    const response = await axios.get(`${FHOST}/api/jitsi/`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-    const link = response.data?.link || null;
-    return isUsableMeetingUrl(link) ? link : null;
-  };
-
-  const disposeJitsi = () => {
-    if (jitsiApiRef.current) {
+    if (conferencingService.enabled && id) {
       try {
-        jitsiApiRef.current.dispose();
-      } catch (_) {}
-      jitsiApiRef.current = null;
-      setJitsiReady(false);
+        const joined = await conferencingService.join(id);
+        setLiveSessionId(joined.live_session_id || id);
+        setIsPreview(Boolean(joined.is_preview));
+        if (joined.whiteboard_link) {
+          setSelectedSession((s) =>
+            s
+              ? {
+                  ...s,
+                  whiteboard_link: s.whiteboard_link || joined.whiteboard_link,
+                }
+              : s,
+          );
+        }
+        if (joined.room_url && isUsableMeetingUrl(joined.room_url)) {
+          return joined.room_url;
+        }
+      } catch (err) {
+        console.warn("v1 join failed, falling back:", confErr(err));
+      }
+    }
+
+    if (existing) {
+      setLiveSessionId(id || null);
+      return existing;
+    }
+
+    try {
+      const link = await conferencingService.fetchLegacyJitsiLink();
+      return isUsableMeetingUrl(link) ? link : null;
+    } catch {
+      return null;
     }
   };
 
@@ -330,6 +473,9 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     setSelectedSession(session);
     setView("room");
     setMeetingUrl(null);
+    setLiveSessionId(null);
+    setIsPreview(false);
+    setPreviewSecondsLeft(null);
     disposeJitsi();
     onEnterRoom?.();
 
@@ -337,7 +483,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
       {
         id: "sys-1",
         author: "StudyBuddy",
-        text: "Use the footer mic, camera and share buttons. If public Jitsi asks for a moderator, open the meeting in a new tab and log in once.",
+        text: "Use the footer for mic, camera and share when connected. If Jitsi asks for a moderator, use Open in new tab once.",
         at: new Date().toISOString(),
       },
     ]);
@@ -346,7 +492,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
 
     try {
       setMeetingLoading(true);
-      const link = await resolveMeetingUrl(session);
+      const link = await resolveMeetingForSession(session);
       if (link) {
         setMeetingUrl(link);
       } else {
@@ -357,25 +503,9 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
       }
     } catch (err) {
       console.error("Meeting link failed:", err);
-      setError(
-        err.response?.data?.detail || "Could not start the meeting. Try again.",
-      );
+      setError(confErr(err, "Could not start the meeting. Try again."));
       setMeetingLoading(false);
     }
-  };
-
-  const leaveRoom = () => {
-    if (jitsiApiRef.current) {
-      try {
-        jitsiApiRef.current.executeCommand("hangup");
-      } catch (_) {}
-    }
-    disposeJitsi();
-    setView("list");
-    setMeetingUrl(null);
-    setMeetingLoading(false);
-    setShareOn(false);
-    onLeaveRoom?.();
   };
 
   const toggleMic = () => {
@@ -439,7 +569,6 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     const text = chatInput.trim();
     if (!text) return;
 
-    // Send through Jitsi when available
     if (jitsiApiRef.current && jitsiReady) {
       try {
         jitsiApiRef.current.executeCommand("sendChatMessage", text);
@@ -448,7 +577,6 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
       }
     }
 
-    // Optimistic local update so the UI feels instant
     setChatMessages((prev) => [
       ...prev,
       {
@@ -579,7 +707,19 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
           </button>
         </header>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
+        {previewSecondsLeft != null && previewSecondsLeft > 0 && (
+          <div className="shrink-0 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-900">
+            Preview mode: {previewSecondsLeft}s left
+          </div>
+        )}
+
+        {error && (
+          <div className="shrink-0 border-b border-red-100 bg-red-50 px-4 py-2 text-center text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
           <section className="flex min-h-0 flex-col overflow-hidden p-2 sm:p-3">
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2">
@@ -629,7 +769,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
 
           <aside className="flex min-h-0 flex-col overflow-hidden border-t border-gray-200 bg-white lg:border-l lg:border-t-0">
             <div className="relative shrink-0 bg-[#0f2744] px-3 pb-3 pt-3 text-white">
-              <div className="relative min-h-[220px] w-full overflow-hidden rounded-xl bg-black/40 aspect-video sm:min-h-[260px]">
+              <div className="relative aspect-video min-h-[220px] w-full overflow-hidden rounded-xl bg-black/40 sm:min-h-[260px]">
                 {meetingLoading && !jitsiReady && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 text-sm text-blue-100">
                     Starting meeting…
@@ -658,7 +798,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
                     {meetingLoading && !jitsiReady
                       ? "Connecting…"
                       : jitsiReady
-                        ? "Use footer for mic · camera · share"
+                        ? "Connected · use footer controls"
                         : meetingUrl
                           ? "Meeting link ready"
                           : "Waiting for meeting"}
@@ -670,7 +810,6 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-white/25"
-                    title="If public Jitsi asks for a moderator, open here and log in"
                   >
                     <FaExternalLinkAlt className="text-[10px]" />
                     Open in new tab
@@ -678,107 +817,6 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
                 )}
               </div>
             </div>
-
-                  <div className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(250px,0.75fr)]">
-                    <div className="rounded-xl bg-[#102a43] p-5 text-white">
-                      <div className="flex min-h-[210px] flex-col items-center justify-center text-center">
-                        <FaVideo className="text-4xl text-[#8bdcf7]" />
-                        <h3 className="mt-4 text-lg font-semibold">
-                          {leftClass
-                            ? "You left this classroom"
-                            : "Meeting controls"}
-                        </h3>
-                        <p className="mt-2 max-w-sm text-sm text-blue-100">
-                          The meeting opens in a secure browser tab. Use these
-                          controls to prepare locally, then use the meeting
-                          provider controls for the live call.
-                        </p>
-                      </div>
-                      <div className="mt-4 flex flex-wrap justify-center gap-2 border-t border-white/20 pt-4">
-                        <button
-                          type="button"
-                          onClick={() => setMicOn((value) => !value)}
-                          aria-label={
-                            micOn ? "Mute microphone" : "Unmute microphone"
-                          }
-                          className={`rounded-full p-3 ${micOn ? "bg-white/15" : "bg-red-500"}`}
-                        >
-                          <FaMicrophone />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCameraOn((value) => !value)}
-                          aria-label={
-                            cameraOn ? "Turn camera off" : "Turn camera on"
-                          }
-                          className={`rounded-full p-3 ${cameraOn ? "bg-white/15" : "bg-red-500"}`}
-                        >
-                          {cameraOn ? <FaCamera /> : <FaVideoSlash />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSpeakerOn((value) => !value)}
-                          aria-label={
-                            speakerOn ? "Mute speakers" : "Unmute speakers"
-                          }
-                          className={`rounded-full p-3 ${speakerOn ? "bg-white/15" : "bg-red-500"}`}
-                        >
-                          <FaVolumeUp />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleShareScreen}
-                          aria-label={shareOn ? "Stop sharing" : "Share screen"}
-                          className={`rounded-full p-3 ${shareOn ? "bg-[#01B0F1]" : "bg-white/15"}`}
-                        >
-                          <FaShareAlt />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setLeftClass(true)}
-                          aria-label="Leave classroom"
-                          className="rounded-full bg-red-500 p-3 hover:bg-red-600"
-                        >
-                          <FaPhoneSlash />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-gray-200 p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-semibold text-gray-800">
-                          Whiteboard
-                        </h3>
-                        {selectedSession.whiteboard_link && (
-                          <FaExternalLinkAlt className="text-gray-400" />
-                        )}
-                      </div>
-                      {selectedSession.whiteboard_link ? (
-                        <>
-                          <div className="mt-3 aspect-video overflow-hidden rounded-lg bg-gray-100">
-                            <iframe
-                              title={`${selectedSession.title || "Class"} whiteboard`}
-                              src={selectedSession.whiteboard_link}
-                              className="h-full w-full border-0"
-                            />
-                          </div>
-                          <a
-                            href={selectedSession.whiteboard_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#015575] hover:underline"
-                          >
-                            <FaExternalLinkAlt /> Open in a new tab
-                          </a>
-                        </>
-                      ) : (
-                        <p className="mt-4 text-sm text-gray-500">
-                          Your teacher has not shared a whiteboard for this
-                          class.
-                        </p>
-                      )}
-                    </div>
-                  </div>
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
               {chatMessages.map((msg) => (
@@ -840,7 +878,6 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
                   : "border-red-500 bg-red-500 text-white"
               }`}
               aria-label="Microphone"
-              title="Toggle microphone"
             >
               <FaMicrophone />
             </button>
@@ -853,7 +890,6 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
                   : "border-red-500 bg-red-500 text-white"
               }`}
               aria-label="Camera"
-              title="Toggle camera"
             >
               {cameraOn ? <FaCamera /> : <FaVideoSlash />}
             </button>
@@ -866,7 +902,6 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
                   : "border-gray-200 bg-gray-50 text-gray-700"
               }`}
               aria-label="Share screen"
-              title="Toggle screen share"
             >
               <FaShareAlt />
             </button>
@@ -875,7 +910,6 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
               onClick={leaveRoom}
               className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600"
               aria-label="Leave"
-              title="Leave class"
             >
               <FaPhoneSlash />
             </button>
@@ -920,7 +954,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
         </button>
       </div>
 
-      {error && (
+      {error && view === "list" && (
         <div className="mb-5 flex flex-col justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 sm:flex-row sm:items-center">
           <span>{error}</span>
           <button
@@ -945,8 +979,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
             No classes yet
           </h2>
           <p className="mx-auto mt-2 max-w-md text-gray-500">
-            Once a teacher schedules a class for you, it will appear here with
-            its meeting and whiteboard links.
+            Once a teacher schedules a class for you, it will appear here.
           </p>
         </div>
       ) : (
