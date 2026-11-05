@@ -107,16 +107,6 @@ const isUsableMeetingUrl = (url) => {
   return true;
 };
 
-const getMeetingUrlFromSession = (session) => {
-  const raw =
-    session?.student_meeting_link ||
-    session?.teacher_meeting_link ||
-    session?.meeting_link ||
-    session?.room_url ||
-    null;
-  return isUsableMeetingUrl(raw) ? raw : null;
-};
-
 const parseJitsiRoom = (url) => {
   try {
     const u = new URL(url);
@@ -137,11 +127,15 @@ const loadJitsiScript = () =>
       return;
     }
     const existing = document.querySelector(
-      'script[data-jitsi-external-api="true"]',
+      'script[src*="meet.jit.si/external_api.js"], script[data-jitsi-external-api="true"]',
     );
     if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", reject);
+      if (window.JitsiMeetExternalAPI) {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", (e) => reject(e), { once: true });
       return;
     }
     const script = document.createElement("script");
@@ -149,7 +143,7 @@ const loadJitsiScript = () =>
     script.async = true;
     script.dataset.jitsiExternalApi = "true";
     script.onload = () => resolve();
-    script.onerror = reject;
+    script.onerror = (e) => reject(e);
     document.body.appendChild(script);
   });
 
@@ -428,44 +422,129 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     );
   }, [sessions, currentTime]);
 
-  const resolveMeetingForSession = async (session) => {
-    const existing = getMeetingUrlFromSession(session);
-    const id = session.live_session_id || session.id;
+  const resolveLiveSessionId = async (session) => {
+    if (!session) return null;
 
-    if (conferencingService.enabled && id) {
-      try {
-        const joined = await conferencingService.join(id);
-        setLiveSessionId(joined.live_session_id || id);
-        setIsPreview(Boolean(joined.is_preview));
-        if (joined.whiteboard_link) {
-          setSelectedSession((s) =>
-            s
-              ? {
-                  ...s,
-                  whiteboard_link: s.whiteboard_link || joined.whiteboard_link,
-                }
-              : s,
+    // 1. Explicit live session id on payload
+    if (session.live_session_id) {
+      return session.live_session_id;
+    }
+    if (
+      session.live_session &&
+      typeof session.live_session === "object" &&
+      session.live_session.id
+    ) {
+      return session.live_session.id;
+    }
+    if (
+      typeof session.live_session === "string" &&
+      session.live_session.trim()
+    ) {
+      return session.live_session.trim();
+    }
+
+    // 2. Explicit session_id if distinct from booking id
+    if (
+      session.session_id &&
+      session.session_id !== session.id &&
+      session.session_id !== session.session_booking_id &&
+      session.session_id !== session.booking_id
+    ) {
+      return session.session_id;
+    }
+
+    // 3. If session represents a booking, resolve the actual LiveSession model ID from the backend
+    const bookingId =
+      session.session_booking_id ||
+      session.booking_id ||
+      (session.scheduled_start ||
+      session.teacher_id ||
+      session.cost ||
+      session.is_allowed !== undefined ||
+      session.attended !== undefined ||
+      session.course !== undefined
+        ? session.id
+        : null);
+
+    if (bookingId) {
+      const token = authStorage.getAccessToken();
+      if (token) {
+        try {
+          const res = await axios.post(
+            `${FHOST}/api/student/live-session/${bookingId}/join/`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } },
           );
+          const resolvedId =
+            res.data?.session?.id || res.data?.session?.live_session_id;
+          if (resolvedId) {
+            return resolvedId;
+          }
+        } catch {
+          // Teacher has not created/initialized the live session for this booking
+          return null;
         }
-        if (joined.room_url && isUsableMeetingUrl(joined.room_url)) {
-          return joined.room_url;
-        }
-      } catch (err) {
-        console.warn("v1 join failed, falling back:", confErr(err));
       }
-    }
-
-    if (existing) {
-      setLiveSessionId(id || null);
-      return existing;
-    }
-
-    try {
-      const link = await conferencingService.fetchLegacyJitsiLink();
-      return isUsableMeetingUrl(link) ? link : null;
-    } catch {
       return null;
     }
+
+    // 4. Session payload explicitly proves equivalence to a LiveSession model
+    // (e.g. from GET /api/live-sessions/ with LiveSessionSerializer fields).
+    // Must NOT be an unverified booking route ID or booking object.
+    const isProvenLiveSession =
+      session.id &&
+      !session.scheduled_start &&
+      !session.teacher_id &&
+      !session.course &&
+      session.is_allowed === undefined &&
+      (session.student_meeting_link !== undefined ||
+        session.teacher_meeting_link !== undefined ||
+        session.started_at !== undefined);
+
+    if (isProvenLiveSession) {
+      return session.id;
+    }
+
+    return null;
+  };
+
+  const resolveMeetingForSession = async (session) => {
+    const id = await resolveLiveSessionId(session);
+    if (!id) {
+      const err = new Error(
+        "This class session has not been initialized by the teacher yet.",
+      );
+      err.isUninitialized = true;
+      throw err;
+    }
+
+    if (!conferencingService.enabled) {
+      throw new Error(
+        "Classroom is currently unavailable. Conferencing service is disabled.",
+      );
+    }
+
+    const joined = await conferencingService.join(id);
+    if (!joined || !joined.room_url || !isUsableMeetingUrl(joined.room_url)) {
+      throw new Error(
+        "Classroom is currently unavailable. No meeting link returned.",
+      );
+    }
+
+    setLiveSessionId(joined.live_session_id || id);
+    setIsPreview(Boolean(joined.is_preview));
+    if (joined.whiteboard_link) {
+      setSelectedSession((s) =>
+        s
+          ? {
+              ...s,
+              whiteboard_link: s.whiteboard_link || joined.whiteboard_link,
+            }
+          : s,
+      );
+    }
+
+    return joined.room_url;
   };
 
   const openRoom = async (session, shouldJoinCall = true) => {
@@ -493,17 +572,52 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     try {
       setMeetingLoading(true);
       const link = await resolveMeetingForSession(session);
-      if (link) {
-        setMeetingUrl(link);
+      setMeetingUrl(link);
+    } catch (err) {
+      console.error("Meeting join failed:", err);
+      setMeetingUrl(null);
+      setLiveSessionId(null);
+      disposeJitsi();
+
+      const status = err.response?.status;
+      if (
+        err.isUninitialized ||
+        err.message ===
+          "This class session has not been initialized by the teacher yet." ||
+        err.response?.data?.detail === "Live session not created yet."
+      ) {
+        setError(
+          "This class session has not been initialized by the teacher yet.",
+        );
+      } else if (status === 404) {
+        setError(
+          "Classroom is currently unavailable. Session not found.",
+        );
+      } else if (status === 401) {
+        setError("Classroom is currently unavailable. Please sign in again.");
+      } else if (status === 403) {
+        setError(
+          "Classroom is currently unavailable. You are not authorized to join this session.",
+        );
+      } else if (status && status >= 500) {
+        setError(
+          "Classroom is currently unavailable. Please try again later.",
+        );
+      } else if (err.code === "ERR_NETWORK" || !err.response) {
+        setError(
+          err.message?.includes("Classroom is currently unavailable")
+            ? err.message
+            : "Classroom is currently unavailable. Check your connection and try again.",
+        );
       } else {
         setError(
-          "No meeting link for this class yet. Ask your teacher to start the session.",
+          confErr(
+            err,
+            "Classroom is currently unavailable. Please try again later.",
+          ),
         );
-        setMeetingLoading(false);
       }
-    } catch (err) {
-      console.error("Meeting link failed:", err);
-      setError(confErr(err, "Could not start the meeting. Try again."));
+    } finally {
       setMeetingLoading(false);
     }
   };
@@ -541,8 +655,14 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     }
 
     try {
+      const bookingId =
+        session.session_booking_id ||
+        session.booking_id ||
+        session.session?.id ||
+        session.id;
+
       await axios.patch(
-        `${FHOST}/api/student/session-bookings/${session.id}/`,
+        `${FHOST}/api/student/session-bookings/${bookingId}/`,
         { attended: true },
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -782,9 +902,11 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
                   />
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center gap-1 px-3 text-center text-sm text-blue-100">
-                    <p>No meeting link yet</p>
+                    <p>{error || "No meeting link yet"}</p>
                     <p className="text-xs text-blue-200/80">
-                      Whiteboard still works on the left
+                      {error
+                        ? "Please wait for your teacher or try again later"
+                        : "Whiteboard still works on the left"}
                     </p>
                   </div>
                 )}

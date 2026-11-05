@@ -8,7 +8,7 @@ import { authStorage } from "./authStorage";
 const getBaseUrl = () => {
   const rawBase = (
     process.env.REACT_APP_API_URL ||
-    "https://studybuddy-backend-6vya.onrender.com/api"
+    "http://127.0.0.1:8000"
   ).replace(/\/+$/, "");
   return rawBase.endsWith("/api") ? rawBase : `${rawBase}/api`;
 };
