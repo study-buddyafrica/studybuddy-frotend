@@ -4,7 +4,7 @@ import { authStorage } from "../../services/authStorage";
 
 export const FHOST = (
   process.env.REACT_APP_API_URL ||
-  "https://studybuddy-backend-6vya.onrender.com"
+  "http://127.0.0.1:8000"
 ).replace(/\/api\/?$/, "");
 
 export const checkUser = async (email) => {

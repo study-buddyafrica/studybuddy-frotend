@@ -119,11 +119,6 @@ export async function completeSession(liveSessionId) {
   return res.data?.data || res.data;
 }
 
-export async function fetchLegacyJitsiLink() {
-  const res = await client.get("/jitsi/");
-  return res.data?.link || null;
-}
-
 export const conferencingService = {
   enabled: CONFERENCING_API_ENABLED,
   initialize: initializeSession,
@@ -131,7 +126,6 @@ export const conferencingService = {
   heartbeat: sendHeartbeat,
   saveWhiteboard,
   complete: completeSession,
-  fetchLegacyJitsiLink,
   adaptSessionPayload,
   getErrorMessage,
 };
