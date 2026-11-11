@@ -52,13 +52,26 @@ export const getErrorMessage = (
 
 export const adaptSessionPayload = (body) => {
   const d = body?.data || body || {};
+  let resolvedDomain = d.domain || null;
+  if (!resolvedDomain && d.base_url) {
+    try {
+      resolvedDomain = new URL(d.base_url).hostname;
+    } catch (_) {
+      resolvedDomain = null;
+    }
+  }
+  const roomName = d.jaas_room_name || d.room_name || null;
   return {
     live_session_id: d.live_session_id || d.id || null,
-    room_name: d.room_name || null,
+    domain: resolvedDomain || "8x8.vc",
+    room_name: roomName,
+    jaas_room_name: d.jaas_room_name || roomName,
+    teacher_meeting_link: d.teacher_meeting_link || null,
+    student_meeting_link: d.student_meeting_link || null,
     room_url:
       d.room_url ||
-      d.teacher_meeting_link ||
       d.student_meeting_link ||
+      d.teacher_meeting_link ||
       d.link ||
       null,
     token: d.token || null,

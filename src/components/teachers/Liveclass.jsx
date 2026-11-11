@@ -11,7 +11,14 @@ import {
 const isUsableMeetingUrl = (url) => {
   if (!url || typeof url !== "string") return false;
   const u = url.toLowerCase();
-  if (u.includes("mock.daily")) return false;
+  if (
+    u.includes("mock.daily") ||
+    u.includes("daily.co") ||
+    u.includes("meet.studybuddy.africa") ||
+    u.includes("meet.jit.si")
+  ) {
+    return false;
+  }
   return true;
 };
 
@@ -196,11 +203,19 @@ const LiveClass = ({ userInfo }) => {
           const init = await conferencingService.initialize(
             meetingDetails.session_booking_id,
           );
-          const meetLink = init?.room_url;
+          let meetLink = init?.room_url;
           if (!isUsableMeetingUrl(meetLink)) {
             throw new Error(
               "Classroom initialization failed: no valid meeting URL returned.",
             );
+          }
+          if (!init?.token) {
+            throw new Error(
+              "Classroom initialization failed: missing conferencing access token. Please verify configuration.",
+            );
+          }
+          if (init.token && !meetLink.includes("#jwt=")) {
+            meetLink = `${meetLink}#jwt=${init.token}`;
           }
           setMeetingData({
             id: init.live_session_id,
