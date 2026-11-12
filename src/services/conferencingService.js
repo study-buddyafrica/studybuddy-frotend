@@ -52,13 +52,26 @@ export const getErrorMessage = (
 
 export const adaptSessionPayload = (body) => {
   const d = body?.data || body || {};
+  let resolvedDomain = d.domain || null;
+  if (!resolvedDomain && d.base_url) {
+    try {
+      resolvedDomain = new URL(d.base_url).hostname;
+    } catch (_) {
+      resolvedDomain = null;
+    }
+  }
+  const roomName = d.jaas_room_name || d.room_name || null;
   return {
     live_session_id: d.live_session_id || d.id || null,
-    room_name: d.room_name || null,
+    domain: resolvedDomain || "8x8.vc",
+    room_name: roomName,
+    jaas_room_name: d.jaas_room_name || roomName,
+    teacher_meeting_link: d.teacher_meeting_link || null,
+    student_meeting_link: d.student_meeting_link || null,
     room_url:
       d.room_url ||
-      d.teacher_meeting_link ||
       d.student_meeting_link ||
+      d.teacher_meeting_link ||
       d.link ||
       null,
     token: d.token || null,
@@ -119,11 +132,6 @@ export async function completeSession(liveSessionId) {
   return res.data?.data || res.data;
 }
 
-export async function fetchLegacyJitsiLink() {
-  const res = await client.get("/jitsi/");
-  return res.data?.link || null;
-}
-
 export const conferencingService = {
   enabled: CONFERENCING_API_ENABLED,
   initialize: initializeSession,
@@ -131,7 +139,6 @@ export const conferencingService = {
   heartbeat: sendHeartbeat,
   saveWhiteboard,
   complete: completeSession,
-  fetchLegacyJitsiLink,
   adaptSessionPayload,
   getErrorMessage,
 };

@@ -11,7 +11,14 @@ import {
 const isUsableMeetingUrl = (url) => {
   if (!url || typeof url !== "string") return false;
   const u = url.toLowerCase();
-  if (u.includes("mock.daily")) return false;
+  if (
+    u.includes("mock.daily") ||
+    u.includes("daily.co") ||
+    u.includes("meet.studybuddy.africa") ||
+    u.includes("meet.jit.si")
+  ) {
+    return false;
+  }
   return true;
 };
 
@@ -167,10 +174,7 @@ const LiveClass = ({ userInfo }) => {
   };
 
   const openJitsi = async () => {
-    const link = await conferencingService.fetchLegacyJitsiLink();
-    if (!link) throw new Error("No meeting link returned.");
-    window.open(link, "_blank", "noopener,noreferrer");
-    return link;
+    throw new Error("No meeting link returned.");
   };
 
   const handleCreateMeeting = async (e) => {
@@ -199,9 +203,19 @@ const LiveClass = ({ userInfo }) => {
           const init = await conferencingService.initialize(
             meetingDetails.session_booking_id,
           );
-          let meetLink = init.room_url;
+          let meetLink = init?.room_url;
           if (!isUsableMeetingUrl(meetLink)) {
-            meetLink = await conferencingService.fetchLegacyJitsiLink();
+            throw new Error(
+              "Classroom initialization failed: no valid meeting URL returned.",
+            );
+          }
+          if (!init?.token) {
+            throw new Error(
+              "Classroom initialization failed: missing conferencing access token. Please verify configuration.",
+            );
+          }
+          if (init.token && !meetLink.includes("#jwt=")) {
+            meetLink = `${meetLink}#jwt=${init.token}`;
           }
           setMeetingData({
             id: init.live_session_id,
@@ -227,7 +241,13 @@ const LiveClass = ({ userInfo }) => {
           setLoading(false);
           return;
         } catch (initErr) {
-          console.warn("initialize failed, legacy create:", confErr(initErr));
+          console.error("Initialize failed:", confErr(initErr));
+          throw new Error(
+            confErr(
+              initErr,
+              "Failed to initialize live classroom. Please try again.",
+            ),
+          );
         }
       }
 
@@ -257,12 +277,9 @@ const LiveClass = ({ userInfo }) => {
         const whiteboardLink = data?.whiteboard_link || null;
 
         if (!meetLink) {
-          try {
-            meetLink = await conferencingService.fetchLegacyJitsiLink();
-            studentLink = meetLink;
-          } catch (jitsiErr) {
-            console.warn("Jitsi fallback failed:", jitsiErr);
-          }
+          throw new Error(
+            "Live session was created, but no valid meeting link was returned.",
+          );
         }
 
         setMeetingData({

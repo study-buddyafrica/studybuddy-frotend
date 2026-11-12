@@ -99,35 +99,46 @@ const getJoinCount = (session) =>
   session.student_count ??
   null;
 
-/** Only reject mock Daily URLs; allow Jitsi and real room_url */
+/** Reject Daily URLs, public meet.jit.si, and legacy meet.studybuddy.africa URLs */
 const isUsableMeetingUrl = (url) => {
   if (!url || typeof url !== "string") return false;
   const u = url.toLowerCase();
-  if (u.includes("mock.daily")) return false;
+  if (
+    u.includes("mock.daily") ||
+    u.includes("daily.co") ||
+    u.includes("meet.studybuddy.africa") ||
+    u.includes("meet.jit.si")
+  ) {
+    return false;
+  }
   return true;
 };
 
 const parseJitsiRoom = (url) => {
   try {
     const u = new URL(url);
-    const roomName = u.pathname
-      .replace(/^\//, "")
-      .split("/")
-      .filter(Boolean)[0];
-    return { domain: u.hostname || "meet.jit.si", roomName: roomName || null };
+    const domain = u.hostname || "8x8.vc";
+    if (domain === "meet.jit.si" || domain.includes("meet.studybuddy.africa")) {
+      return { domain: "8x8.vc", roomName: null };
+    }
+    // Tenant-scoped room name retains all path segments (e.g. "app_id/room_name")
+    const roomName = u.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
+    return { domain, roomName: roomName || null };
   } catch {
-    return { domain: "meet.jit.si", roomName: null };
+    return { domain: "8x8.vc", roomName: null };
   }
 };
 
-const loadJitsiScript = () =>
+const loadJitsiScript = (domain = "8x8.vc") =>
   new Promise((resolve, reject) => {
     if (window.JitsiMeetExternalAPI) {
       resolve();
       return;
     }
+    const host = domain && domain !== "meet.jit.si" ? domain : "8x8.vc";
+    const src = `https://${host}/external_api.js`;
     const existing = document.querySelector(
-      'script[src*="meet.jit.si/external_api.js"], script[data-jitsi-external-api="true"]',
+      `script[src*="${host}/external_api.js"], script[data-jitsi-external-api="true"]`,
     );
     if (existing) {
       if (window.JitsiMeetExternalAPI) {
@@ -135,15 +146,20 @@ const loadJitsiScript = () =>
         return;
       }
       existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", (e) => reject(e), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error(`Failed to load conferencing script from ${host}`)),
+        { once: true },
+      );
       return;
     }
     const script = document.createElement("script");
-    script.src = "https://meet.jit.si/external_api.js";
+    script.src = src;
     script.async = true;
     script.dataset.jitsiExternalApi = "true";
     script.onload = () => resolve();
-    script.onerror = (e) => reject(e);
+    script.onerror = () =>
+      reject(new Error(`Failed to load conferencing script from ${host}`));
     document.body.appendChild(script);
   });
 
@@ -177,6 +193,9 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [meetingUrl, setMeetingUrl] = useState(null);
+  const [meetingToken, setMeetingToken] = useState(null);
+  const [meetingRoomName, setMeetingRoomName] = useState(null);
+  const [meetingDomain, setMeetingDomain] = useState("8x8.vc");
   const [meetingLoading, setMeetingLoading] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
@@ -220,6 +239,9 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     disposeJitsi();
     setView("list");
     setMeetingUrl(null);
+    setMeetingToken(null);
+    setMeetingRoomName(null);
+    setMeetingDomain("8x8.vc");
     setMeetingLoading(false);
     setShareOn(false);
     setLiveSessionId(null);
@@ -243,16 +265,28 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
 
     const initJitsi = async () => {
       try {
-        await loadJitsiScript();
-        if (cancelled || !jitsiContainerRef.current) return;
+        const parsed = parseJitsiRoom(meetingUrl);
+        const domain = meetingDomain || parsed.domain || "8x8.vc";
+        const roomName = meetingRoomName || parsed.roomName;
 
-        const { domain, roomName } = parseJitsiRoom(meetingUrl);
         if (!roomName) {
-          console.error("Could not parse Jitsi room from URL:", meetingUrl);
+          console.error("Could not determine tenant-scoped room name:", meetingUrl);
           setMeetingLoading(false);
           setError("Invalid meeting link for this class.");
           return;
         }
+
+        if (!meetingToken) {
+          console.error("No JaaS JWT token available for external API initialization.");
+          setMeetingLoading(false);
+          setError(
+            "Classroom requires a valid conferencing token to join. Please contact support.",
+          );
+          return;
+        }
+
+        await loadJitsiScript(domain);
+        if (cancelled || !jitsiContainerRef.current) return;
 
         disposeJitsi();
 
@@ -262,6 +296,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
 
         const api = new window.JitsiMeetExternalAPI(domain, {
           roomName,
+          jwt: meetingToken,
           parentNode: jitsiContainerRef.current,
           width: "100%",
           height: "100%",
@@ -300,7 +335,11 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
         if (!cancelled) {
           console.error("Jitsi init failed:", err);
           setMeetingLoading(false);
-          setError("Could not start the in-app meeting. Try Open in new tab.");
+          setError(
+            err.message
+              ? `Could not start the in-app meeting: ${err.message}`
+              : "Could not start the in-app meeting. Try Open in new tab.",
+          );
           disposeJitsi();
         }
       }
@@ -311,7 +350,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meetingUrl]);
+  }, [meetingUrl, meetingToken, meetingRoomName, meetingDomain]);
 
   useEffect(() => {
     if (!jitsiReady || !liveSessionId || !conferencingService.enabled) {
@@ -525,9 +564,21 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     }
 
     const joined = await conferencingService.join(id);
-    if (!joined || !joined.room_url || !isUsableMeetingUrl(joined.room_url)) {
+    if (!joined) {
       throw new Error(
-        "Classroom is currently unavailable. No meeting link returned.",
+        "Classroom is currently unavailable. Failed to join session.",
+      );
+    }
+
+    if (!joined.room_url || !isUsableMeetingUrl(joined.room_url)) {
+      throw new Error(
+        "Classroom is currently unavailable. No valid meeting link returned.",
+      );
+    }
+
+    if (!joined.token) {
+      throw new Error(
+        "Classroom is currently unavailable: missing conferencing access token. Please verify configuration.",
       );
     }
 
@@ -544,7 +595,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
       );
     }
 
-    return joined.room_url;
+    return joined;
   };
 
   const openRoom = async (session, shouldJoinCall = true) => {
@@ -552,6 +603,9 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
     setSelectedSession(session);
     setView("room");
     setMeetingUrl(null);
+    setMeetingToken(null);
+    setMeetingRoomName(null);
+    setMeetingDomain("8x8.vc");
     setLiveSessionId(null);
     setIsPreview(false);
     setPreviewSecondsLeft(null);
@@ -562,7 +616,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
       {
         id: "sys-1",
         author: "StudyBuddy",
-        text: "Use the footer for mic, camera and share when connected. If Jitsi asks for a moderator, use Open in new tab once.",
+        text: "Use the footer for mic, camera and share when connected.",
         at: new Date().toISOString(),
       },
     ]);
@@ -571,11 +625,21 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
 
     try {
       setMeetingLoading(true);
-      const link = await resolveMeetingForSession(session);
-      setMeetingUrl(link);
+      const joinedData = await resolveMeetingForSession(session);
+      let targetUrl = joinedData.room_url;
+      if (joinedData.token && !targetUrl.includes("#jwt=")) {
+        targetUrl = `${targetUrl}#jwt=${joinedData.token}`;
+      }
+      setMeetingUrl(targetUrl);
+      setMeetingToken(joinedData.token);
+      setMeetingRoomName(joinedData.jaas_room_name || joinedData.room_name);
+      setMeetingDomain(joinedData.domain || "8x8.vc");
     } catch (err) {
       console.error("Meeting join failed:", err);
       setMeetingUrl(null);
+      setMeetingToken(null);
+      setMeetingRoomName(null);
+      setMeetingDomain("8x8.vc");
       setLiveSessionId(null);
       disposeJitsi();
 
@@ -589,6 +653,18 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
         setError(
           "This class session has not been initialized by the teacher yet.",
         );
+      } else if (
+        err.message &&
+        err.message.includes("missing conferencing access token")
+      ) {
+        setError(err.message);
+      } else if (status === 503) {
+        setError(
+          confErr(
+            err,
+            "Conferencing service is currently misconfigured or unavailable. Please contact support.",
+          ),
+        );
       } else if (status === 404) {
         setError(
           "Classroom is currently unavailable. Session not found.",
@@ -601,7 +677,10 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
         );
       } else if (status && status >= 500) {
         setError(
-          "Classroom is currently unavailable. Please try again later.",
+          confErr(
+            err,
+            "Classroom is currently unavailable. Please try again later.",
+          ),
         );
       } else if (err.code === "ERR_NETWORK" || !err.response) {
         setError(
