@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaStar, FaChartLine, FaGraduationCap, FaBookOpen, FaClock, FaFlag, FaThumbsUp, FaThumbsDown, FaUserGraduate } from "react-icons/fa";
 import { FHOST } from "../constants/Functions";
 import axios from "axios";
+import { formatSubjects, normalizeSubjectList } from "../../utils/subjectUtils";
 
 const Performance = ({ userInfo, darkMode }) => {
   const [activeTab, setActiveTab] = useState("academic");
@@ -59,6 +60,7 @@ const Performance = ({ userInfo, darkMode }) => {
               
               return {
                 ...teacher,
+                subjects: normalizeSubjectList(teacher.subjects),
                 totalLessons,
                 totalHours,
                 lastLessonDate: teacherLessons.length > 0 ? 
@@ -340,7 +342,7 @@ const Performance = ({ userInfo, darkMode }) => {
                         <div>
                           <h4 className="font-semibold">{teacher.name}</h4>
                           <p className="text-sm text-gray-600">
-                            {Array.isArray(teacher.subjects) ? teacher.subjects.join(", ") : teacher.subjects || "Multiple Subjects"}
+                            {formatSubjects(teacher.subjects, "Multiple Subjects")}
                           </p>
                         </div>
                       </div>

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { FaBookReader, FaChalkboardTeacher, FaUserAlt } from 'react-icons/fa'; // For profile picture placeholder
 import { FHOST } from '../constants/Functions';
 import { authStorage } from "../../services/authStorage";
+import { formatSubjects, normalizeSubjectList } from '../../utils/subjectUtils';
 
 const StudentsHome = ({setActiveComponent}) => {
   const [sessions, setSessions] = useState([]);
@@ -35,7 +36,7 @@ useEffect(() => {
         id: teacher.id,
         full_name: teacher.full_name || "Teacher",
         bio: teacher.bio || "",
-        subjects: teacher.subjects || [],
+        subjects: normalizeSubjectList(teacher.subjects),
         is_verified: teacher.is_verified,
         profilePicture:
           teacher.profile_picture || "https://via.placeholder.com/50",
@@ -127,11 +128,11 @@ useEffect(() => {
                 <h4 className="text-lg font-semibold text-gray-800 text-center">{teacher.name}</h4>
                 <div className="flex items-center space-x-2 mt-2">
                   <FaChalkboardTeacher className="text-indigo-600" />
-                  <p className="text-sm text-gray-600 text-center">{teacher.subjects.length} Subjects</p>
+                  <p className="text-sm text-gray-600 text-center">{normalizeSubjectList(teacher.subjects).length} Subjects</p>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
                   <FaBookReader className="text-gray-600" />
-                  <p className="text-sm text-gray-600 text-center">Subjects: <span className="font-semibold text-gray-800">{teacher.subjects.join(', ')}</span></p>
+                  <p className="text-sm text-gray-600 text-center">Subjects: <span className="font-semibold text-gray-800">{formatSubjects(teacher.subjects)}</span></p>
                 </div>
               </div>
             ))}
