@@ -3,6 +3,7 @@ import { FaSearch, FaStar, FaTimes, FaFilter, FaGraduationCap, FaBookOpen, FaClo
 import { FHOST } from "../constants/Functions";
 import axios from "axios";
 import { authStorage } from "../../services/authStorage";
+import { formatSubjects, normalizeSubjectList } from "../../utils/subjectUtils";
 
 const TeacherProfiles = ({userInfo, darkMode}) => {
   const [teachers, setTeachers] = useState([]);
@@ -92,9 +93,7 @@ useEffect(() => {
         const formattedTeachers = results.map((teacher) => {
           // New list schema: id, full_name, bio, hourly_rate, subjects, is_verified
           const name = teacher.full_name || teacher.name || "Teacher";
-          const subjects = Array.isArray(teacher.subjects)
-            ? teacher.subjects
-            : [];
+          const subjects = normalizeSubjectList(teacher.subjects);
           const hourlyRate = teacher.hourly_rate
             ? Number(teacher.hourly_rate)
             : 0;
@@ -292,16 +291,17 @@ try {
   // Filter teachers based on search, subject and grade (client-only)
   const effectiveGrade = selectedGrade || (studentGrade !== "All Grades" ? String(studentGrade) : "");
   const filteredTeachers = teachers.filter(teacher => {
+    const teacherSubjects = normalizeSubjectList(teacher.subjects);
     const matchesSearch =
       teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (teacher.subjects || []).some(subject =>
-        String(subject).toLowerCase().includes(searchTerm.toLowerCase())
+      teacherSubjects.some(subject =>
+        subject.toLowerCase().includes(searchTerm.toLowerCase())
       );
 
     const matchesSubject =
       !selectedSubject ||
-      (teacher.subjects || []).some(subject =>
-        String(subject) === selectedSubject
+      teacherSubjects.some(subject =>
+        subject.toLowerCase() === selectedSubject.toLowerCase() || subject === selectedSubject
       );
 
     // New list endpoint does not provide grade information for teachers,
@@ -315,7 +315,7 @@ try {
   const allSubjects = [
     ...new Set(
       teachers.flatMap(teacher =>
-        (teacher.subjects || []).map(subject => String(subject))
+        normalizeSubjectList(teacher.subjects)
       )
     ),
   ];
@@ -438,7 +438,7 @@ try {
                   <div className="mb-3">
                     <p className="text-sm text-gray-600">
                       <FaBookOpen className="inline mr-1" />
-                      {Array.isArray(teacher.subjects) ? teacher.subjects.join(", ") : teacher.subjects}
+                      {formatSubjects(teacher.subjects)}
                     </p>
                   </div>
                   <div className="flex justify-between items-center mb-3">
@@ -514,7 +514,7 @@ try {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div className="p-4 rounded-lg bg-gray-50">
                       <h4 className="font-semibold mb-2">Subjects</h4>
-                      <p>{Array.isArray(selectedTeacher.subjects) ? selectedTeacher.subjects.join(", ") : selectedTeacher.subjects}</p>
+                      <p>{formatSubjects(selectedTeacher.subjects)}</p>
                     </div>
                     <div className="p-4 rounded-lg bg-gray-50">
                       <h4 className="font-semibold mb-2">Experience</h4>
