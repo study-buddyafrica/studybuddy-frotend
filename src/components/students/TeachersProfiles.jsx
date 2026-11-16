@@ -4,6 +4,7 @@ import { FHOST } from "../constants/Functions";
 import axios from "axios";
 import { authStorage } from "../../services/authStorage";
 import { formatSubjects, normalizeSubjectList } from "../../utils/subjectUtils";
+import TeacherAvatar from "../common/TeacherAvatar";
 
 const TeacherProfiles = ({userInfo, darkMode}) => {
   const [teachers, setTeachers] = useState([]);
@@ -106,7 +107,9 @@ useEffect(() => {
             is_verified: teacher.is_verified,
             // Map to fields used in UI
             profile_picture:
-              teacher.profile_picture || "https://via.placeholder.com/150",
+              teacher.profile_picture && !teacher.profile_picture.includes("via.placeholder.com")
+                ? teacher.profile_picture
+                : null,
             registered_on: teacher.registered_on
               ? new Date(teacher.registered_on).toLocaleDateString()
               : "Not Registered",
@@ -423,7 +426,7 @@ try {
                 onClick={() => handleTeacherClick(teacher)}
               >
                 <div className="relative">
-                  <img
+                  <TeacherAvatar
                     src={teacher.profile_picture}
                     alt={teacher.name}
                     className="w-full h-48 object-cover rounded-t-xl"
@@ -486,10 +489,11 @@ try {
               
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="md:w-1/3">
-                  <img 
-                    src={selectedTeacher.profile_picture} 
-                    alt={selectedTeacher.name} 
-                    className="w-full rounded-lg shadow-md"
+                  <TeacherAvatar
+                    src={selectedTeacher.profile_picture}
+                    alt={selectedTeacher.name}
+                    className="w-full h-64 object-cover rounded-lg shadow-md"
+                    fallbackClassName="h-64"
                   />
                   <div className="mt-4 text-center">
                     <div className="text-2xl font-bold text-blue-600 mb-2">
