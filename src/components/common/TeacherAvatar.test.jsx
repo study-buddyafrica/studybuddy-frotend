@@ -124,16 +124,40 @@ describe('TeacherAvatar (BUG-007)', () => {
       expect(screen.getByText('Teacher')).toBeInTheDocument();
     });
 
-    it('omits redundant card badge for modal sizing (w-32 h-32)', () => {
+    it('omits redundant card badge and preserves bounded modal integration dimensions (h-64)', () => {
       render(
         <TeacherAvatar
           src={null}
           alt="Jane Smith"
-          className="w-32 h-32 rounded-xl object-cover"
+          className="w-full h-64 object-cover rounded-lg shadow-md"
+          fallbackClassName="h-64"
         />
       );
 
       expect(screen.queryByText('Teacher')).not.toBeInTheDocument();
+      const fallback = screen.getByTestId('teacher-avatar-fallback');
+      expect(fallback).toHaveClass('w-full', 'h-64', 'rounded-lg', 'shadow-md');
+    });
+
+    it('preserves bounded modal image area when modal avatar encounters an onError event', () => {
+      render(
+        <TeacherAvatar
+          src="https://studybuddy-backend-6vya.onrender.com/media/profiles/hermes-avatar.png"
+          alt="Dr. Jane Smith"
+          className="w-full h-64 object-cover rounded-lg shadow-md"
+          fallbackClassName="h-64"
+        />
+      );
+
+      const img = screen.getByTestId('teacher-avatar-img');
+      expect(img).toBeInTheDocument();
+      expect(img).toHaveClass('w-full', 'h-64', 'object-cover', 'rounded-lg', 'shadow-md');
+
+      fireEvent.error(img);
+
+      const fallback = screen.getByTestId('teacher-avatar-fallback');
+      expect(fallback).toBeInTheDocument();
+      expect(fallback).toHaveClass('w-full', 'h-64', 'rounded-lg', 'shadow-md');
     });
 
     it('resets error state when src changes from broken to new valid URL', () => {

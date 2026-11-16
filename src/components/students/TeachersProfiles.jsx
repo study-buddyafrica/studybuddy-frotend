@@ -489,10 +489,11 @@ try {
               
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="md:w-1/3">
-                  <TeacherAvatar 
-                    src={selectedTeacher.profile_picture} 
-                    alt={selectedTeacher.name} 
-                    className="w-full rounded-lg shadow-md"
+                  <TeacherAvatar
+                    src={selectedTeacher.profile_picture}
+                    alt={selectedTeacher.name}
+                    className="w-full h-64 object-cover rounded-lg shadow-md"
+                    fallbackClassName="h-64"
                   />
                   <div className="mt-4 text-center">
                     <div className="text-2xl font-bold text-blue-600 mb-2">
