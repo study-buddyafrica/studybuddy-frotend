@@ -592,7 +592,7 @@ const DashboardHome = () => {
         return (
           <StudentsHome
             setActiveComponent={setActiveComponent}
-            darkMode={darkMode}
+            userInfo={userInfo}
           />
         );
     }
@@ -609,7 +609,7 @@ const DashboardHome = () => {
   return (
     <div
       className={`${
-        darkMode ? "dark" : ""
+        darkMode ? "dark app-dashboard" : "app-dashboard"
       } flex min-h-screen bg-[#F8FAFC] font-josefin transition-colors duration-300`}
     >
       <aside

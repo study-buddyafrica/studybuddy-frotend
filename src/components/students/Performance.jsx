@@ -164,26 +164,26 @@ const Performance = ({ userInfo, darkMode }) => {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-800">
+    <div className="min-h-screen bg-[#F8FAFC] font-josefin text-slate-700">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 text-gray-800">Performance & Teacher Feedback</h1>
-          <p className="text-lg text-gray-600">
+        <div className="mb-6">
+          <h1 className="mb-2 font-lilita text-2xl text-[#015575] sm:text-3xl">Performance & Teacher Feedback</h1>
+          <p className="text-sm text-slate-600 sm:text-base">
             Track your academic progress and provide feedback to teachers you've worked with
           </p>
         </div>
 
         {/* Navigation Tabs */}
         <div className="mb-6">
-          <nav className="bg-white rounded-lg shadow-lg p-1">
-            <div className="flex space-x-1">
+          <nav className="rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
+          <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setActiveTab("academic")}
-                className={`flex-1 px-4 py-2 rounded-md transition-all text-white ${
+                className={`flex-1 rounded-xl px-4 py-2 transition-all ${
                   activeTab === "academic"
-                    ? "bg-blue-500 shadow-lg"
-                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                    ? "bg-[#015575] text-white shadow-sm"
+                    : "bg-[#eaf6fc] text-[#015575] hover:bg-[#cdeafd]"
                 }`}
               >
                 <FaChartLine className="inline mr-2" />
@@ -191,10 +191,10 @@ const Performance = ({ userInfo, darkMode }) => {
               </button>
               <button
                 onClick={() => setActiveTab("teachers")}
-                className={`flex-1 px-4 py-2 rounded-lg transition-all text-white ${
+                className={`flex-1 rounded-xl px-4 py-2 transition-all ${
                   activeTab === "teachers"
-                    ? "bg-blue-500 shadow-lg"
-                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                    ? "bg-[#015575] text-white shadow-sm"
+                    : "bg-[#eaf6fc] text-[#015575] hover:bg-[#cdeafd]"
                 }`}
               >
                 <FaGraduationCap className="inline mr-2" />
@@ -218,7 +218,7 @@ const Performance = ({ userInfo, darkMode }) => {
                         a 15.9155 15.9155 0 0 1 0 31.831
                         a 15.9155 15.9155 0 0 1 0 -31.831"
                       fill="none"
-                      stroke="#eee"
+                      stroke="#e2e8f0"
                       strokeWidth="3"
                     />
                     <path
@@ -232,8 +232,8 @@ const Performance = ({ userInfo, darkMode }) => {
                     />
                     <defs>
                       <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#4f46e5" />
-                        <stop offset="100%" stopColor="#7c3aed" />
+                        <stop offset="0%" stopColor="#01B0F1" />
+                        <stop offset="100%" stopColor="#015575" />
                       </linearGradient>
                     </defs>
                   </svg>
@@ -244,17 +244,17 @@ const Performance = ({ userInfo, darkMode }) => {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                <div className="p-6 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 shadow-md">
+                <div className="rounded-xl border border-[#cdeafd] bg-[#f2f9fe] p-6 shadow-sm">
                   <div className="text-3xl font-bold text-blue-700 mb-2">{academicData.completedLessons || 0}</div>
                   <div className="text-sm font-medium text-blue-600">Lessons Completed</div>
                 </div>
-                <div className="p-6 rounded-xl bg-gradient-to-br from-green-50 to-green-100 border border-green-200 shadow-md">
-                  <div className="text-3xl font-bold text-green-700 mb-2">{academicData.totalStudyTime || 0}h</div>
-                  <div className="text-sm font-medium text-green-600">Total Study Time</div>
+                <div className="rounded-xl border border-[#cdeafd] bg-[#f2f9fe] p-6 shadow-sm">
+                  <div className="mb-2 text-3xl font-bold text-[#015575]">{academicData.totalStudyTime || 0}h</div>
+                  <div className="text-sm font-medium text-[#015575]">Total Study Time</div>
                 </div>
-                <div className="p-6 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 shadow-md">
-                  <div className="text-3xl font-bold text-purple-700 mb-2">{academicData.averageRating || 0}★</div>
-                  <div className="text-sm font-medium text-purple-600">Avg. Teacher Rating</div>
+                <div className="rounded-xl border border-[#cdeafd] bg-[#f2f9fe] p-6 shadow-sm">
+                  <div className="mb-2 text-3xl font-bold text-[#015575]">{academicData.averageRating || 0}★</div>
+                  <div className="text-sm font-medium text-[#015575]">Avg. Teacher Rating</div>
                 </div>
               </div>
             </div>
@@ -263,14 +263,13 @@ const Performance = ({ userInfo, darkMode }) => {
             <div className="p-6 rounded-xl shadow-lg bg-white">
               <h3 className="text-xl font-semibold mb-4">Subject Performance</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {academicData.subjects.map((subject, index) => {
-                  const colors = [
-                    { bg: 'from-blue-50 to-blue-100', border: 'border-blue-200', text: 'text-blue-700', progress: 'bg-blue-500' },
-                    { bg: 'from-green-50 to-green-100', border: 'border-green-200', text: 'text-green-700', progress: 'bg-green-500' },
-                    { bg: 'from-purple-50 to-purple-100', border: 'border-purple-200', text: 'text-purple-700', progress: 'bg-purple-500' },
-                    { bg: 'from-orange-50 to-orange-100', border: 'border-orange-200', text: 'text-orange-700', progress: 'bg-orange-500' }
-                  ];
-                  const colorScheme = colors[index % colors.length];
+                {academicData.subjects.map((subject) => {
+                  const colorScheme = {
+                    bg: "from-[#f2f9fe] to-[#eaf6fc]",
+                    border: "border-[#cdeafd]",
+                    text: "text-[#015575]",
+                    progress: "bg-[#01B0F1]",
+                  };
 
                   return (
                     <div
@@ -370,7 +369,7 @@ const Performance = ({ userInfo, darkMode }) => {
                       <div className="flex space-x-3 mt-4">
                         <button
                           onClick={() => openRatingModal(teacher)}
-                          className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 text-sm font-semibold shadow-md hover:shadow-lg border-2 border-blue-400 hover:border-blue-500"
+                          className="flex-1 rounded-xl border border-[#015575] bg-[#015575] px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:border-[#01415e] hover:bg-[#01415e]"
                         >
                           <FaThumbsUp className="inline mr-2 text-lg" />
                           Rate Teacher

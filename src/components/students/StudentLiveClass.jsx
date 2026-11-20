@@ -99,28 +99,17 @@ const getJoinCount = (session) =>
   session.student_count ??
   null;
 
-/** Reject Daily URLs, public meet.jit.si, and legacy meet.studybuddy.africa URLs */
+/** Reject placeholder links while allowing configured conferencing hosts. */
 const isUsableMeetingUrl = (url) => {
   if (!url || typeof url !== "string") return false;
   const u = url.toLowerCase();
-  if (
-    u.includes("mock.daily") ||
-    u.includes("daily.co") ||
-    u.includes("meet.studybuddy.africa") ||
-    u.includes("meet.jit.si")
-  ) {
-    return false;
-  }
-  return true;
+  return !u.includes("mock.daily");
 };
 
 const parseJitsiRoom = (url) => {
   try {
     const u = new URL(url);
     const domain = u.hostname || "8x8.vc";
-    if (domain === "meet.jit.si" || domain.includes("meet.studybuddy.africa")) {
-      return { domain: "8x8.vc", roomName: null };
-    }
     // Tenant-scoped room name retains all path segments (e.g. "app_id/room_name")
     const roomName = u.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
     return { domain, roomName: roomName || null };

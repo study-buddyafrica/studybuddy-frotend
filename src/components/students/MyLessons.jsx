@@ -467,12 +467,20 @@ const MyLessons = ({ userInfo, darkMode, onEnterRoom, onLeaveRoom }) => {
       className={
         roomFocus
           ? "h-full min-h-0 overflow-hidden bg-white text-gray-800"
-          : "min-h-screen bg-white text-gray-800"
+          : "min-h-screen bg-[#F8FAFC] font-josefin text-slate-700"
       }
     >
+      {!roomFocus && (
+        <header className="mb-6">
+          <h1 className="font-lilita text-2xl text-[#015575] sm:text-3xl">My lessons</h1>
+          <p className="mt-1 text-sm text-slate-600 sm:text-base">
+            Manage your live classes, courses, and peer sessions.
+          </p>
+        </header>
+      )}
       {/* Navigation Buttons */}
       {!roomFocus && (
-        <nav className="mb-6 rounded-lg bg-white px-6 py-4 text-gray-800 shadow-lg">
+        <nav className="mb-6 rounded-2xl border border-slate-100 bg-white px-4 py-4 text-slate-700 shadow-sm">
           <div className="flex flex-wrap justify-center gap-4">
             <button
               className={`rounded-lg px-6 py-2 text-white transition-all ${
@@ -529,7 +537,7 @@ const MyLessons = ({ userInfo, darkMode, onEnterRoom, onLeaveRoom }) => {
         className={
           roomFocus
             ? "h-full min-h-0 overflow-hidden p-0"
-            : "rounded-lg bg-white p-6 shadow-lg"
+            : "rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
         }
       >
         {activeTab === "liveClasses" && (
