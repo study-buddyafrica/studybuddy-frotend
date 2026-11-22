@@ -17,8 +17,8 @@ import { authStorage } from "../services/authStorage";
 import { authService } from "../services/authService";
 import { getUserDashboardData } from "../services/onboardingService";
 
-/** Flip to true when Week 5 payments go live */
-const PAYMENTS_ENABLED = false;
+/** Payments active */
+const PAYMENTS_ENABLED = true;
 
 const formatKes = (n) =>
   `KES ${Number(n || 0).toLocaleString(undefined, {
@@ -39,6 +39,9 @@ const ParentDashboard = () => {
   const [learners, setLearners] = useState([]);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositLoading, setDepositLoading] = useState(false);
   const [showDepositNotice, setShowDepositNotice] = useState(false);
   const [showAddLearnerHint, setShowAddLearnerHint] = useState(false);
 
@@ -197,11 +200,50 @@ const ParentDashboard = () => {
   };
 
   const onDepositClick = () => {
-    if (!PAYMENTS_ENABLED) {
-      setShowDepositNotice(true);
+    setShowDepositModal(true);
+  };
+
+  const handleParentDeposit = async (e) => {
+    e.preventDefault();
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      setErrorMessage("Please enter a valid deposit amount.");
       return;
     }
-    // Week 5: wire Paystack / POST /api/wallet/deposit/ here
+    try {
+      setDepositLoading(true);
+      setErrorMessage("");
+      const token = authStorage.getAccessToken();
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+      const response = await axios.post(
+        `${FHOST}/api/transactions/paystack/initiate/`,
+        {
+          amount: parseFloat(depositAmount),
+          transaction_type: "deposit",
+        },
+        { headers }
+      );
+      const data = response.data?.data || response.data;
+      const checkoutUrl = data?.authorization_url || data?.checkout_url;
+      if (checkoutUrl) {
+        window.open(checkoutUrl, "_blank");
+      }
+      setShowDepositModal(false);
+      setDepositAmount("");
+      setSuccessMessage("Deposit checkout initiated via Paystack.");
+      hydrate();
+    } catch (err) {
+      console.error("Deposit error:", err);
+      setErrorMessage(
+        err.response?.data?.message ||
+        err.response?.data?.detail ||
+        "Failed to initiate Paystack deposit."
+      );
+    } finally {
+      setDepositLoading(false);
+    }
   };
 
   const firstName =
@@ -258,7 +300,7 @@ const ParentDashboard = () => {
                 : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
             }`}
           >
-            {PAYMENTS_ENABLED ? "Deposit via M-Pesa" : "Deposit (opens Week 5)"}
+            Deposit via M-Pesa
           </button>
         </div>
 
@@ -524,28 +566,56 @@ const ParentDashboard = () => {
         </main>
       </div>
 
-      {/* Week 5 deposit notice */}
-      {showDepositNotice && (
+      {/* Deposit modal */}
+      {showDepositModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="mb-3 flex items-center gap-2 text-amber-600">
-              <FaExclamationTriangle />
-              <h3 className="font-lilita text-lg text-[#015575]">
-                M-Pesa deposits — Week 5
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-lilita text-xl text-[#015575]">
+                Deposit to family wallet
               </h3>
+              <button
+                type="button"
+                onClick={() => setShowDepositModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
             </div>
-            <p className="font-josefin text-sm text-slate-600">
-              Family wallet top-ups and lesson payments are disabled until Week
-              5 of the campaign. Your balance shows as {walletLabel} for
-              planning only.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowDepositNotice(false)}
-              className="mt-5 w-full rounded-lg bg-[#015575] py-2.5 font-josefin text-sm font-semibold text-white hover:bg-[#01B0F1]"
-            >
-              Got it
-            </button>
+            <form onSubmit={handleParentDeposit} className="space-y-4">
+              <div>
+                <label className="mb-1 block font-josefin text-sm font-medium text-slate-700">
+                  Amount (KES) *
+                </label>
+                <input
+                  type="number"
+                  min="50"
+                  step="1"
+                  required
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  placeholder="e.g. 1000"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 font-josefin text-slate-800 focus:ring-2 focus:ring-[#01B0F1]"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDepositModal(false)}
+                  disabled={depositLoading}
+                  className="rounded-lg border border-gray-300 px-4 py-2 font-josefin text-sm text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={depositLoading}
+                  className="rounded-lg bg-[#015575] px-4 py-2 font-josefin text-sm font-bold text-white hover:bg-[#01B0F1] disabled:opacity-70"
+                >
+                  {depositLoading ? "Initiating..." : "Pay with Paystack"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

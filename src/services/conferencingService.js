@@ -8,7 +8,9 @@ import { authStorage } from "./authStorage";
 const getBaseUrl = () => {
   const rawBase = (
     process.env.REACT_APP_API_URL ||
-    "https://studybuddy-backend-6vya.onrender.com/api"
+    (typeof window !== "undefined" && window.location?.origin
+      ? `${window.location.origin}/api`
+      : "/api")
   ).replace(/\/+$/, "");
   return rawBase.endsWith("/api") ? rawBase : `${rawBase}/api`;
 };
@@ -52,22 +54,30 @@ export const getErrorMessage = (err, fallback = "Something went wrong") => {
 };
 
 export function adaptSessionPayload(data = {}) {
+  const d = data?.data || data || {};
   return {
-    live_session_id: data.live_session_id || data.id || null,
+    live_session_id: d.live_session_id || d.id || null,
+    session_id: d.session_id || d.booking_id || null,
+    room_name: d.room_name || d.jaas_room_name || null,
+    jaas_room_name: d.jaas_room_name || d.room_name || null,
     room_url:
-      data.room_url ||
-      data.teacher_meeting_link ||
-      data.student_meeting_link ||
-      data.meeting_link ||
-      data.link ||
+      d.room_url ||
+      d.teacher_meeting_link ||
+      d.student_meeting_link ||
+      d.meeting_link ||
+      d.link ||
       null,
-    token: data.token || data.jwt || null,
-    domain: data.domain || data.jitsi_domain || null,
-    jaas_room_name: data.jaas_room_name || data.room_name || null,
-    whiteboard_link: data.whiteboard_link || data.whiteboard_url || null,
-    is_preview: Boolean(data.is_preview),
-    preview_seconds: data.preview_seconds ?? data.preview_duration_seconds,
-    raw: data,
+    student_meeting_link: d.student_meeting_link || null,
+    teacher_meeting_link: d.teacher_meeting_link || null,
+    token: d.token || d.jwt || null,
+    jwt: d.jwt || d.token || null,
+    domain: d.domain || d.jitsi_domain || "8x8.vc",
+    subject: d.subject || d.course_title || "Live Class",
+    whiteboard_link: d.whiteboard_link || d.whiteboard_url || null,
+    whiteboard: d.whiteboard || null,
+    is_preview: Boolean(d.is_preview),
+    preview_seconds: d.preview_seconds ?? d.preview_duration_seconds,
+    raw: d,
   };
 }
 
@@ -94,12 +104,15 @@ export async function sendHeartbeat(liveSessionId, mediaState = {}) {
 }
 
 export async function saveWhiteboardSnapshot(liveSessionId, payload = {}) {
+  const body = payload?.snapshot !== undefined ? payload : { snapshot: payload };
   const res = await client.post(
     `${PREFIX}/${liveSessionId}/whiteboard/`,
-    payload,
+    body,
   );
   return res.data;
 }
+
+export const saveWhiteboard = saveWhiteboardSnapshot;
 
 export async function completeSession(liveSessionId, payload = {}) {
   const res = await client.post(
@@ -115,6 +128,7 @@ export const conferencingService = {
   join: joinSession,
   heartbeat: sendHeartbeat,
   whiteboard: saveWhiteboardSnapshot,
+  saveWhiteboard: saveWhiteboardSnapshot,
   complete: completeSession,
 };
 

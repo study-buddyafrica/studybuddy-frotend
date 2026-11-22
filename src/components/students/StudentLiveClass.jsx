@@ -99,22 +99,52 @@ const getJoinCount = (session) =>
   session.student_count ??
   null;
 
-/** Reject placeholder links while allowing configured conferencing hosts. */
+/** Reject Daily URLs, public meet.jit.si, and legacy meet.studybuddy.africa URLs */
 const isUsableMeetingUrl = (url) => {
   if (!url || typeof url !== "string") return false;
   const u = url.toLowerCase();
-  return !u.includes("mock.daily");
+  if (
+    u.includes("mock.daily") ||
+    u.includes("daily.co") ||
+    u.includes("meet.studybuddy.africa") ||
+    u.includes("meet.jit.si")
+  ) {
+    return false;
+  }
+  return true;
 };
 
 const parseJitsiRoom = (url) => {
   try {
     const u = new URL(url);
     const domain = u.hostname || "8x8.vc";
+    if (domain === "meet.jit.si" || domain.includes("meet.studybuddy.africa")) {
+      return { domain: "8x8.vc", roomName: null };
+    }
     // Tenant-scoped room name retains all path segments (e.g. "app_id/room_name")
     const roomName = u.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
     return { domain, roomName: roomName || null };
   } catch {
     return { domain: "8x8.vc", roomName: null };
+  }
+};
+
+const isAllowedWhiteboardUrl = (url) => {
+  if (!url || typeof url !== "string") return false;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    const host = u.hostname.toLowerCase();
+    return (
+      host.endsWith("excalidraw.com") ||
+      host.endsWith("studybuddy.africa") ||
+      host === "8x8.vc" ||
+      host.endsWith("8x8.vc") ||
+      host === "localhost" ||
+      host === "127.0.0.1"
+    );
+  } catch {
+    return false;
   }
 };
 
@@ -937,7 +967,7 @@ const StudentLiveClass = ({ onEnterRoom, onLeaveRoom }) => {
               </div>
 
               <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
-                {selectedSession.whiteboard_link ? (
+                {selectedSession.whiteboard_link && isAllowedWhiteboardUrl(selectedSession.whiteboard_link) ? (
                   <iframe
                     title={`${selectedSession.title || "Class"} whiteboard`}
                     src={selectedSession.whiteboard_link}

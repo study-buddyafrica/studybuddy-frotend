@@ -4,8 +4,8 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { FHOST } from "../constants/Functions";
 import { authStorage } from "../../services/authStorage";
 
-/** Campaign Week 5 — keep false until payments sprint */
-const PAYMENTS_ENABLED = false;
+/** Payments active */
+const PAYMENTS_ENABLED = true;
 
 const MyWallet = ({ userInfo }) => {
   const [showPopup, setShowPopup] = useState(false);
@@ -64,12 +64,6 @@ const MyWallet = ({ userInfo }) => {
 
   const handleDeposit = async (e) => {
     e.preventDefault();
-    if (!PAYMENTS_ENABLED) {
-      setErrorMessage(
-        "M-Pesa automated deposits will launch during Week 5. Your wallet is active and provisioned.",
-      );
-      return;
-    }
     if (!depositAmount || parseFloat(depositAmount) <= 0) {
       setErrorMessage("Please enter a valid deposit amount.");
       return;
@@ -93,21 +87,26 @@ const MyWallet = ({ userInfo }) => {
 
       const payload = {
         amount: parseFloat(depositAmount),
-        payment_method: "mpesa",
+        transaction_type: "deposit",
       };
 
       const response = await axios.post(
-        `${FHOST}/api/wallet/deposit/`,
+        `${FHOST}/api/transactions/paystack/initiate/`,
         payload,
         { headers },
       );
 
       if (response.status === 200 || response.status === 201) {
-        setDepositInfo(response.data);
+        const respData = response.data?.data || response.data;
+        const checkoutUrl = respData.authorization_url || respData.checkout_url || respData.url;
+        setDepositInfo({ ...respData, checkout_url: checkoutUrl });
         setShowCheckoutModal(true);
         setShowPopup(false);
         setDepositAmount("");
         fetchWalletData();
+        if (checkoutUrl) {
+          window.open(checkoutUrl, "_blank");
+        }
       }
     } catch (error) {
       console.error("Error initiating deposit:", error);
@@ -132,7 +131,7 @@ const MyWallet = ({ userInfo }) => {
       <header className="mb-6 rounded-2xl bg-[#015575] px-6 py-5 text-white shadow-sm">
         <h1 className="font-lilita text-2xl sm:text-3xl">My wallet</h1>
         <p className="mt-1 text-sm text-white/90">
-          View balance and history. Deposits launch in Week 5.
+          View balance and history. Manage deposits and lessons.
         </p>
       </header>
 
@@ -142,23 +141,13 @@ const MyWallet = ({ userInfo }) => {
           <p className="mb-4 font-lilita text-2xl text-[#015575]">
             {formatKes(amount)}
           </p>
-          {PAYMENTS_ENABLED ? (
-            <button
-              type="button"
-              className="w-full rounded-xl bg-[#015575] py-2.5 text-white shadow transition hover:bg-[#01B0F1]"
-              onClick={() => setShowPopup(true)}
-            >
-              Add funds
-            </button>
-          ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              <p className="font-semibold">M-Pesa deposits launch in Week 5</p>
-              <p className="mt-1">
-                Your wallet is active and provisioned. Checkout stays off until
-                the payments sprint.
-              </p>
-            </div>
-          )}
+          <button
+            type="button"
+            className="w-full rounded-xl bg-[#015575] py-2.5 text-white shadow transition hover:bg-[#01B0F1]"
+            onClick={() => setShowPopup(true)}
+          >
+            Add funds
+          </button>
         </section>
 
         <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
@@ -261,7 +250,7 @@ const MyWallet = ({ userInfo }) => {
         </section>
       </div>
 
-      {PAYMENTS_ENABLED && showPopup && (
+      {showPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <div className="mb-6 flex items-center justify-between">
@@ -319,7 +308,7 @@ const MyWallet = ({ userInfo }) => {
         </div>
       )}
 
-      {PAYMENTS_ENABLED && showCheckoutModal && depositInfo && (
+      {showCheckoutModal && depositInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <div className="mb-6 flex items-center justify-between">
@@ -334,13 +323,13 @@ const MyWallet = ({ userInfo }) => {
                 <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
-            {depositInfo.checkout_url && (
+            {(depositInfo.checkout_url || depositInfo.authorization_url) && (
               <button
                 type="button"
-                onClick={() => window.open(depositInfo.checkout_url, "_blank")}
-                className="w-full rounded-lg bg-[#015575] py-2 text-white"
+                onClick={() => window.open(depositInfo.checkout_url || depositInfo.authorization_url, "_blank")}
+                className="w-full rounded-lg bg-[#015575] py-2 text-white hover:bg-[#01B0F1]"
               >
-                Complete payment
+                Complete payment on Paystack
               </button>
             )}
           </div>

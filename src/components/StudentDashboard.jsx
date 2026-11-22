@@ -386,7 +386,7 @@ const DashboardHome = () => {
               )}
             </div>
 
-            {/* Quick actions — payments gated until Week 5 */}
+            {/* Quick actions */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 md:gap-6">
               <div
                 className="cursor-pointer rounded-xl bg-gradient-to-r from-[#01B0F1] to-[#015575] p-6 text-white shadow-lg transition hover:shadow-xl"
@@ -433,25 +433,24 @@ const DashboardHome = () => {
               </div>
 
               <div
-                className="cursor-pointer rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 transition hover:shadow-sm"
+                className="cursor-pointer rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md"
                 onClick={() => setActiveComponent("mywallet")}
-                title="M-Pesa deposits launch in Week 5"
+                title="Manage wallet and deposits"
               >
                 <div className="mb-4 flex items-center">
-                  <div className="mr-4 rounded-full bg-slate-200/80 p-3 text-slate-600">
+                  <div className="mr-4 rounded-full bg-[#01B0F1]/10 p-3 text-[#01B0F1]">
                     <FaWallet className="text-xl" />
                   </div>
                   <h2 className="font-lilita text-xl text-[#015575]">Wallet</h2>
                 </div>
                 <p className="mb-2 font-josefin text-sm text-gray-600">
-                  Balance {walletLabel}. Deposits open in Week 5 of the
-                  campaign.
+                  Balance {walletLabel}. Manage your funds and deposits.
                 </p>
                 <button
                   type="button"
-                  className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-600 md:px-6"
+                  className="rounded-lg bg-[#01B0F1] px-4 py-2 text-sm font-bold text-white hover:bg-[#015575] md:px-6"
                 >
-                  View wallet (pay later)
+                  View wallet
                 </button>
               </div>
             </div>

@@ -217,6 +217,29 @@ const LiveClass = ({ userInfo }) => {
     fetchLiveSessions();
   }, []);
 
+  // 30-second automated whiteboard snapshot loop (GAP-FE-001)
+  useEffect(() => {
+    if (view !== "room" || !roomSession?.id) return undefined;
+
+    const interval = setInterval(async () => {
+      try {
+        const sessionId = roomSession.id;
+        const snapshotPayload = {
+          snapshot: {
+            timestamp: new Date().toISOString(),
+            session_id: sessionId,
+            whiteboard_link: roomSession.whiteboard_link || null,
+          },
+        };
+        await conferencingService.whiteboard(sessionId, snapshotPayload);
+      } catch (err) {
+        console.warn("Whiteboard snapshot periodic save error:", err);
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [view, roomSession?.id, roomSession?.whiteboard_link]);
+
   // Mount Jitsi when room has a URL
   useEffect(() => {
     let cancelled = false;

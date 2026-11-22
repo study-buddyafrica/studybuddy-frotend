@@ -11,7 +11,7 @@ import { FHOST } from "../constants/Functions";
 import { authStorage } from "../../services/authStorage";
 import { formatSubjects, normalizeSubjectList } from "../../utils/subjectUtils";
 
-const PAYMENTS_ENABLED = false;
+const PAYMENTS_ENABLED = true;
 
 const StudentsHome = ({ setActiveComponent, userInfo }) => {
   const [sessions, setSessions] = useState([]);
@@ -152,12 +152,6 @@ const StudentsHome = ({ setActiveComponent, userInfo }) => {
                   ? formatKes(walletAmount)
                   : "Balance loads when signed in"}
               </p>
-              {!PAYMENTS_ENABLED && (
-                <p className="mt-1 text-xs text-white/70">
-                  M-Pesa top-ups launch in Week 5 · wallet is already
-                  provisioned
-                </p>
-              )}
             </div>
           </div>
           <button
