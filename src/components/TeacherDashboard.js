@@ -430,7 +430,7 @@ const TeacherDashboard = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] font-josefin">
+    <div className="app-dashboard flex min-h-screen bg-[#F8FAFC] font-josefin">
       <aside
         className={`fixed inset-y-0 z-50 w-[280px] transform bg-[#013349] shadow-2xl transition-transform duration-300 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"

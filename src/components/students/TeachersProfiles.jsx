@@ -332,7 +332,7 @@ try {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-800">
+    <div className="min-h-screen bg-[#F8FAFC] font-josefin text-slate-700">
       {successMessage && (
         <div className="p-4 mb-6 bg-green-500 text-white rounded-lg shadow-lg">
           {successMessage}
@@ -342,17 +342,17 @@ try {
       {!selectedTeacher && (
         <div className="max-w-7xl mx-auto p-6">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2 text-gray-800">
+          <div className="mb-6">
+            <h1 className="mb-2 font-lilita text-2xl text-[#015575] sm:text-3xl">
               Teachers for {studentGrade}
             </h1>
-            <p className="text-lg text-gray-600">
+            <p className="text-sm text-slate-600 sm:text-base">
               Find and connect with qualified teachers for your subjects
             </p>
           </div>
 
           {/* Grade and Subject Filters */}
-          <div className="mb-6 space-y-4">
+          <div className="mb-6 space-y-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             {/* Grade Selector */}
             <div>
               <div className="flex flex-wrap gap-2">
@@ -383,7 +383,7 @@ try {
                 ).map(subject => (
                   <button
                     key={subject}
-                    className={`px-3 py-1 rounded-full text-sm border ${selectedSubject === subject ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-700 border-gray-300'}`}
+                    className={`px-3 py-1 rounded-full text-sm border ${selectedSubject === subject ? 'bg-[#01B0F1] text-white border-[#01B0F1]' : 'bg-white text-gray-700 border-gray-300'}`}
                     onClick={() => setSelectedSubject(prev => prev === subject ? "" : subject)}
                   >
                     {subject}

@@ -1,193 +1,394 @@
-import axios from 'axios';
-import React, { useEffect, useState } from 'react';
-import { FaBookReader, FaChalkboardTeacher, FaUserAlt } from 'react-icons/fa'; // For profile picture placeholder
-import { FHOST } from '../constants/Functions';
+import axios from "axios";
+import React, { useEffect, useState } from "react";
+import {
+  FaBookReader,
+  FaChalkboardTeacher,
+  FaUserAlt,
+  FaVideo,
+  FaWallet,
+} from "react-icons/fa";
+import { FHOST } from "../constants/Functions";
 import { authStorage } from "../../services/authStorage";
-import { formatSubjects, normalizeSubjectList } from '../../utils/subjectUtils';
+import { formatSubjects, normalizeSubjectList } from "../../utils/subjectUtils";
 
-const StudentsHome = ({setActiveComponent}) => {
+const PAYMENTS_ENABLED = true;
+
+const StudentsHome = ({ setActiveComponent, userInfo }) => {
   const [sessions, setSessions] = useState([]);
-  const [selectedSession, setSelectedSession] = useState(null);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [paymentSuccessful, setPaymentSuccessful] = useState(false);
-  const [walletAmount, setWalletAmount] = useState(1200);
-  const [isFormVisible, setFormVisible] = useState(false);
-  const [selectedClass, setSelectedClass] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // For handling the toggling of "View More"
   const [viewMoreTeachers, setViewMoreTeachers] = useState(false);
   const [viewMoreVideos, setViewMoreVideos] = useState(false);
+  const [walletAmount, setWalletAmount] = useState(null);
 
-useEffect(() => {
-  const fetchTeachers = async () => {
-    try {
-      const token = authStorage.getAccessToken(); // ← changed
-      const response = await axios.get(`${FHOST}/api/teachers/list`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-
-      const results = response.data?.results || [];
-
-      const formattedTeachers = results.map((teacher) => ({
-        id: teacher.id,
-        full_name: teacher.full_name || "Teacher",
-        bio: teacher.bio || "",
-        subjects: normalizeSubjectList(teacher.subjects),
-        is_verified: teacher.is_verified,
-        profilePicture:
-          teacher.profile_picture || "https://via.placeholder.com/50",
-        rating: teacher.rating || 4.5,
-        availability: teacher.availability || [
-          { date: "2024-11-27", time: "9:00 AM - 11:00 AM", isAvailable: true },
-          { date: "2024-11-27", time: "3:00 PM - 5:00 PM", isAvailable: true },
-        ],
-      }));
-
-      setTeachers(formattedTeachers);
-    } catch (err) {
-      setError("An error occurred while fetching teachers data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchTeachers();
-}, []);
+  const formatKes = (n) =>
+    `KES ${Number(n || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
 
   useEffect(() => {
-    const fetchSessions = async () => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      const token = authStorage.getAccessToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
       try {
-        const response = await axios.get(`${FHOST}/lessons/api/live-sessions`);
-        setSessions(response.data);
+        const teachersRes = await axios
+          .get(`${FHOST}/api/teachers/list`, { headers })
+          .catch(() => null);
+
+        if (!cancelled && teachersRes?.data) {
+          const results =
+            teachersRes.data.results ||
+            teachersRes.data.teachers ||
+            (Array.isArray(teachersRes.data) ? teachersRes.data : []);
+
+          setTeachers(
+            results.map((teacher) => ({
+              id: teacher.id,
+              full_name:
+                teacher.full_name ||
+                [teacher.first_name, teacher.last_name]
+                  .filter(Boolean)
+                  .join(" ") ||
+                "Teacher",
+              subjects: normalizeSubjectList(teacher.subjects),
+              is_verified: teacher.is_verified,
+              profilePicture:
+                teacher.profile_picture || teacher.profile_photo || null,
+            })),
+          );
+        }
+
+        try {
+          const sessionsRes = await axios.get(`${FHOST}/api/live-sessions/`, {
+            headers,
+          });
+          if (!cancelled) {
+            const list = sessionsRes.data?.results || sessionsRes.data || [];
+            setSessions(Array.isArray(list) ? list : []);
+          }
+        } catch {
+          if (!cancelled) setSessions([]);
+        }
+
+        if (token) {
+          try {
+            const walletRes = await axios.get(`${FHOST}/api/wallet/`, {
+              headers,
+            });
+            const w = walletRes.data?.results?.[0];
+            if (!cancelled && w) {
+              setWalletAmount(parseFloat(w.balance) || 0);
+            }
+          } catch {
+            if (!cancelled) setWalletAmount(null);
+          }
+        }
+
+        if (!cancelled) setVideos([]);
       } catch (err) {
-        setError('Error fetching sessions. Please try again.');
-        console.error("Error fetching sessions:", err);
+        console.error(err);
+        if (!cancelled) {
+          setError("Could not load your home feed. Try again shortly.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchSessions();
-  }, []);
-
-  useEffect(() => {
-    // Load videos from backend feed if needed; leaving empty by default
-    setVideos([]);
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center font-josefin text-slate-500">
+        Loading your dashboard…
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-red-500">{error}</div>;
+    return (
+      <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 font-josefin text-sm text-red-700">
+        {error}
+      </div>
+    );
   }
 
-  const handleJoinClassClick = (session) => {
-    setSelectedSession(session);
-    setShowPaymentForm(true);
-  };
-
-  const handlePayment = (amount) => {
-    if (walletAmount >= amount) {
-      setWalletAmount(walletAmount - amount);
-      setFormVisible(false);
-      window.open(selectedClass.joinUrl, '_blank');
-    } else {
-      alert('Insufficient balance!');
-    }
-  };
+  const firstName =
+    userInfo?.first_name || userInfo?.full_name?.split?.(" ")?.[0] || "there";
 
   return (
-    <div className="min-h-screen bg-blue-50  text-white">
-      {/* Wallet Card */}
-      <div className="bg-blue-900 p-4 rounded-lg shadow-lg mb-6 md:w-full w-screen">
-        <h3 className="text-xl mb-4">Your Wallet</h3>
-        <div className='flex justify-between w-11/12 md:w-full'>
-          <p className="text-lg">Amount: ${walletAmount}</p>
-          <button className='p-2 text-black rounded-md bg-blue-100' onClick={() => setActiveComponent("mywallet")}>Add Funds</button>
-        </div>
+    <div className="mx-auto max-w-6xl space-y-8 font-josefin">
+      <div>
+        <h1 className="font-lilita text-2xl text-[#015575] sm:text-3xl">
+          Welcome back, {firstName}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Teachers, classes, and learning tools in one place.
+        </p>
       </div>
 
-      {/* Teachers Section */}
-      <div className="mb-6">
-        <h3 className="text-2xl font-semibold text-gray-900 mb-6">Teachers</h3>
-        <div className="w-full md:w-5/6 mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {teachers.slice(0, viewMoreTeachers ? teachers.length : 4).map((teacher, index) => (
-              <div key={index} className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center transition-transform transform hover:scale-105 duration-300">
-                <img
-                  src={teacher.profilePicture}
-                  alt={teacher.name}
-                  className="w-16 h-16 rounded-full mb-4 border-4 border-gray-200"
-                />
-                <h4 className="text-lg font-semibold text-gray-800 text-center">{teacher.name}</h4>
-                <div className="flex items-center space-x-2 mt-2">
-                  <FaChalkboardTeacher className="text-indigo-600" />
-                  <p className="text-sm text-gray-600 text-center">{normalizeSubjectList(teacher.subjects).length} Subjects</p>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <FaBookReader className="text-gray-600" />
-                  <p className="text-sm text-gray-600 text-center">Subjects: <span className="font-semibold text-gray-800">{formatSubjects(teacher.subjects)}</span></p>
-                </div>
-              </div>
-            ))}
+      <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 bg-[#015575] px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+              <FaWallet className="text-lg" />
+            </span>
+            <div>
+              <h2 className="font-lilita text-xl">Your wallet</h2>
+              <p className="mt-0.5 text-sm text-white/85">
+                {walletAmount != null
+                  ? formatKes(walletAmount)
+                  : "Balance loads when signed in"}
+              </p>
+            </div>
           </div>
-          <button onClick={() => setViewMoreTeachers(!viewMoreTeachers)} className="mt-4 text-indigo-600">
-            {viewMoreTeachers ? 'View Less' : 'View More'}
+          <button
+            type="button"
+            onClick={() => setActiveComponent?.("mywallet")}
+            className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-[#015575] shadow-sm transition hover:bg-[#e8f7fc]"
+          >
+            Open wallet
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Videos Section */}
-      <div className="mb-6">
-        <h3 className="text-2xl font-semibold text-gray-900 mb-4">Videos</h3>
-        <div className="overflow-auto gap-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 h-auto">
-          {videos.slice(0, viewMoreVideos ? videos.length : 4).map((video, index) => (
-            <div key={index} className="bg-white p-2 rounded-lg w-full h-80 flex flex-col items-center shadow-lg">
-              <div className="w-full h-48 overflow-hidden rounded-lg mb-3 relative">
-                <img
-                  src={video.thumbnail}
-                  alt={video.title}
-                  className="w-full h-full object-cover absolute top-0 left-0"
-                />
-              </div>
-              <h4 className="text-lg font-semibold text-gray-900 mb-2 text-center">{video.title}</h4>
-              <p className="text-sm text-gray-600 text-center line-clamp-2">{video.description}</p>
-            </div>
-          ))}
-        </div>
-        <button onClick={() => setViewMoreVideos(!viewMoreVideos)} className="mt-4 text-indigo-600">
-          {viewMoreVideos ? 'View Less' : 'View More'}
-        </button>
-      </div>
-
-      {/* Classes List */}
-      <div>
-        <h3 className="text-2xl font-semibold text-gray-800 mb-6">Your Zoom Classes</h3>
-        <div className="overflow-x-auto w-full md:w-5/6 mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 py-4">
-            {sessions?.map((session, index) => (
-              <div key={index} className="bg-white p-6 rounded-lg text-center shadow-xl transform hover:scale-102 transition-transform duration-300">
-                <h4 className="text-xl font-medium text-gray-900 mb-2">{session?.name}</h4>
-                <p className="text-sm text-gray-600">Subject: <span className="font-semibold text-gray-800">{session.subject?.name}</span></p>
-                <p className="text-sm text-gray-600">Teacher: <span className="font-semibold text-gray-800">{session.teacher?.name}</span></p>
-                <p className="text-sm text-gray-600">Topic: <span className="font-semibold text-gray-800">{session?.title}</span></p>
-                <p className="text-sm text-gray-600">Amount: <span className="font-semibold text-gray-800">${session.price}</span></p>
-                <p className="text-sm text-gray-500 mt-2">Scheduled Date: <strong className="text-gray-700">{session.scheduled_date?.split(" ")[0]}</strong></p>
-                <p className="text-sm text-gray-500">Scheduled Time: <strong className="text-gray-700">{session.scheduled_date?.split(" ")[1]}</strong></p>
-                <button onClick={() => handleJoinClassClick(session)} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none">
-                  Join Class
-                </button>
-              </div>
-            ))}
+      <section>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="font-lilita text-xl text-[#015575] sm:text-2xl">
+              Teachers
+            </h2>
+            <p className="text-sm text-slate-500">
+              Verified educators you can book from Find teachers
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setActiveComponent?.("teachers")}
+            className="text-sm font-semibold text-[#01B0F1] hover:text-[#015575]"
+          >
+            Browse all
+          </button>
         </div>
-      </div>
+
+        {teachers.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+            No teachers to show yet.
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-4">
+              {teachers
+                .slice(0, viewMoreTeachers ? teachers.length : 4)
+                .map((teacher) => (
+                  <article
+                    key={teacher.id}
+                    className="flex flex-col items-center rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-[#01B0F1]/30 hover:shadow-md"
+                  >
+                    {teacher.profilePicture ? (
+                      <img
+                        src={teacher.profilePicture}
+                        alt={teacher.full_name}
+                        className="mb-3 h-16 w-16 rounded-full border-2 border-slate-100 object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[#01B0F1]/15">
+                        <FaUserAlt className="text-xl text-[#015575]" />
+                      </div>
+                    )}
+                    <h3 className="text-center font-josefin text-sm font-semibold text-[#015575] sm:text-base">
+                      {teacher.full_name}
+                    </h3>
+                    {teacher.is_verified && (
+                      <span className="mt-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                        Verified
+                      </span>
+                    )}
+                    <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
+                      <FaChalkboardTeacher className="text-[#01B0F1]" />
+                      <span>
+                        {normalizeSubjectList(teacher.subjects).length} subjects
+                      </span>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-center text-xs text-slate-600">
+                      <FaBookReader className="mr-1 inline text-slate-400" />
+                      {formatSubjects(teacher.subjects) || "Subjects TBD"}
+                    </p>
+                  </article>
+                ))}
+            </div>
+            {teachers.length > 4 && (
+              <button
+                type="button"
+                onClick={() => setViewMoreTeachers((v) => !v)}
+                className="mt-4 text-sm font-semibold text-[#015575] hover:text-[#01B0F1]"
+              >
+                {viewMoreTeachers ? "View less" : "View more"}
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
+      <section>
+        <div className="mb-4">
+          <h2 className="font-lilita text-xl text-[#015575] sm:text-2xl">
+            Learning videos
+          </h2>
+          <p className="text-sm text-slate-500">
+            Short lessons when the library is available
+          </p>
+        </div>
+        {videos.length === 0 ? (
+          <div className="flex flex-col items-center rounded-2xl border border-slate-100 bg-white px-4 py-12 text-center shadow-sm">
+            <FaVideo className="mb-3 text-3xl text-slate-300" />
+            <p className="font-josefin text-sm text-slate-500">
+              Video feed is empty for now. Check Video lessons from the sidebar.
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveComponent?.("videos")}
+              className="mt-4 rounded-xl bg-[#015575] px-5 py-2 text-sm font-semibold text-white hover:bg-[#01415e]"
+            >
+              Open video lessons
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {videos
+                .slice(0, viewMoreVideos ? videos.length : 4)
+                .map((video, index) => (
+                  <article
+                    key={video.id || index}
+                    className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm"
+                  >
+                    <div className="relative aspect-video bg-slate-100">
+                      <img
+                        src={video.thumbnail}
+                        alt={video.title}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="p-3">
+                      <h4 className="line-clamp-2 text-sm font-semibold text-[#015575]">
+                        {video.title}
+                      </h4>
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                        {video.description}
+                      </p>
+                    </div>
+                  </article>
+                ))}
+            </div>
+            {videos.length > 4 && (
+              <button
+                type="button"
+                onClick={() => setViewMoreVideos((v) => !v)}
+                className="mt-4 text-sm font-semibold text-[#015575]"
+              >
+                {viewMoreVideos ? "View less" : "View more"}
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
+      <section>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="font-lilita text-xl text-[#015575] sm:text-2xl">
+              Your live classes
+            </h2>
+            <p className="text-sm text-slate-500">
+              Join from Lessons when a session is ready
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveComponent?.("lessons")}
+            className="text-sm font-semibold text-[#01B0F1] hover:text-[#015575]"
+          >
+            Go to lessons
+          </button>
+        </div>
+
+        {sessions.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+            No upcoming live sessions yet. Book a teacher or open Lessons.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {sessions.map((session, index) => {
+              const price =
+                session.price != null ? formatKes(session.price) : null;
+              const when = session.started_at
+                ? new Date(session.started_at).toLocaleString()
+                : session.scheduled_date || "Time TBD";
+
+              return (
+                <article
+                  key={session.id || index}
+                  className="flex flex-col rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"
+                >
+                  <h3 className="font-josefin text-lg font-semibold text-[#015575]">
+                    {session.title || session.name || "Live class"}
+                  </h3>
+                  <div className="mt-3 space-y-1.5 text-sm text-slate-600">
+                    {(session.subject?.name || session.subject) && (
+                      <p>
+                        Subject:{" "}
+                        <span className="font-semibold text-slate-800">
+                          {session.subject?.name || session.subject}
+                        </span>
+                      </p>
+                    )}
+                    {(session.teacher?.name || session.teacher?.full_name) && (
+                      <p>
+                        Teacher:{" "}
+                        <span className="font-semibold text-slate-800">
+                          {session.teacher?.full_name || session.teacher?.name}
+                        </span>
+                      </p>
+                    )}
+                    {price && (
+                      <p>
+                        Amount:{" "}
+                        <span className="font-semibold text-slate-800">
+                          {price}
+                        </span>
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-500">{when}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveComponent?.("lessons")}
+                    className="mt-4 w-full rounded-xl bg-[#015575] py-2.5 text-sm font-semibold text-white hover:bg-[#01415e]"
+                  >
+                    Open in lessons
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

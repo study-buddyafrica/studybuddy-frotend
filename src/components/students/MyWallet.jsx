@@ -4,8 +4,8 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { FHOST } from "../constants/Functions";
 import { authStorage } from "../../services/authStorage";
 
-/** Campaign Week 5 — keep false until payments sprint */
-const PAYMENTS_ENABLED = false;
+/** Payments active */
+const PAYMENTS_ENABLED = true;
 
 const MyWallet = ({ userInfo }) => {
   const [showPopup, setShowPopup] = useState(false);
@@ -25,67 +25,6 @@ const MyWallet = ({ userInfo }) => {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-
-  const handleDeposit = async (e) => {
-    e.preventDefault();
-    if (!PAYMENTS_ENABLED) {
-      setErrorMessage(
-        "M-Pesa automated deposits will launch during Week 5. Your wallet is active and provisioned.",
-      );
-      return;
-    }
-    if (!depositAmount || parseFloat(depositAmount) <= 0) {
-      setErrorMessage("Please enter a valid deposit amount.");
-      return;
-    }
-
-    try {
-      setDepositLoading(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-      const token = authStorage.getAccessToken();
-      if (!token) {
-        setErrorMessage("Authentication required. Please login again.");
-        setDepositLoading(false);
-        return;
-      }
-
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
-
-      const payload = {
-        amount: parseFloat(depositAmount),
-        payment_method: "mpesa",
-      };
-
-      const response = await axios.post(
-        `${FHOST}/api/wallet/deposit/`,
-        payload,
-        {
-          headers,
-        },
-      );
-
-      if (response.status === 200 || response.status === 201) {
-        setDepositInfo(response.data);
-        setShowCheckoutModal(true);
-        setShowPopup(false);
-        setDepositAmount("");
-        fetchWalletData();
-      }
-    } catch (error) {
-      console.error("Error initiating deposit:", error);
-      const errorMsg =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        "Failed to initiate deposit. Please try again.";
-      setErrorMessage(errorMsg);
-    } finally {
-      setDepositLoading(false);
-    }
-  };
 
   const fetchWalletData = async () => {
     try {
@@ -123,6 +62,64 @@ const MyWallet = ({ userInfo }) => {
     }
   };
 
+  const handleDeposit = async (e) => {
+    e.preventDefault();
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      setErrorMessage("Please enter a valid deposit amount.");
+      return;
+    }
+
+    try {
+      setDepositLoading(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+      const token = authStorage.getAccessToken();
+      if (!token) {
+        setErrorMessage("Authentication required. Please login again.");
+        setDepositLoading(false);
+        return;
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+
+      const payload = {
+        amount: parseFloat(depositAmount),
+        transaction_type: "deposit",
+      };
+
+      const response = await axios.post(
+        `${FHOST}/api/transactions/paystack/initiate/`,
+        payload,
+        { headers },
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        const respData = response.data?.data || response.data;
+        const checkoutUrl = respData.authorization_url || respData.checkout_url || respData.url;
+        setDepositInfo({ ...respData, checkout_url: checkoutUrl });
+        setShowCheckoutModal(true);
+        setShowPopup(false);
+        setDepositAmount("");
+        fetchWalletData();
+        if (checkoutUrl) {
+          window.open(checkoutUrl, "_blank");
+        }
+      }
+    } catch (error) {
+      console.error("Error initiating deposit:", error);
+      const errorMsg =
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        "Failed to initiate deposit. Please try again.";
+      setErrorMessage(errorMsg);
+    } finally {
+      setDepositLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (userInfo?.id) {
       fetchWalletData();
@@ -130,93 +127,81 @@ const MyWallet = ({ userInfo }) => {
   }, [userInfo?.id]);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 font-josefin">
-      <header className="mb-6 rounded-lg bg-[#015575] px-6 py-4 text-white shadow-lg">
-        <h1 className="font-lilita text-2xl">My Wallet</h1>
+    <div className="mx-auto max-w-6xl font-josefin">
+      <header className="mb-6 rounded-2xl bg-[#015575] px-6 py-5 text-white shadow-sm">
+        <h1 className="font-lilita text-2xl sm:text-3xl">My wallet</h1>
         <p className="mt-1 text-sm text-white/90">
-          View balance and history. Deposits launch in Week 5.
+          View balance and history. Manage deposits and lessons.
         </p>
       </header>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <section className="rounded-lg bg-white p-6 shadow-lg">
-          <h2 className="mb-4 text-xl font-semibold text-gray-700">Balance</h2>
+        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-slate-700">Balance</h2>
           <p className="mb-4 font-lilita text-2xl text-[#015575]">
             {formatKes(amount)}
           </p>
-          {PAYMENTS_ENABLED ? (
-            <button
-              type="button"
-              className="w-full rounded-lg bg-[#015575] py-2 text-white shadow transition hover:bg-[#01B0F1]"
-              onClick={() => setShowPopup(true)}
-            >
-              Add funds
-            </button>
-          ) : (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              <p className="font-semibold">M-Pesa deposits launch in Week 5</p>
-              <p className="mt-1">
-                Your wallet is active and provisioned. Checkout stays off until
-                the payments sprint.
-              </p>
-            </div>
-          )}
+          <button
+            type="button"
+            className="w-full rounded-xl bg-[#015575] py-2.5 text-white shadow transition hover:bg-[#01B0F1]"
+            onClick={() => setShowPopup(true)}
+          >
+            Add funds
+          </button>
         </section>
 
-        <section className="rounded-lg bg-white p-6 shadow-lg">
-          <h2 className="mb-4 text-xl font-semibold text-gray-700">
+        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-slate-700">
             Monthly expenditure
           </h2>
-          <div className="mt-4">
-            {loading ? (
-              <div className="py-8 text-center text-gray-500">Loading...</div>
-            ) : expenditureHistory.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">
-                <p>No expenditure data yet.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {expenditureHistory.slice(0, 5).map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className="flex items-center justify-between border-b py-2"
-                  >
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        {transaction.description || "Expenditure"}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(transaction.timestamp).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span className="font-semibold text-red-600">
-                      -{formatKes(transaction.amount)}
-                    </span>
+          {loading ? (
+            <div className="py-8 text-center text-slate-500">Loading...</div>
+          ) : expenditureHistory.length === 0 ? (
+            <div className="py-8 text-center text-slate-500">
+              No expenditure data yet.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {expenditureHistory.slice(0, 5).map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className="flex items-center justify-between border-b border-slate-100 py-2"
+                >
+                  <div>
+                    <p className="text-sm text-slate-700">
+                      {transaction.description || "Expenditure"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {new Date(transaction.timestamp).toLocaleDateString()}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <span className="font-semibold text-red-600">
+                    -{formatKes(transaction.amount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
-        <section className="rounded-lg bg-white p-6 shadow-lg">
-          <h2 className="mb-4 text-xl font-semibold text-gray-700">
+        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-slate-700">
             Top-up history
           </h2>
           {loading ? (
-            <div className="py-8 text-center text-gray-500">Loading...</div>
+            <div className="py-8 text-center text-slate-500">Loading...</div>
           ) : topupHistory.length === 0 ? (
-            <div className="py-8 text-center text-gray-500">
+            <div className="py-8 text-center text-slate-500">
               No top-up history yet.
             </div>
           ) : (
-            <ul className="divide-y divide-gray-200">
+            <ul className="divide-y divide-slate-100">
               {topupHistory.map((transaction) => (
                 <li
                   key={transaction.id}
-                  className="flex justify-between py-2 text-gray-700"
+                  className="flex justify-between py-2 text-slate-700"
                 >
                   <span>
                     {new Date(transaction.timestamp).toLocaleString()}
@@ -230,28 +215,28 @@ const MyWallet = ({ userInfo }) => {
           )}
         </section>
 
-        <section className="rounded-lg bg-white p-6 shadow-lg">
-          <h2 className="mb-4 text-xl font-semibold text-gray-700">
+        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-slate-700">
             Expenditure history
           </h2>
           {loading ? (
-            <div className="py-8 text-center text-gray-500">Loading...</div>
+            <div className="py-8 text-center text-slate-500">Loading...</div>
           ) : expenditureHistory.length === 0 ? (
-            <div className="py-8 text-center text-gray-500">
+            <div className="py-8 text-center text-slate-500">
               No expenditure history yet.
             </div>
           ) : (
-            <ul className="divide-y divide-gray-200">
+            <ul className="divide-y divide-slate-100">
               {expenditureHistory.map((transaction) => (
                 <li
                   key={transaction.id}
-                  className="flex justify-between py-2 text-gray-700"
+                  className="flex justify-between py-2 text-slate-700"
                 >
                   <div>
                     <span className="block">
                       {new Date(transaction.timestamp).toLocaleString()}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-slate-500">
                       {transaction.description || "Expenditure"}
                     </span>
                   </div>
@@ -265,24 +250,24 @@ const MyWallet = ({ userInfo }) => {
         </section>
       </div>
 
-      {PAYMENTS_ENABLED && showPopup && (
+      {showPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-gray-700">
+              <h3 className="text-xl font-semibold text-slate-700">
                 Deposit funds
               </h3>
               <button
                 type="button"
                 onClick={() => setShowPopup(false)}
-                className="p-2 text-gray-500 hover:text-gray-700"
+                className="p-2 text-slate-500 hover:text-slate-700"
               >
                 <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
             <form onSubmit={handleDeposit} className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-slate-700">
                   Amount (KES) *
                 </label>
                 <input
@@ -305,7 +290,7 @@ const MyWallet = ({ userInfo }) => {
                       setDepositAmount("");
                     }
                   }}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700"
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-slate-700"
                   disabled={depositLoading}
                 >
                   Cancel
@@ -323,28 +308,28 @@ const MyWallet = ({ userInfo }) => {
         </div>
       )}
 
-      {PAYMENTS_ENABLED && showCheckoutModal && depositInfo && (
+      {showCheckoutModal && depositInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-gray-700">
+              <h3 className="text-xl font-semibold text-slate-700">
                 Deposit initiated
               </h3>
               <button
                 type="button"
                 onClick={() => setShowCheckoutModal(false)}
-                className="p-2 text-gray-500"
+                className="p-2 text-slate-500"
               >
                 <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
-            {depositInfo.checkout_url && (
+            {(depositInfo.checkout_url || depositInfo.authorization_url) && (
               <button
                 type="button"
-                onClick={() => window.open(depositInfo.checkout_url, "_blank")}
-                className="w-full rounded-lg bg-[#015575] py-2 text-white"
+                onClick={() => window.open(depositInfo.checkout_url || depositInfo.authorization_url, "_blank")}
+                className="w-full rounded-lg bg-[#015575] py-2 text-white hover:bg-[#01B0F1]"
               >
-                Complete payment
+                Complete payment on Paystack
               </button>
             )}
           </div>

@@ -17,7 +17,7 @@ const StudentLayout = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-gray-100 flex">
+        <div className="app-dashboard min-h-screen bg-[#F8FAFC] font-josefin flex">
             {/* Sidebar - Always visible on desktop, toggle on mobile */}
             <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} userInfo={userInfo} />
 
